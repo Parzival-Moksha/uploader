@@ -19,6 +19,7 @@ import { getCraftTexturePreset, computeAutoTiling, canHaveTexture } from '../../
 import { clampText3DInput } from '../../lib/forge/text-3d-object'
 import { applyCraftAnimation } from '../../lib/forge/craft-animation'
 import { useFrameWhen } from '../../lib/use-frame-when'
+import { useFlopCaps } from '../../lib/use-flop-caps'
 import { SharedMaterials } from '../../lib/forge/shared-materials'
 import { buildCraftBatchGeometry, craftBaseGeometry, craftBatchMaterialOf, isCraftMergeEnabled, planCraftBatches, raycastCraftBatch, subscribeCraftMerge } from '../../lib/forge/craft-merge'
 
@@ -174,7 +175,12 @@ function CraftedTextMesh({ primitive }: { primitive: CraftedPrimitive }) {
   const fontSize = primitive.fontSize ?? 1
   const safeText = clampText3DInput(primitive.text || '').trim() || '?'
   // Extrusion depth proportional to font size — looks solid without being comically thick
-  const depth = fontSize * 0.2
+  const depth = fontSize * (primitive.textDepth ?? 0.2)
+  // Extruded words cost about 1300 triangles a character with the defaults. A primitive can ask for plainer
+  // letters (no bevel, fewer curve points), and the flop saver (tier 3, `labels3d`) asks for them everywhere.
+  const { labels3d } = useFlopCaps()
+  const bevel = labels3d ? (primitive.textBevel ?? true) : false
+  const curveSegments = labels3d ? Math.max(1, Math.round(primitive.textCurveSegments ?? 8)) : 2
 
   return (
     <group
@@ -188,7 +194,8 @@ function CraftedTextMesh({ primitive }: { primitive: CraftedPrimitive }) {
           font={TEXT3D_FONT}
           size={fontSize}
           height={depth}
-          bevelEnabled
+          curveSegments={curveSegments}
+          bevelEnabled={bevel}
           bevelThickness={fontSize * 0.02}
           bevelSize={fontSize * 0.01}
           bevelSegments={3}

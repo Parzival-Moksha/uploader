@@ -59,6 +59,9 @@ import {
   setVillageAvatars,
   type VillageStationPlacement,
 } from './village-actions'
+import { summonGuide } from './summon-guide'
+import { GUIDE_INVITE_LINE } from '../../lib/village/guide'
+import { showNotice } from '../forge/GlobalNotice'
 import { VILLAGE_OBSERVED_COLOR, agentDisplayName, statusColor, villageAgentLook } from './village-status'
 import { VillageSubagentMinis } from './VillageSubagentMinis'
 import { VillageShow } from './VillageShow'
@@ -970,15 +973,16 @@ function VillagePlaza({ empty, origin }: { empty: boolean; origin: VillageOrigin
           {connection === 'open' ? (
             <>
               <div className="text-[11px] font-black uppercase tracking-[0.2em] text-emerald-200">The village is empty</div>
-              <div className="text-[12px] text-white/70">Summon a Claude Code session as an agent, or observe one read-only.</div>
-              <div className="text-[11px] text-white/50">Stand in the circle and press <span className="rounded bg-white/20 px-1 font-mono font-bold text-white">E</span>, or click:</div>
+              {/* The same one invitation as the Agents list (GuideInvite.tsx): the guide. */}
               <button
                 type="button"
                 className="rounded-md border border-emerald-300/40 bg-emerald-400/15 px-3 py-1.5 text-[12px] font-bold text-emerald-100 hover:bg-emerald-400/30"
-                onClick={(event) => { stopDomEvent(event); openVillagePicker(true) }}
+                onClick={(event) => { stopDomEvent(event); void summonGuide().catch(error => showNotice(`The guide could not start: ${error instanceof Error ? error.message : String(error)}`, 'error')) }}
               >
-                Summon an agent
+                Summon a guide
               </button>
+              <div className="text-[12px] text-white/70">{GUIDE_INVITE_LINE}</div>
+              <div className="text-[11px] text-white/50">Your own sessions: stand in the circle and press <span className="rounded bg-white/20 px-1 font-mono font-bold text-white">E</span>.</div>
             </>
           ) : (
             <>
@@ -994,11 +998,14 @@ function VillagePlaza({ empty, origin }: { empty: boolean; origin: VillageOrigin
 
 // ─── camera rig ─────────────────────────────────────────────────────────────
 
+/** No agent framing puts the camera further than this from the agent's station. */
+const FOCUS_GOAL_MAX_M = 60
+
 /** Frames the focused agent next to the 2D session panel while the village owns agent-focus. */
 function VillageCameraRig() {
   const camera = useThree(s => s.camera)
   const size = useThree(s => s.size)
-  const flight = useRef<{ key: string; from: THREE.Vector3; fromQuat: THREE.Quaternion; startedAt: number } | null>(null)
+  const flight = useRef<{ key: string; from: THREE.Vector3; fromQuat: THREE.Quaternion; elapsed: number } | null>(null)
   const goal = useMemo(() => ({ position: new THREE.Vector3(), target: new THREE.Vector3(), quaternion: new THREE.Quaternion(), matrix: new THREE.Matrix4() }), [])
 
   useEffect(() => {
@@ -1006,7 +1013,7 @@ function VillageCameraRig() {
     return () => registerVillageCamera(null)
   }, [camera])
 
-  useFrame(({ camera: cam, clock }) => {
+  useFrame(({ camera: cam }, delta) => {
     const store = useOasisStore.getState()
     const agentId = store.agentEngine.focusedAgentId
     const inputState = useInputManager.getState().inputState
@@ -1032,15 +1039,24 @@ function VillageCameraRig() {
         panel: panel.side,
         panelFraction: panel.fraction,
       })
+    // A framing far from the agent is a bad measure (a stray box under a body once put the F camera 5 km out and
+    // flew it back for seconds, 21 Nov): keep the camera where it is rather than follow it.
+    const fromStation = Math.hypot(pose.position[0] - station.anchor[0], pose.position[1] - station.anchor[1], pose.position[2] - station.anchor[2])
+    if (!Number.isFinite(fromStation) || fromStation > FOCUS_GOAL_MAX_M) return
     goal.position.set(...pose.position)
     goal.target.set(...pose.target)
     goal.matrix.lookAt(goal.position, goal.target, cam.up)
     goal.quaternion.setFromRotationMatrix(goal.matrix)
     const key = `${agentId}:${onScreen ? 'screen' : 'panel'}`
     if (!flight.current || flight.current.key !== key) {
-      flight.current = { key, from: cam.position.clone(), fromQuat: cam.quaternion.clone(), startedAt: clock.getElapsedTime() }
+      flight.current = { key, from: cam.position.clone(), fromQuat: cam.quaternion.clone(), elapsed: 0 }
     }
-    const t = Math.min(1, (clock.getElapsedTime() - flight.current.startedAt) / 0.9)
+    // Its own time, from the frames' delta: R3F's clock restarts at 0 whenever the frameloop changes (Away mode
+    // rests and wakes, Alt-Tab hides the window), and a start time read from that clock made t hugely negative:
+    // the cubic ease exploded and lerp/slerp flung the camera millions of metres out, tumbling back for minutes
+    // (the owner's spin, six reports; caught by the camera black box at VillageWorld lerpVectors, 21 Nov).
+    flight.current.elapsed += Math.min(Math.max(delta, 0), 0.1)
+    const t = Math.min(1, Math.max(0, flight.current.elapsed / 0.9))
     const ease = 1 - Math.pow(1 - t, 3)
     cam.position.lerpVectors(flight.current.from, goal.position, ease)
     cam.quaternion.slerpQuaternions(flight.current.fromQuat, goal.quaternion, ease)

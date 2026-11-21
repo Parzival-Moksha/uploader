@@ -35,7 +35,7 @@ export const FLOP_EFFECTS = [
   { id: 'shadowQuality', tier: 2, name: 'Shadow map at 4096 px (2048 instead)', cost: 'GPU memory 64 MB -> 16 MB' },
   { id: 'groundSharpness', tier: 3, name: 'Sharper ground (detail layer, extra repeats)', cost: 'main 0.3 ms; GPU under 0.1 ms' },
   { id: 'particles', tier: 3, name: 'Decorative particles (portal sparks, swarms, motes)', cost: 'not measurable in ghi9 (two point clouds)' },
-  { id: 'labels3d', tier: 3, name: '3D letters on name tags and signs (flat text instead)', cost: 'main 0.6 ms for the 14 words in ghi9' },
+  { id: 'labels3d', tier: 3, name: '3D letters: name tags, signs and every crafted word, the Stones of reasons included (plain letters: no bevel, 2 curve points)', cost: 'main 0.6 ms for the 14 name-tag words in ghi9; the Stones of reasons were 1 ms a frame in view before their own plain letters' },
   { id: 'leaveEffects', tier: 3, name: 'Full leaving effects when an agent is dismissed (a short fade instead)', cost: 'only while one plays' },
   { id: 'shadows', tier: 4, name: 'All shadows', cost: 'tier 4 together: main 0.4 ms, GPU 0.6 ms' },
   { id: 'resolution75', tier: 4, name: 'Full resolution (75% instead)', cost: 'in tier 4 above (44% fewer pixels)' },

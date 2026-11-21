@@ -25,7 +25,7 @@
 // when the owner or the agent changed the card, when its world changed, and after a compaction, so it stays in
 // context without costing tokens on every turn. Pure helpers here are unit-tested
 // (src/lib/__tests__/agent-engine-character.test.ts).
-import { setting } from './settings.js';
+import { OASIS_ROOT, setting } from './settings.js';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -41,6 +41,53 @@ export const SHOW_FILES = 'To show the owner a picture, an audio file, a video o
  * open.md) is written from those files by a script, so a line typed into the list is lost. A machine with only a
  * `grillFile` keeps the old line; with neither, the line is left out. No "]" inside (the thread hides the note).
  */
+/** The folder and a README that says how to write a question in it, when there is none yet (nothing else is touched). */
+export function ensureQuestionsFolder(dir) {
+  try {
+    const readme = path.join(dir, 'README.md');
+    if (fs.existsSync(readme)) return;
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(readme, QUESTIONS_README, 'utf8');
+  } catch { /* read-only or odd place: agents still get the line */ }
+}
+
+export const QUESTIONS_README = `# Questions for the owner
+
+One file per question (or per thing only he can do) in this folder. Mindcraft's Carbon tab lists them, highest
+priority first, and he answers them there.
+
+Name: \`YYYY-MM-DD_short-slug.md\` (the day you ask). The header is plain \`key: value\` lines, a blank line, then the body:
+
+\`\`\`
+state: open
+kind: question
+asked: 2026-11-21
+by: <your name>
+score: ease 4 · impact 3 · urgency 2
+minutes: 2
+blocks: what waits on it, in a few words
+recommend: your recommendation in a few words
+
+# The question, as one line
+
+## What it is
+Two to five plain lines: enough to decide without opening anything else.
+
+## Options
+- **Yes:** what happens then.
+- **No:** what happens then.
+
+## Recommendation
+One or two lines.
+\`\`\`
+
+- \`kind\`: \`question\`, or \`task\` for a thing for his hands; then the body has "## What to do" with the exact steps and the command itself.
+- \`score\`, each 1 to 5. ease is his time (5 = under 2 minutes, 1 = more than an hour); impact is how much waits on it; urgency is how soon (5 = today).
+- Put everything he needs in the file. Never "see my thread".
+- One question per file. Look through the folder first so you don't ask twice. Don't ask what you can decide.
+- When he answers, Mindcraft writes \`state: answered\`, \`answered\`, \`answer\` and \`took\` into the header, and you get a message.
+`;
+
 export function askLaterLine({ questionsDir = '', grillFile = '' } = {}) {
   if (questionsDir) {
     const dir = questionsDir.replace(/\\/g, '/').replace(/\/+$/, '');
@@ -50,7 +97,10 @@ export function askLaterLine({ questionsDir = '', grillFile = '' } = {}) {
   return '';
 }
 export const GRILL_FILE = setting('grillFile');
-export const QUESTIONS_DIR = setting('questionsDir');
+// A machine without a questions folder of its own (the packaged Oasis) gets one in its own data: Mindcraft's
+// Carbon tab reads the same place (data/questions next to data/missions), so a question an agent writes shows up there.
+export const QUESTIONS_DIR = setting('questionsDir') || path.join(OASIS_ROOT, 'data', 'questions');
+ensureQuestionsFolder(QUESTIONS_DIR);
 export const ASK_LATER = askLaterLine({ questionsDir: QUESTIONS_DIR, grillFile: GRILL_FILE });
 export const ROLE_MAX = 240;
 export const WHO_MAX = 1200;

@@ -549,9 +549,17 @@ export function faceScreenLayout(input: FaceScreenInput): FaceScreenLayout {
  * The eye height of an avatar above its feet, from what its skeleton says: between the head joint (the base of
  * the skull) and the top of the body. Without a head joint, a little under the top. Without anything, 1.5 m.
  */
+/**
+ * An avatar's eye height can't be more than this (village bodies are about human size). The owner's sixth spin
+ * report (21 Nov) recorded the F-screen camera 5 km away at 3.5 km up: something under an agent's body briefly had
+ * a bounding box ~10 km tall, `top` took it, the face came out 3.5 km, and the camera flew there and back.
+ */
+export const FACE_MAX = 4
 export function faceHeightFrom(headJoint: number | null, top: number | null): number {
-  const hasTop = typeof top === 'number' && Number.isFinite(top) && top > 0.3
-  const hasJoint = typeof headJoint === 'number' && Number.isFinite(headJoint) && headJoint > 0.2
+  const hasJoint = typeof headJoint === 'number' && Number.isFinite(headJoint) && headJoint > 0.2 && headJoint < FACE_MAX
+  // The top of the meshes counts only when it is plausible: above the head joint by less than a head or two.
+  const hasTop = typeof top === 'number' && Number.isFinite(top) && top > 0.3 && top < FACE_MAX + 1
+    && (!hasJoint || (top as number) < (headJoint as number) + 1)
   if (hasJoint && hasTop && (top as number) > (headJoint as number)) return (headJoint as number) + ((top as number) - (headJoint as number)) * 0.33
   if (hasJoint) return (headJoint as number) + 0.08
   if (hasTop) return (top as number) * 0.9

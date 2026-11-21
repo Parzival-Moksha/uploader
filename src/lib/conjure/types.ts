@@ -193,6 +193,9 @@ export interface CraftedPrimitive {
   // Text-specific fields (only when type === 'text')
   text?: string                  // the actual text content
   fontSize?: number              // size in world units, default 1
+  textDepth?: number             // extrusion as a fraction of fontSize, default 0.2
+  textBevel?: boolean            // rounded letter edges (3 bevel rings), default true; off is ~4x fewer triangles
+  textCurveSegments?: number     // points per glyph curve, default 8; 3 reads the same at a metre and costs far less
   anchorX?: 'left' | 'center' | 'right'  // horizontal alignment, default 'center'
   anchorY?: 'top' | 'middle' | 'bottom'  // vertical alignment, default 'middle'
   // Shader primitive parameters

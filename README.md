@@ -44,6 +44,14 @@ node scripts/oasis.mjs start
 - With an ElevenLabs voice, an agent's mouth follows its words. With the browser's built-in voice it speaks, but the mouth does not move yet.
 - 41 avatars in the full Oasis, 12 in the lite one. All state CC0 in their own files.
 
+## Something broke?
+
+Open an issue at https://github.com/Parzival-Moksha/uploader/issues with what the screen said, word for word, and your system (Windows, macOS, Linux). You get an answer within a day.
+
+## Contributing
+
+Pull requests are welcome here: fixes for a Mac, Linux or your setup most of all. See [CONTRIBUTING.md](./CONTRIBUTING.md).
+
 ## Licences
 
 The code is MIT (see `LICENSE`). Pictures, 3D models, avatars, animations, sounds and fonts keep the licences of their authors. Every avatar, sound, picture, animation and font is listed with its source and licence in `ASSETS.md`.

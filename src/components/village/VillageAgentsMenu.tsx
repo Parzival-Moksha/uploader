@@ -22,6 +22,7 @@ import { getCouncilVersion, getStageCast, isStageWorldNow, subscribeCouncil } fr
 import { groupAgentsByWorld } from '../../lib/village/village-worlds'
 import { useVillageWorldsVersion, villageAgentWorld, villageWorldName } from './village-worlds'
 import { currentVillageWorld } from './village-homes'
+import { GuideInvite, SummonMoreLine } from './GuideInvite'
 
 const COLLAPSED_KEY = 'oasis.village.agentsMenu.collapsed'
 const MARGIN = 16
@@ -222,6 +223,8 @@ export function VillageAgentsMenu() {
   useVillageWorldsVersion()
   const attentionKey = useOasisStore(s => selectAttentionQueue(s.agentEngine).join(','))
   const focusedId = useOasisStore(s => s.agentEngine.focusedAgentId)
+  // No agent at all (not merely none in this world): the newcomer's case, the guide's invitation.
+  const villageEmpty = useOasisStore(s => s.agentEngine.connection.status === 'open' && s.agentEngine.order.length === 0)
   const focusedHelper = useOasisStore(s => (s.agentEngine.focusedSubagent ? `${s.agentEngine.focusedSubagent.agentId}\u0001${s.agentEngine.focusedSubagent.key}` : ''))
   const screenAgentId = useSyncExternalStore(subscribeVillageScreen, getVillageScreen, () => null)
   const viewport = useViewport()
@@ -316,7 +319,9 @@ export function VillageAgentsMenu() {
               {accounts.map(piece => <span key={piece.id} title={piece.title} className={piece.out ? 'text-amber-300' : undefined}>{piece.text}</span>)}
             </div>
           )}
-          {rows.length === 0 && (
+          {/* An empty village: one invitation, the guide (GuideInvite.tsx). */}
+          {villageEmpty && <GuideInvite />}
+          {rows.length === 0 && !villageEmpty && (
             // A newcomer's first sentence: what to do, and the button to do it (the plaza's own sign is often behind them).
             <div className="px-2 py-2 text-[11px] leading-snug text-white/70">
               <div>No agents yet. Bring in one of your Claude Code sessions, or start a new one.</div>
@@ -375,6 +380,7 @@ export function VillageAgentsMenu() {
               </div>
             )
           })}
+          {rows.length > 0 && <SummonMoreLine />}
           </div>
         </div>
       )}

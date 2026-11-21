@@ -23,7 +23,8 @@ import { getAudioListener } from '../CameraController'
 import { registerLipSync, unregisterLipSync, type LipSyncController } from '../../lib/lip-sync'
 import type { ElevenLabsAlignment } from '../../lib/lip-sync-lab'
 import { buildVisemeTimeline, createVisemeLipSync } from '../../lib/village/village-visemes'
-import { faceHeightFrom } from '../../lib/village/village-layout'
+import { FACE_MAX, faceHeightFrom } from '../../lib/village/village-layout'
+import { noteCameraEvent } from '../../lib/camera-blackbox'
 import { parseFollowPrefs, wantsCome, wantsFollow, withComeChoice, withFollowChoice, type FollowPrefs, type VisitSpot } from '../../lib/village/village-follow'
 import { SPOKEN_MAX_CHARS, cleanSpoken } from '../../lib/village/village-spoken'
 import { fieldMap, voiceOps, voicesFromIdentity } from '../../lib/village/village-identity'
@@ -232,6 +233,10 @@ const _meshBox = new THREE.Box3()
 export function measureVillageFace(agentId: string): number {
   const body = measureVillageBody(agentId)
   if (!body) return faceHeights.get(agentId) ?? faceHeightFrom(null, null)
+  // A measure out of human range (a stray box under the body) keeps the last good one (faceHeightFrom limits it too).
+  if (!(body.face > 0.3 && body.face < FACE_MAX)) return faceHeights.get(agentId) ?? faceHeightFrom(null, null)
+  // A stray box under the body (it once made a 3.5 km face): say which mesh, for the camera black box.
+  if (body.tallest && body.tallest.top > FACE_MAX + 1) noteCameraEvent(`agent ${agentId}: a mesh under its body reaches ${body.tallest.top.toFixed(0)} m (${body.tallest.path})`)
   faceHeights.set(agentId, body.face)
   return body.face
 }
@@ -241,13 +246,14 @@ export function measureVillageFace(agentId: string): number {
  * (the name tag goes just above it), `face` (eye height, for the F view and its portrait), `rigged`: a skeleton
  * was found, so this is the body itself and not the stand-in shown while it loads. null: nothing is there yet.
  */
-export function measureVillageBody(agentId: string): { top: number; face: number; rigged: boolean } | null {
+export function measureVillageBody(agentId: string): { top: number; face: number; rigged: boolean; tallest?: { top: number; path: string } } | null {
   const spot = heads.get(agentId)
   const root = spot?.parent
   if (!root) return null
   root.updateWorldMatrix(true, true)
   const feet = root.getWorldPosition(_facePoint).y
   let joint: number | null = null
+  let tallest: { top: number; path: string } | null = null
   _faceBox.makeEmpty()
   root.traverse(object => {
     if (joint === null && (object as THREE.Bone).isBone && /head$/i.test(object.name)) joint = object.getWorldPosition(_facePoint).y - feet
@@ -257,11 +263,18 @@ export function measureVillageBody(agentId: string): { top: number; face: number
     const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
     if (!materials.some(material => material && material.visible !== false)) return
     if (!mesh.geometry.boundingBox) mesh.geometry.computeBoundingBox()
-    if (mesh.geometry.boundingBox) _faceBox.union(_meshBox.copy(mesh.geometry.boundingBox).applyMatrix4(mesh.matrixWorld))
+    if (mesh.geometry.boundingBox) {
+      _faceBox.union(_meshBox.copy(mesh.geometry.boundingBox).applyMatrix4(mesh.matrixWorld))
+      if (!tallest || _meshBox.max.y > tallest.top) {
+        const path: string[] = []
+        for (let n: THREE.Object3D | null = mesh; n && n !== root && path.length < 6; n = n.parent) path.push(n.name || n.type)
+        tallest = { top: _meshBox.max.y - feet, path: path.join(' < ') }
+      }
+    }
   })
   if (_faceBox.isEmpty()) return null
   const top = _faceBox.max.y - feet
-  return { top, face: faceHeightFrom(joint, top), rigged: joint !== null }
+  return { top, face: faceHeightFrom(joint, top), rigged: joint !== null, ...(tallest ? { tallest } : {}) }
 }
 
 /** The avatar's eye height above its feet: as last measured, else measured now. */

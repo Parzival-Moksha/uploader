@@ -48,5 +48,8 @@ export async function GET(request: NextRequest) {
   const denied = guardAgentRoute(request)
   if (denied) return denied
   const home = os.homedir()
-  return NextResponse.json({ home, workspace: oasisWorkspace(home, path), platform: process.platform, hermes: hermesProfiles() })
+  // The Oasis's README (the app folder the page server runs from): the Guide's card points at it.
+  const readmeFile = path.join(process.cwd(), 'README.md')
+  const readme = fs.existsSync(readmeFile) ? readmeFile : ''
+  return NextResponse.json({ home, workspace: oasisWorkspace(home, path), readme, platform: process.platform, hermes: hermesProfiles() })
 }

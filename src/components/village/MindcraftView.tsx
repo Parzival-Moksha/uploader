@@ -204,7 +204,7 @@ export function MindcraftView({ carbonFile }: { carbonFile?: string | null } = {
         <div>
           <div className="mc-eyebrow">Mindcraft</div>
           <div className="mc-title text-[26px] leading-tight">
-            Today {hms(snapshot.today.seconds)} <span className="text-white/45">/ {hms(snapshot.targetSeconds)}</span> <span className="text-[17px] text-white/60">· {book.owner.find(day => day.date === snapshot.date)?.xp ?? snapshot.today.xp} XP</span>
+            Today {hms(snapshot.today.seconds)} {snapshot.targetSeconds !== null && <span className="text-white/45">/ {hms(snapshot.targetSeconds)}</span>} <span className="text-[17px] text-white/60">· {book.owner.find(day => day.date === snapshot.date)?.xp ?? snapshot.today.xp} XP</span>
           </div>
           {vow && (
             <div className="mc-note" style={{ fontSize: 21 }}>
@@ -260,7 +260,7 @@ export function MindcraftView({ carbonFile }: { carbonFile?: string | null } = {
       {tab === 'today' && (
         <ManualTimeForm
           today={snapshot.date}
-          targetSeconds={snapshot.targetSeconds}
+          targetSeconds={snapshot.targetSeconds ?? undefined}
           daySeconds={date => book.owner.find(day => day.date === date)?.seconds || 0}
           onSaved={() => { void load() }}
         />

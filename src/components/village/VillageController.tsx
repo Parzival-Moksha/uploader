@@ -157,9 +157,10 @@ export function VillageController() {
       <VillageImageViewer />
       <MarkdownReader />
       <VillageMissionReader />
-      {/* The Mindcraft work counter: today's time toward the vow, bottom left. It is the owner's own discipline,
-          so the packaged Oasis (NEXT_PUBLIC_OASIS_EDITION=slim) does not greet a newcomer with "3 h to go". */}
-      {process.env.NEXT_PUBLIC_OASIS_EDITION !== 'slim' && <WorkVowHud />}
+      {/* The Mindcraft work counter, bottom left: today's time and the agents' hours. A vow (a daily goal, its
+          countdown and its stakes) shows only for someone who made one, so the packaged Oasis counts from the first
+          minute without greeting a newcomer with "3 h to go" (no vow in a fresh book; work-vow.ts). */}
+      <WorkVowHud />
     </>
   )
 }

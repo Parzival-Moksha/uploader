@@ -289,7 +289,7 @@ export function CarbonMissions({ initialFile = null }: { initialFile?: string | 
         </div>
       </div>
       {shown.length === 0 ? (
-        <div className="py-6 text-center text-white/50">{missions.length ? `Nothing ${filter}.` : 'No missions yet: the questions folder is empty.'}</div>
+        <div className="py-6 text-center text-white/50">{missions.length ? `Nothing ${filter}.` : 'When your agents need a decision from you, it shows up here.'}</div>
       ) : (
         <div className="mc-card flex min-h-0 flex-col overflow-y-auto">
           <div className={`${header} sticky top-0 z-10 border-b border-white/10 bg-black/60 px-3 py-1.5 text-[11px] uppercase tracking-[0.12em] text-white/50`}>

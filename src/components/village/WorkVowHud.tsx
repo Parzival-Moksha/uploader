@@ -137,8 +137,10 @@ function Detail({ snapshot, liveSeconds, onClose }: { snapshot: WorkSnapshot; li
     >
       <div className="mb-2 flex items-start justify-between">
         <div>
-          <div className="mc-eyebrow">Mindcraft · the vow</div>
-          <div className="mc-title text-[17px]">{formatClock(snapshot.targetSeconds).replace(/:00$/, '')} hours a day, {snapshot.vow.from.slice(5)} to {snapshot.vow.to.slice(5)}</div>
+          <div className="mc-eyebrow">Mindcraft{snapshot.vow ? ' · the vow' : ''}</div>
+          <div className="mc-title text-[17px]">{snapshot.vow && snapshot.targetSeconds !== null
+            ? `${formatClock(snapshot.targetSeconds).replace(/:00$/, '')} hours a day, ${snapshot.vow.from.slice(5)} to ${snapshot.vow.to.slice(5)}`
+            : 'Your time and your agents’'}</div>
         </div>
         <button type="button" onClick={onClose} className="mc-close shrink-0">✕</button>
       </div>
@@ -169,18 +171,20 @@ function Detail({ snapshot, liveSeconds, onClose }: { snapshot: WorkSnapshot; li
           <div className="mt-1 text-white/70">So far: <span style={{ color: GREEN }}>+{c.bonusXp}</span> earned, <span style={{ color: RED }}>−{c.penaltyXp}</span> lost.</div>
         </div>
       ))}
-      {snapshot.totals && (
+      {snapshot.vow && snapshot.totals && (
         <div className={`${row} mt-2`}><span className="text-white/60">The vow so far</span><span className="font-bold">{snapshot.totals.xp} + {snapshot.totals.bonusXp} − {snapshot.totals.penaltyXp} = {snapshot.totals.netXp} XP</span></div>
       )}
+      {snapshot.week.length > 0 && (
+        <>
       <div className="mb-1 mt-3 flex items-center justify-between">
         <span className="mc-label">The week</span>
         <span className="flex items-start gap-1 normal-case tracking-normal">
-          {snapshot.week.map(day => <DayPip key={day.date} day={day} today={day.date === snapshot.date} target={snapshot.targetSeconds} liveSeconds={liveSeconds} />)}
+          {snapshot.week.map(day => <DayPip key={day.date} day={day} today={day.date === snapshot.date} target={snapshot.targetSeconds ?? 0} liveSeconds={liveSeconds} />)}
         </span>
       </div>
       {snapshot.week.map(day => {
         const seconds = day.date === snapshot.date ? liveSeconds : day.seconds
-        const status = seconds >= snapshot.targetSeconds ? 'hit' : day.status
+        const status = seconds >= (snapshot.targetSeconds ?? Infinity) ? 'hit' : day.status
         return (
           <div key={day.date} className={row} style={{ color: status === 'hit' ? GREEN : status === 'missed' ? RED : status === 'open' ? '#fff' : 'rgba(255,255,255,0.4)' }}>
             <span>{new Date(`${day.date}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' })}</span>
@@ -188,6 +192,8 @@ function Detail({ snapshot, liveSeconds, onClose }: { snapshot: WorkSnapshot; li
           </div>
         )
       })}
+        </>
+      )}
       <div className="mc-foot mt-3 pt-2 leading-snug">
         {snapshot.rule} Time counts while this tab is visible and you did something in the last 3 minutes. To count a mission, open its panel and press “work on this”.
       </div>
@@ -221,7 +227,9 @@ export function WorkVowHud() {
     )
   }
   const liveSeconds = snapshot.today.seconds + state.pendingSeconds
-  const done = liveSeconds >= snapshot.targetSeconds
+  // No vow (a new Oasis): no goal, no countdown; just the time.
+  const target = snapshot.targetSeconds
+  const done = target !== null && liveSeconds >= target
   const color = done ? GREEN : AMBER
   const openMission = missionFocus ? getMissionState().missions.find(mission => mission.file === missionFocus) : null
   // What is being counted right now, and what a minute of it is worth.
@@ -260,16 +268,18 @@ export function WorkVowHud() {
         style={{ borderColor: `${color}66`, boxShadow: done ? `0 0 22px ${GREEN}44` : undefined }}
       >
         <span className="relative flex items-center justify-center">
-          <Ring share={liveSeconds / snapshot.targetSeconds} color={color} />
+          <Ring share={target ? liveSeconds / target : 0} color={color} />
           <span className="absolute text-[11px] font-black" style={{ color }}>{done ? '✓' : state.running ? '▶' : '❙❙'}</span>
         </span>
         <span className="flex min-w-0 flex-col gap-0.5">
           <span className="flex items-baseline gap-1.5">
             <span className="mc-clock text-[17px] font-bold leading-none tabular-nums" style={{ color: done ? GREEN : '#f1dca8' }}>{formatClock(liveSeconds)}</span>
             {/* What is left, in words (the owner: "okay, 27 minutes away from the three hours"). */}
-            <span className="whitespace-nowrap text-[11px] font-bold" style={{ color: done ? GREEN : '#fde68a' }} title={`The goal is ${formatClock(snapshot.targetSeconds)} a day`}>
-              {timeToGo(liveSeconds, snapshot.targetSeconds)}
-            </span>
+            {target !== null && (
+              <span className="whitespace-nowrap text-[11px] font-bold" style={{ color: done ? GREEN : '#fde68a' }} title={`The goal is ${formatClock(target)} a day`}>
+                {timeToGo(liveSeconds, target)}
+              </span>
+            )}
             {/* The agents' own working hours today, next to his (the owner, 2026-11-20). */}
             {snapshot.agentHours && (
               <span

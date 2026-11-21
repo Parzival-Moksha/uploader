@@ -21,8 +21,9 @@ function draw(ctx: CanvasRenderingContext2D): string {
   const state = getWorkVowState()
   const snapshot = state.snapshot
   const seconds = (snapshot?.today.seconds || 0) + state.pendingSeconds
-  const target = snapshot?.targetSeconds || 3 * 3600
-  const done = seconds >= target
+  // No vow (a new Oasis): no goal, no countdown, no bar; just today's time.
+  const target = snapshot?.targetSeconds ?? null
+  const done = target !== null && seconds >= target
   const color = done ? '#34d399' : '#fbbf24'
   const status = !snapshot ? 'reading the book' : state.automated ? 'test browser: not counting' : state.otherTab ? `another tab is counting${state.other?.client ? ` (${state.other.client})` : ''}` : done ? 'the day is done' : state.running ? 'counting' : 'paused'
   const key = `${seconds}|${target}|${status}`
@@ -33,7 +34,7 @@ function draw(ctx: CanvasRenderingContext2D): string {
   ctx.textAlign = 'left'
   ctx.fillStyle = 'rgba(226,232,240,0.7)'
   ctx.font = `700 40px ${FONT}`
-  ctx.fillText(snapshot ? `TODAY IN THE OASIS · ${timeToGo(seconds, target).toUpperCase()}` : 'TODAY IN THE OASIS', 44, 52)
+  ctx.fillText(snapshot && target !== null ? `TODAY IN THE OASIS · ${timeToGo(seconds, target).toUpperCase()}` : 'TODAY IN THE OASIS', 44, 52)
   ctx.textAlign = 'right'
   ctx.fillStyle = state.running ? color : 'rgba(226,232,240,0.5)'
   ctx.fillText(status.toUpperCase(), width - 44, 52)
@@ -45,12 +46,14 @@ function draw(ctx: CanvasRenderingContext2D): string {
   ctx.textAlign = 'right'
   ctx.fillStyle = 'rgba(226,232,240,0.6)'
   ctx.font = `700 72px ${FONT}`
-  ctx.fillText(`/ ${formatClock(target)}`, width - 44, 228)
-  // The bar toward the goal.
-  ctx.fillStyle = 'rgba(255,255,255,0.12)'
-  ctx.fillRect(44, height - 58, width - 88, 26)
-  ctx.fillStyle = color
-  ctx.fillRect(44, height - 58, (width - 88) * Math.min(1, seconds / target), 26)
+  if (target !== null) {
+    ctx.fillText(`/ ${formatClock(target)}`, width - 44, 228)
+    // The bar toward the goal.
+    ctx.fillStyle = 'rgba(255,255,255,0.12)'
+    ctx.fillRect(44, height - 58, width - 88, 26)
+    ctx.fillStyle = color
+    ctx.fillRect(44, height - 58, (width - 88) * Math.min(1, seconds / target), 26)
+  }
   return key
 }
 

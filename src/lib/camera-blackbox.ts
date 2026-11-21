@@ -41,11 +41,13 @@ export function angleStep(a: number, b: number): number {
 }
 
 /** Does the end of this history look like a spin? Pure, tested. */
-export function detectSpin(frames: Pick<BlackboxFrame, 'yaw'>[]): { spin: boolean; turned: number; maxStep: number } {
+export function detectSpin(frames: Array<Pick<BlackboxFrame, 'yaw'> & { input?: string }>): { spin: boolean; turned: number; maxStep: number } {
   const from = Math.max(1, frames.length - SPIN_WINDOW)
   let turned = 0
   let maxStep = 0
   for (let i = from; i < frames.length; i += 1) {
+    // A cut when the camera changes hands (leaving an agent's panel for third person) is no spin.
+    if (frames[i].input !== undefined && frames[i].input !== frames[i - 1].input) continue
     const step = Math.abs(angleStep(frames[i - 1].yaw, frames[i].yaw))
     if (!Number.isFinite(step)) return { spin: true, turned: Infinity, maxStep: Infinity }
     turned += step
@@ -62,6 +64,24 @@ interface Box {
 
 const g = globalThis as unknown as { __oasisCameraBlackbox?: Box }
 const box: Box = g.__oasisCameraBlackbox ??= { frames: [], lastSave: -Infinity, saving: false }
+
+/** Something camera-related worth knowing in the next saved file (a stray mesh under a body, ...). Last 20 kept. */
+const notes: Array<{ t: number; text: string }> = ((globalThis as unknown as { __oasisCameraNotes?: Array<{ t: number; text: string }> }).__oasisCameraNotes ??= [])
+let lastNote = ''
+export function noteCameraEvent(text: string): void {
+  if (text === lastNote) return
+  lastNote = text
+  notes.push({ t: Math.round(typeof performance !== 'undefined' ? performance.now() : Date.now()), text })
+  if (notes.length > 20) notes.splice(0, notes.length - 20)
+  console.warn(`[camera] ${text}`)
+  // The guards keep the camera calm now, so no spin would save these: a note saves the frames itself.
+  const now = typeof performance !== 'undefined' ? performance.now() : Date.now()
+  if (!box.saving && now - box.lastSave >= SAVE_GAP_MS && typeof window !== 'undefined') {
+    box.lastSave = now
+    box.saving = true
+    void postBlackbox(box.frames.slice(), `note: ${text}`).finally(() => { box.saving = false })
+  }
+}
 
 export function blackboxFrames(): BlackboxFrame[] {
   return box.frames.slice()
@@ -89,7 +109,7 @@ async function postBlackbox(frames: BlackboxFrame[], why: string): Promise<unkno
     const res = await fetch('/api/debug/camera-blackbox', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ why, userAgent: navigator.userAgent, size: [window.innerWidth, window.innerHeight, window.devicePixelRatio], frames }),
+      body: JSON.stringify({ why, userAgent: navigator.userAgent, size: [window.innerWidth, window.innerHeight, window.devicePixelRatio], notes: notes.slice(), frames }),
     })
     console.warn(`[camera] ${why}: the last ${frames.length} frames ${res.ok ? 'were saved to data/camera-blackbox' : `could not be saved (HTTP ${res.status})`}`)
   } catch (error) {

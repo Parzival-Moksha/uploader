@@ -15,6 +15,8 @@ export const WORK_BEAT_MS = 15_000
 /** A tab that hasn't reported for this long has gone: another tab may count. */
 export const WORK_HOLDER_STALE_MS = 50_000
 export const WORK_RULE = 'XP is time: 1 XP a minute of work, for you and for every agent. Your time with an agent, a mission or Mindcraft open counts at 1, time in the Oasis with nothing in focus at 0.7. A mission’s priority only decides what is done next. A committed day that is hit counts double; a committed day that is missed costs 7 XP for every missing minute.'
+/** The same rule for someone who made no vow: no stakes. */
+export const WORK_RULE_NO_VOW = 'XP is time: 1 XP a minute of work, for you and for every agent. Your time with an agent, a mission or Mindcraft open counts at 1, time in the Oasis with nothing in focus at 0.7.'
 
 /**
  * A commitment, the first Mindcraft's way (v0.1, 2025): what you commit to counts double, and what
@@ -117,7 +119,8 @@ export interface WorkActive {
 
 export interface WorkFile {
   v: 1
-  vow: WorkVow
+  /** His commitment (the owner's vow); null for anyone who made none: no target, no week, no stakes. */
+  vow: WorkVow | null
   /** More commitments, e.g. to one mission (`mission` set). */
   commitments?: WorkVow[]
   /** By local date, `2026-11-16`. */
@@ -146,7 +149,8 @@ export interface WorkFile {
 }
 
 export function emptyWorkFile(): WorkFile {
-  return { v: 1, vow: { ...DEFAULT_VOW }, days: {}, active: null, holder: null }
+  // Nobody has a vow until he makes one (a new Oasis counts time, no stakes).
+  return { v: 1, vow: null, days: {}, active: null, holder: null }
 }
 
 /** A file from disk, made safe: anything missing or odd is dropped, never the days that are fine. */
@@ -168,8 +172,8 @@ export function parseWorkFile(value: unknown): WorkFile {
       ...(typeof c.label === 'string' && c.label ? { label: c.label } : {}),
     }
   }
-  file.vow = vow(raw.vow) || file.vow
-  if (!file.vow.label) file.vow.label = DEFAULT_VOW.label
+  file.vow = vow(raw.vow)
+  if (file.vow && !file.vow.label) file.vow.label = DEFAULT_VOW.label
   const more = (Array.isArray(raw.commitments) ? raw.commitments : []).map(vow).filter((c): c is WorkVow => c !== null)
   if (more.length) file.commitments = more
   for (const [date, day] of Object.entries(raw.days || {})) {
@@ -734,7 +738,7 @@ export interface MindcraftBook {
 /** Everything in the book as day lists: the owner's Mindcraft, each agent's, and the whole Oasis'. */
 export function mindcraftBook(file: WorkFile, today = localDay(Date.now())): MindcraftBook {
   const dates = Object.keys(file.days).sort().reverse()
-  const vowDays = new Map(evaluateCommitment(file, file.vow, today).days.map(day => [day.date, day]))
+  const vowDays = new Map(file.vow ? evaluateCommitment(file, file.vow, today).days.map(day => [day.date, day]) : [])
   const owner: MindcraftDay[] = []
   const oasis: MindcraftDay[] = []
   const byAgent = new Map<string, MindcraftBook['agents'][number]>()
@@ -812,8 +816,9 @@ export interface WorkDayView {
 export interface WorkDaySummary {
   date: string
   seconds: number
-  targetSeconds: number
-  remainingSeconds: number
+  /** The day's goal, from his vow; null without one. */
+  targetSeconds: number | null
+  remainingSeconds: number | null
   xp: number
   /** The commitment for this day: kept, not kept, or the day is still running (`open`). */
   kept: boolean
@@ -844,10 +849,11 @@ export interface WorkDaySummary {
 export function daySummary(file: WorkFile, date: string, today: string): WorkDaySummary {
   const day = file.days[date]
   const seconds = daySeconds(day)
-  const target = file.vow.dailySeconds
-  const inVow = date >= file.vow.from && date <= file.vow.to
-  const commitment = inVow ? evaluateCommitment(file, file.vow, today).days.find(item => item.date === date) : undefined
-  const kept = seconds >= target
+  const vow = file.vow
+  const target = vow ? vow.dailySeconds : null
+  const inVow = Boolean(vow && date >= vow.from && date <= vow.to)
+  const commitment = vow && inVow ? evaluateCommitment(file, vow, today).days.find(item => item.date === date) : undefined
+  const kept = target !== null && seconds >= target
   const open = !kept && date >= today
   const bonusXp = commitment?.status === 'hit' ? commitment.bonusXp : 0
   const penaltyXp = commitment?.status === 'missed' ? commitment.penaltyXp : 0
@@ -870,7 +876,7 @@ export function daySummary(file: WorkFile, date: string, today: string): WorkDay
     date,
     seconds,
     targetSeconds: target,
-    remainingSeconds: Math.max(0, target - seconds),
+    remainingSeconds: target === null ? null : Math.max(0, target - seconds),
     xp,
     kept,
     open,
@@ -893,13 +899,14 @@ export function daySummary(file: WorkFile, date: string, today: string): WorkDay
 export interface WorkSnapshot {
   now: number
   date: string
-  targetSeconds: number
-  today: { seconds: number; freeSeconds: number; agentSeconds: number; missionSeconds: number; xp: number; done: boolean; remainingSeconds: number; missions: Array<WorkMissionTime & { file: string }>; agents: WorkDaySummary['agents']; topXp: WorkDaySummary['topXp'] }
+  /** The day's goal from his vow; null without a vow (then there is no countdown, week or stakes). */
+  targetSeconds: number | null
+  today: { seconds: number; freeSeconds: number; agentSeconds: number; missionSeconds: number; xp: number; done: boolean; remainingSeconds: number | null; missions: Array<WorkMissionTime & { file: string }>; agents: WorkDaySummary['agents']; topXp: WorkDaySummary['topXp'] }
   /** Today, ready to tell (the same shape `?day=` returns for any day). */
   summary: WorkDaySummary
-  /** Every day of the vow. */
+  /** Every day of the vow (empty without one). */
   week: WorkDayView[]
-  vow: WorkVow
+  vow: WorkVow | null
   /** The vow first, then any others: multiplier, penalty, each day's bonus or cost, what is at stake today. */
   commitments: CommitmentView[]
   /** Over the vow's days: XP from time, plus bonuses, minus penalties. */
@@ -919,17 +926,18 @@ export interface WorkSnapshot {
 
 export function workSnapshot(file: WorkFile, now: number, offsetMinutes = localOffsetMinutes(now)): WorkSnapshot {
   const date = localDay(now, offsetMinutes)
-  const target = file.vow.dailySeconds
+  const vow = file.vow
+  const target = vow ? vow.dailySeconds : null
   const day = file.days[date]
   const seconds = daySeconds(day)
   const week: WorkDayView[] = []
-  for (let d = file.vow.from, guard = 0; d <= file.vow.to && guard < 60; d = addDays(d, 1), guard += 1) {
+  for (let d = vow?.from || '', guard = 0; vow && target !== null && d <= vow.to && guard < 60; d = addDays(d, 1), guard += 1) {
     const worked = daySeconds(file.days[d])
     const status: WorkDayStatus = worked >= target ? 'hit' : d < date ? 'missed' : d === date ? 'open' : 'ahead'
     week.push({ date: d, seconds: worked, xp: dayXp(file.days[d]), status })
   }
   const summary = daySummary(file, date, date)
-  const commitments = [file.vow, ...(file.commitments || [])].map(c => evaluateCommitment(file, c, date))
+  const commitments = [...(vow ? [vow] : []), ...(file.commitments || [])].map(c => evaluateCommitment(file, c, date))
   const baseXp = round1(week.reduce((sum, d) => sum + d.xp, 0))
   const bonusXp = round1(commitments.reduce((sum, c) => sum + c.bonusXp, 0))
   const penaltyXp = round1(commitments.reduce((sum, c) => sum + c.penaltyXp, 0))
@@ -943,7 +951,7 @@ export function workSnapshot(file: WorkFile, now: number, offsetMinutes = localO
       agentSeconds: summary.agentSeconds,
       missionSeconds: summary.missionSeconds,
       xp: summary.xp,
-      done: seconds >= target,
+      done: target !== null && seconds >= target,
       remainingSeconds: summary.remainingSeconds,
       missions: summary.missions,
       agents: summary.agents,
@@ -966,7 +974,7 @@ export function workSnapshot(file: WorkFile, now: number, offsetMinutes = localO
       const mark = agentHoursMark(today)
       return { today, yesterday: at(addDays(date, -1)), best, mark: mark.reached, next: mark.next }
     })(),
-    rule: WORK_RULE,
+    rule: vow ? WORK_RULE : WORK_RULE_NO_VOW,
   }
 }
 

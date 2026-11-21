@@ -15,6 +15,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
+/** The Oasis folder (the repository, or the packaged copy). */
+export const OASIS_ROOT = ROOT;
 export const SETTINGS_FILE = process.env.OASIS_SETTINGS_FILE || path.join(ROOT, 'data', 'oasis-settings.local.json');
 const ENV = {
   missionsDir: 'OASIS_MISSIONS_DIR',

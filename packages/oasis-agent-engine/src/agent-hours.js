@@ -126,8 +126,10 @@ export class AgentHours {
       }
     } catch (error) {
       if (batch.length) this.log(`agent hours: not booked yet (${error.message}); ${this.queue.length} waiting`);
-      if (this.queue.length && !this.timer) {
-        this.timer = setTimeout(() => { this.timer = null; this.flush(false); }, 30_000);
+      // A heartbeat that found no Oasis (the engine starts before the page server) is tried again soon, so open
+      // pages hand the booking over within a minute instead of five.
+      if ((this.queue.length || heartbeat) && !this.timer) {
+        this.timer = setTimeout(() => { this.timer = null; this.flush(heartbeat && !this.queue.length); }, 30_000);
         this.timer.unref?.();
       }
     } finally {
