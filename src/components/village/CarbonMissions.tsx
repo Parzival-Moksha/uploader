@@ -11,7 +11,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAgentVoiceInput } from '../../hooks/useAgentVoiceInput'
 import { renderMarkdown } from '../../lib/anorak-renderers'
-import { quickAnswer, sortCarbon, type CarbonMission, type CarbonSort } from '../../lib/village/carbon-missions'
+import { askingAgent, quickAnswer, sortCarbon, splitCommands, type CarbonMission, type CarbonSort } from '../../lib/village/carbon-missions'
+import { setDraftText } from '../../lib/voice/village-dictation'
+import { useOasisStore } from '../../store/oasisStore'
+import { focusVillageAgent } from './village-actions'
 
 const SORTS: Array<{ id: CarbonSort; label: string }> = [
   { id: 'priority', label: 'priority' },
@@ -45,6 +48,26 @@ function Stat({ label, value, color }: { label: string; value: string; color?: s
   )
 }
 
+/** A command from the mission, in a box with a copy button (the owner runs it himself). */
+function CommandBox({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false)
+  return (
+    <div data-mindcraft="command" className="my-2 flex items-start gap-2 rounded border border-sky-300/30 bg-black/55 px-2.5 py-2">
+      <pre className="min-w-0 flex-1 whitespace-pre-wrap break-all font-mono text-[13.5px] leading-snug text-sky-100">{text}</pre>
+      <button
+        type="button"
+        onClick={() => {
+          void navigator.clipboard?.writeText(text).then(() => { setCopied(true); window.setTimeout(() => setCopied(false), 1500) }).catch(() => {})
+        }}
+        className="mc-field shrink-0 px-2 py-0.5 text-[12px] font-bold hover:brightness-125"
+        title="Copy the command"
+      >
+        {copied ? 'copied' : 'copy'}
+      </button>
+    </div>
+  )
+}
+
 function keepKeys(event: React.KeyboardEvent) {
   if (event.key !== 'Escape') event.stopPropagation()
 }
@@ -68,7 +91,40 @@ function MissionView({ mission, onBack, onAnswered }: { mission: CarbonMission; 
       voiceBase.current = null
     },
   })
-  const body = useMemo(() => renderMarkdown(mission.body), [mission.body])
+  // The whole body, nothing cut; commands stand in their own box with a copy button.
+  const body = useMemo(() => splitCommands(mission.body).map((part, index) => (part.kind === 'command'
+    ? <CommandBox key={index} text={part.text} />
+    : <div key={index}>{renderMarkdown(part.text)}</div>)), [mission.body])
+  // Who to ask: the agent that asked (or Anorak), if it is in the village.
+  const asker = useOasisStore(s => {
+    const agents = s.agentEngine.order.map(id => s.agentEngine.agents[id]).filter(Boolean).map(a => ({ id: a.id, name: a.name || '' }))
+    const found = askingAgent(mission.by, agents)
+    return found ? `${found.id}${found.name}` : ''
+  })
+  const [askerId, askerName] = asker ? asker.split('') : ['', '']
+  // Talk to it about this mission: its panel opens over Mindcraft with the title quoted in its box; closing it
+  // comes back to this same mission (Mindcraft stays open underneath).
+  const talk = () => {
+    if (!askerId) return
+    setDraftText(askerId, `About the mission “${mission.title}”: `)
+    focusVillageAgent(askerId)
+  }
+  // "Not enough to decide": the asker is told to add what is missing to the file; the mission sinks until it does.
+  const notEnough = async () => {
+    if (busy) return
+    setBusy(true)
+    setError('')
+    try {
+      const response = await fetch('/api/village/questions', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ file: mission.file, unclear: true, expected: mission.markdown }) })
+      const data = await response.json().catch(() => ({})) as { error?: string }
+      if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`)
+      onAnswered()
+    } catch (problem) {
+      setError(problem instanceof Error ? problem.message : String(problem))
+    } finally {
+      setBusy(false)
+    }
+  }
   const answered = mission.state === 'answered'
 
   const submit = useCallback(async (answer: string, state: 'answered' | 'parked') => {
@@ -104,11 +160,17 @@ function MissionView({ mission, onBack, onAnswered }: { mission: CarbonMission; 
     <div data-mindcraft="carbon-mission" className="flex h-full min-h-0 flex-1 flex-col gap-2.5 text-[15px]">
       <div className="flex items-start gap-3">
         <button type="button" onClick={onBack} className="mc-field shrink-0 px-2.5 py-1 text-[13px] font-bold hover:brightness-125">← all missions</button>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <div className="text-[11px] uppercase tracking-[0.2em] text-white/50">{mission.kind === 'task' ? 'A thing to do' : 'A question'} · asked {dayShort(mission.asked)}{mission.by ? ` by ${mission.by}` : ''}</div>
           <div className="mc-strong break-words text-[21px] leading-tight">{mission.title}</div>
         </div>
+        {askerId && (
+          <button type="button" data-mindcraft="talk-to-asker" onClick={talk} className="mc-btn shrink-0 px-3 py-1" style={INLINE_BTN} title={`Open ${askerName}'s panel with this mission quoted in its box; close it to come back here`}>
+            Talk to {askerName}
+          </button>
+        )}
       </div>
+      {mission.sinking && <div className="text-amber-200/80">You marked this “not enough to decide” on {dayShort(mission.unclear?.date || '')}; {askerName || 'the asker'} was asked to add what is missing.</div>}
       <div className="flex flex-wrap gap-1.5 text-[14px]">
         <Stat label="priority" value={mission.priority === null ? '—' : mission.priority.toFixed(2)} color={priorityColor(mission.priority)} />
         <Stat label="minutes" value={mission.minutes === null ? '—' : `~${mission.minutes}`} />
@@ -157,6 +219,11 @@ function MissionView({ mission, onBack, onAnswered }: { mission: CarbonMission; 
           <button type="button" disabled={busy} onClick={() => quick('no')} className="mc-btn px-3 py-1" style={INLINE_BTN} data-tone="stop">No</button>
           <button type="button" disabled={busy} onClick={() => quick('later')} className="mc-btn px-3 py-1" style={INLINE_BTN}>Later</button>
           {mission.kind === 'task' && <button type="button" disabled={busy} onClick={() => quick('done')} className="mc-btn px-3 py-1" style={INLINE_BTN} data-tone="go">Done</button>}
+          {!answered && (
+            <button type="button" data-mindcraft="not-enough" disabled={busy} onClick={() => { void notEnough() }} className="ml-auto text-[13px] text-amber-200/80 underline decoration-dotted hover:text-amber-100" title="The asker is told to add what is missing to the file; until then this mission sits at the bottom">
+              not enough to decide
+            </button>
+          )}
           {error && <span className="text-rose-300">{error}</span>}
         </div>
       </div>
@@ -239,7 +306,7 @@ export function CarbonMissions({ initialFile = null }: { initialFile?: string | 
             >
               <span className="min-w-0">
                 <span className="block break-words leading-snug text-white">{m.kind === 'task' ? '☐ ' : ''}{m.title}</span>
-                <span className="block break-words text-[12.5px] leading-snug text-white/50">{m.by || 'someone'}{m.blocks ? ` · waits: ${m.blocks}` : ''}{m.state !== 'open' ? ` · ${m.state}` : ''}</span>
+                <span className="block break-words text-[12.5px] leading-snug text-white/50">{m.by || 'someone'}{m.blocks ? ` · waits: ${m.blocks}` : ''}{m.state !== 'open' ? ` · ${m.state}` : ''}{m.sinking ? ' · waiting for more detail' : ''}</span>
               </span>
               <span className="text-right font-bold tabular-nums" style={{ color: priorityColor(m.priority) }}>{m.priority === null ? '—' : m.priority.toFixed(2)}</span>
               <span className="text-right tabular-nums text-white/80">{m.minutes === null ? '—' : `~${m.minutes}`}</span>

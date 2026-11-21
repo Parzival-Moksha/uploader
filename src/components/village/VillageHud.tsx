@@ -10,6 +10,7 @@ import { useOasisStore } from '../../store/oasisStore'
 import { isInVillagePlaza, subscribeVillagePlaza } from './village-actions'
 import { VillageAgentsMenu } from './VillageAgentsMenu'
 import { AccountsWatch } from './AccountsWatch'
+import { NetworkWatch } from './NetworkWatch'
 import { VillageAcademyReader } from './VillageAcademyReader'
 import { GAME_HUD_TEXT, GameKeycap } from '../forge/GameKeycap'
 import { getTagSettings, subscribeTagSettings } from '../../lib/village/tag-style'
@@ -58,6 +59,8 @@ export function VillageHud() {
       <VillageAgentsMenu />
       {/* A notice when a Claude account runs out or comes back (engine accounts.js). */}
       <AccountsWatch />
+      {/* "Offline since 19:26", large, while this PC has no internet (engine network.js). */}
+      <NetworkWatch />
       {/* The Academy: the prompt at a node of the skill tree, and the node's sheet. */}
       <VillageAcademyReader />
 

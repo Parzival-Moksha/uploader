@@ -14,7 +14,7 @@ import { NextRequest, NextResponse } from 'next/server'
 
 import { guardAgentRoute } from '@/lib/local-request-guard'
 import { missionsDir } from '@/lib/oasis-settings'
-import { answerCarbonMission, formatAnswerNote, isCarbonFile, parseCarbonMission, sortCarbon } from '@/lib/village/carbon-missions'
+import { answerCarbonMission, askingAgent, formatAnswerNote, formatUnclearNote, isCarbonFile, markUnclear, parseCarbonMission, sortCarbon } from '@/lib/village/carbon-missions'
 import { isAutomationRequest } from '@/lib/village/work-vow'
 
 export const dynamic = 'force-dynamic'
@@ -71,6 +71,11 @@ function rewriteBoard(): Promise<string> {
 
 /** Tell Anorakdev through the agent engine. Never fails the answer: the file is the record. */
 async function tellAnorak(text: string): Promise<string> {
+  return tellAgent('Anorak', text)
+}
+
+/** Tell the agent named in `by` (else Anorak) through the agent engine. Never throws. */
+async function tellAgent(by: string, text: string): Promise<string> {
   const base = (process.env.OASIS_ENGINE_URL || 'http://127.0.0.1:4530').replace(/\/+$/, '')
   const headers: Record<string, string> = { 'content-type': 'application/json' }
   try {
@@ -78,11 +83,11 @@ async function tellAnorak(text: string): Promise<string> {
     const token = (await fs.readFile(tokenFile, 'utf8').catch(() => '')).trim()
     if (token) headers['x-oasis-token'] = token
     const list = await (await fetch(`${base}/api/agents`, { headers, signal: AbortSignal.timeout(4000) })).json() as Array<{ id: string; name?: string }> | { agents?: Array<{ id: string; name?: string }> }
-    const agents = Array.isArray(list) ? list : list.agents || []
-    const anorak = agents.find(a => /^anorakdev$/i.test(a.name || '')) || agents.find(a => /anorak/i.test(a.name || ''))
-    if (!anorak) return 'no Anorak in the village'
-    const response = await fetch(`${base}/api/cmd`, { method: 'POST', headers, body: JSON.stringify({ cmd: 'send', agentId: anorak.id, text, priority: 'later', source: 'Mindcraft' }), signal: AbortSignal.timeout(6000) })
-    return response.ok ? `sent to ${anorak.name}` : `engine said ${response.status}`
+    const agents = (Array.isArray(list) ? list : list.agents || []).map(a => ({ id: a.id, name: a.name || '' }))
+    const target = askingAgent(by, agents)
+    if (!target) return 'no such agent, and no Anorak in the village'
+    const response = await fetch(`${base}/api/cmd`, { method: 'POST', headers, body: JSON.stringify({ cmd: 'send', agentId: target.id, text, priority: 'later', source: 'Mindcraft' }), signal: AbortSignal.timeout(6000) })
+    return response.ok ? `sent to ${target.name}` : `engine said ${response.status}`
   } catch (error) {
     return `engine not reached: ${error instanceof Error ? error.message : String(error)}`
   }
@@ -91,9 +96,25 @@ async function tellAnorak(text: string): Promise<string> {
 export async function POST(request: NextRequest) {
   const denied = guardAgentRoute(request)
   if (denied) return denied
-  const body = await request.json().catch(() => null) as { file?: unknown; answer?: unknown; state?: unknown; took?: unknown; expected?: unknown } | null
+  const body = await request.json().catch(() => null) as { file?: unknown; answer?: unknown; state?: unknown; took?: unknown; expected?: unknown; unclear?: unknown } | null
   if (isAutomationRequest(request.headers.get('user-agent'), body)) return NextResponse.json({ error: 'automated pages cannot answer missions' }, { status: 403 })
   const file = questionPath(body?.file)
+  // "Not enough to decide": mark the file (it sinks until its body changes) and tell whoever asked.
+  if (body?.unclear === true) {
+    if (!file || typeof body.expected !== 'string') return NextResponse.json({ error: 'file and expected are required' }, { status: 400 })
+    let text: string
+    try {
+      text = normalize(await fs.readFile(file, 'utf8'))
+    } catch {
+      return NextResponse.json({ error: 'mission not found' }, { status: 404 })
+    }
+    if (text !== normalize(body.expected)) return NextResponse.json({ error: 'the mission changed while you had it open: look at it again' }, { status: 409 })
+    const next = markUnclear(text, localDate())
+    await fs.writeFile(file, next, 'utf8')
+    const mission = parseCarbonMission(path.basename(file), next)
+    const [told, board] = await Promise.all([tellAgent(mission.by, formatUnclearNote(mission)), rewriteBoard()])
+    return NextResponse.json({ ok: true, mission, told, board })
+  }
   if (!file || typeof body?.answer !== 'string' || !body.answer.trim() || typeof body.expected !== 'string') {
     return NextResponse.json({ error: 'file, answer and expected are required' }, { status: 400 })
   }

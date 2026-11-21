@@ -11,6 +11,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useState } from 'react'
 import { useMindcraftLook } from './mindcraft-look'
+import { useOasisStore } from '../../store/oasisStore'
 import { ManualTimeForm } from './ManualTimeForm'
 import { CarbonMissions } from './CarbonMissions'
 import { useKitStyle } from '@/components/ui-kit'
@@ -331,6 +332,8 @@ export function MindcraftWindow() {
     if (!open) return
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return
+      // An agent's panel opened from a mission is on top: Esc closes that, and Mindcraft stays on the mission.
+      if (useOasisStore.getState().agentEngine.focusedAgentId) return
       event.stopImmediatePropagation()
       setOpen(false)
     }

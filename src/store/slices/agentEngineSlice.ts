@@ -7,6 +7,7 @@
 
 import type {
   EngineAccountsView,
+  EngineNetworkView,
   EngineAppointment,
   EngineSchedule,
   EngineAgentKind,
@@ -206,6 +207,8 @@ export interface EngineAgentState {
   account: { id: string; label: string } | null
   accountPin: string | null
   parked: { until: number | null } | null
+  /** It waits for the internet (engine network.js), since then. */
+  offline: { since: number } | null
   /** When it wakes up on its own (engine schedule.js). undefined fields stay null on engines older than schedules. */
   schedule: EngineSchedule | null
   appointments: EngineAppointment[]
@@ -289,6 +292,8 @@ export type AgentEngineAction =
   | { type: 'agents'; agents: EngineAgentSnapshot[]; at: number }
   /** The Claude accounts changed (engine accounts.js): kept with the server info, for the HUD and Settings. */
   | { type: 'accounts'; accounts: EngineAccountsView }
+  /** The internet line (engine network.js): kept with the server info, for the HUD and the agents' banners. */
+  | { type: 'network'; network: EngineNetworkView }
   | { type: 'event'; event: EngineEvent }
   | { type: 'focus'; agentId: string | null }
   /** After a reload: these agents finished while you weren't looking (village-seen.ts). */
@@ -376,6 +381,7 @@ export function createAgentState(
     account: null,
     accountPin: null,
     parked: null,
+    offline: null,
     schedule: null,
     appointments: [],
     nextWake: null,
@@ -452,6 +458,7 @@ export function applySnapshot(agent: EngineAgentState, snap: EngineAgentSnapshot
     account: snap.account !== undefined ? snap.account ?? null : agent.account,
     accountPin: snap.accountPin !== undefined ? snap.accountPin ?? null : agent.accountPin,
     parked: snap.parked !== undefined ? snap.parked ?? null : agent.parked,
+    offline: snap.offline !== undefined ? snap.offline ?? null : agent.offline,
     schedule: snap.schedule !== undefined ? snap.schedule ?? null : agent.schedule,
     appointments: Array.isArray(snap.appointments) ? snap.appointments : agent.appointments,
     nextWake: snap.nextWake !== undefined ? snap.nextWake ?? null : agent.nextWake,
@@ -493,10 +500,10 @@ export function runningSubagentCount(agent: { subagents?: EngineSubagentState[];
   return count
 }
 
-export function attentionRank(agent: Pick<EngineAgentState, 'status' | 'unseen' | 'decisions'> & { subagents?: EngineSubagentState[]; lastEventAt?: number; parked?: EngineAgentState['parked'] }): number | null {
+export function attentionRank(agent: Pick<EngineAgentState, 'status' | 'unseen' | 'decisions'> & { subagents?: EngineSubagentState[]; lastEventAt?: number; parked?: EngineAgentState['parked']; offline?: EngineAgentState['offline'] }): number | null {
   if (agent.status === 'needs-decision' || agent.decisions.length > 0) return 0
   // Waiting for an account's usage (engine accounts.js) is not stuck: it goes on by itself; no one walks up for it.
-  if (agent.parked) return null
+  if (agent.parked || agent.offline) return null
   if (agent.status === 'error') return 1
   // idle too: a restarted engine resumes a finished agent as a fresh, idle process. Not while its helpers
   // still work: there is nothing to do yet, and their reports start its next turn by themselves.
@@ -508,10 +515,10 @@ export function attentionRank(agent: Pick<EngineAgentState, 'status' | 'unseen' 
  * The status to show (ring, label, chips): an open decision always reads as needs-decision, and
  * a finished agent the owner hasn't seen reads as waiting even after an engine restart (idle).
  */
-export function effectiveStatus(agent: Pick<EngineAgentState, 'status' | 'decisions' | 'unseen'> & { parked?: EngineAgentState['parked'] }): EngineAgentStatus {
+export function effectiveStatus(agent: Pick<EngineAgentState, 'status' | 'decisions' | 'unseen'> & { parked?: EngineAgentState['parked']; offline?: EngineAgentState['offline'] }): EngineAgentStatus {
   if (agent.decisions.length > 0) return 'needs-decision'
   // Waiting for usage: calm, not an error (the engine reports it as one so the agent's turn reads as cut off).
-  if (agent.parked) return 'waiting'
+  if (agent.parked || agent.offline) return 'waiting'
   if (agent.status === 'idle' && agent.unseen) return 'waiting'
   return agent.status
 }
@@ -1078,6 +1085,11 @@ export function agentEngineReducer(state: AgentEngineState, action: AgentEngineA
     case 'accounts': {
       const server = state.connection.server || {}
       return { ...state, connection: { ...state.connection, server: { ...server, accounts: action.accounts } } }
+    }
+
+    case 'network': {
+      const server = state.connection.server || {}
+      return { ...state, connection: { ...state.connection, server: { ...server, network: action.network } } }
     }
 
     case 'agents': {

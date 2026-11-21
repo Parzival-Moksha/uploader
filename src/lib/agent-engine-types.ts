@@ -97,6 +97,8 @@ export interface EngineAgentSnapshot {
   account?: { id: string; label: string } | null
   accountPin?: string | null
   parked?: { until: number | null } | null
+  /** It waits for the internet (engine network.js): offline since then. Missing on older engines. */
+  offline?: { since: number } | null
   /** When it wakes up on its own (engine schedule.js); null: off. Missing on engines older than schedules. */
   schedule?: EngineSchedule | null
   appointments?: EngineAppointment[]
@@ -457,11 +459,20 @@ export interface EngineAccountsView {
   accounts: EngineAccount[]
 }
 
+/** The internet line as the engine sees it (network.js; GET /network). */
+export interface EngineNetworkView {
+  online: boolean
+  offlineSince: number | null
+  checkedAt: number | null
+  why: string | null
+}
+
 export interface EngineServerInfo {
   port?: number
   claude?: string
   restart?: EngineRestartInfo
   accounts?: EngineAccountsView
+  network?: EngineNetworkView
 }
 
 export type EngineServerMessage =
@@ -472,6 +483,8 @@ export type EngineServerMessage =
   | { type: 'event'; event: EngineEvent }
   /** The Claude accounts changed: usage learnt, one ran out or came back, the village default moved. */
   | ({ type: 'accounts' } & EngineAccountsView)
+  /** The internet line went down or came back (engine network.js). */
+  | ({ type: 'network' } & EngineNetworkView)
   /** The engine wants a picture from this agent's avatar for a message being sent (answer with the eyesFrame command). */
   | { type: 'eyes.request'; requestId: string; agentId: string }
   /** An agent asked for pictures (scripts/me.mjs): its own avatar from the front, or what is around it (answer with viewFrames). */

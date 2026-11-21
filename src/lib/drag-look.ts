@@ -97,6 +97,16 @@ export function noteLockFailed(reason: string): boolean {
   return true
 }
 
+/**
+ * Whether a failed lock request says anything about the browser. Chrome also refuses a lock asked for while the
+ * window has no focus or without a click (a wake from Away mode, a focus change, a request made in code): those
+ * say nothing, and two of them on a fresh page used to switch a normal Chrome to drag look for good, where a drag
+ * that missed its release turned the camera on every move (the owner's "spins when I come back", 2026-11-21).
+ */
+export function lockFailureCounts(at: { focused: boolean; userActivated: boolean }): boolean {
+  return at.focused && at.userActivated
+}
+
 /** The page got the lock: the browser can do it after all (drag look goes off again). */
 export function noteLockGranted(): void {
   state.everLocked = true

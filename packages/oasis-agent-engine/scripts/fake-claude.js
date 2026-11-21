@@ -3,7 +3,7 @@
 // transcripts and the CLI 2.1.323 schema, docs/missions/account-failover.md) when its account is marked out.
 //
 //   OASIS_CLAUDE_BIN=<this file>   the engine runs it with node instead of claude.exe
-//   FAKE_CLAUDE_STATE=<json file>  { out: { <account>: { resetsAt (s), window } }, overload: { <account>: true },
+//   FAKE_CLAUDE_STATE=<json file>  { out: { <account>: { resetsAt (s), window } }, overload: { <account>: true }, netDown: true,
 //                                    weekly: { <account>: resetsAt (s) } }   read at every turn
 //   FAKE_CLAUDE_LOG=<jsonl file>   one line per start and per turn: { pid, account, session, resume, text }
 // The account is the token in CLAUDE_CODE_OAUTH_TOKEN ("tok-a" -> "a"), or "cli" without one.
@@ -32,13 +32,20 @@ function turn(user) {
   const weekly = s.weekly?.[account];
   // The engine's notes ride as their own text blocks ([Oasis you: …], [Oasis account: …]): their first words, for tests.
   const notes = typeof user.message?.content === 'string' ? [] : (user.message?.content || []).filter((b) => b.type === 'text' && /^\[Oasis /.test(b.text)).map((b) => b.text.slice(0, 80));
-  log({ turn: true, text: text.slice(0, 200), notes, refused: Boolean(limit), overloaded: Boolean(s.overload?.[account]) });
+  log({ turn: true, text: text.slice(0, 200), notes, netDown: Boolean(s.netDown), refused: Boolean(limit), overloaded: Boolean(s.overload?.[account]) });
   if (limit) {
     // What the CLI sends when the account is out (the rate_limit_event first, then the error message and the result).
     const said = `You've hit your ${limit.window === 'seven_day' ? 'weekly' : '5-hour'} limit · resets 1:20pm (Europe/Budapest)`;
     out({ type: 'rate_limit_event', rate_limit_info: { status: 'rejected', resetsAt: limit.resetsAt, rateLimitType: limit.window || 'five_hour', overageStatus: 'rejected', isUsingOverage: false }, uuid: randomUUID(), session_id: session });
     out({ type: 'assistant', message: { id: `msg_${randomUUID()}`, model: '<synthetic>', role: 'assistant', content: [{ type: 'text', text: said }], stop_reason: 'stop_sequence', usage: { input_tokens: 0, output_tokens: 0 } }, parent_tool_use_id: null, session_id: session, uuid: randomUUID(), error: 'rate_limit', is_api_error_message: true, api_error_status: 429, api_error: limit.kind || 'usage_limit_reached' });
     out({ type: 'result', subtype: 'success', is_error: true, result: said, api_error_status: 429, api_error: limit.kind || 'usage_limit_reached', num_turns: 1, duration_ms: 5, duration_api_ms: 0, total_cost_usd: 0, usage: { input_tokens: 0, output_tokens: 0 }, modelUsage: {}, permission_denials: [], session_id: session, uuid: randomUUID() });
+    return;
+  }
+  if (s.netDown) {
+    // A dead line (21 Nov, the PC without an address): after its own retries the CLI ends the turn like this.
+    const said = "API Error: Can't reach the API server — check your internet or DNS (ENOTFOUND)";
+    out({ type: 'assistant', message: { id: `msg_${randomUUID()}`, model: '<synthetic>', role: 'assistant', content: [{ type: 'text', text: said }], stop_reason: 'stop_sequence', usage: { input_tokens: 0, output_tokens: 0 } }, parent_tool_use_id: null, session_id: session, uuid: randomUUID(), error: 'server_error', is_api_error_message: true, api_error: 'connection_failed' });
+    out({ type: 'result', subtype: 'success', is_error: true, result: said, api_error: 'connection_failed', num_turns: 1, duration_ms: 5, duration_api_ms: 0, total_cost_usd: 0, usage: { input_tokens: 0, output_tokens: 0 }, modelUsage: {}, permission_denials: [], session_id: session, uuid: randomUUID() });
     return;
   }
   if (s.overload?.[account]) {

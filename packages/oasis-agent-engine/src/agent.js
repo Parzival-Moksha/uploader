@@ -30,9 +30,12 @@ import { outcomeForRoster, restoreOutcome, statusForOutcome } from './outcome.js
 import { RESUME_TEXT, RESUMED_REASON } from './resume.js';
 import { normalizeSchedule } from './schedule.js';
 import { CLI, limitFrom } from './accounts.js';
+import { networkFailureFrom } from './network.js';
 
 /** Said when a turn was refused for usage and the agent goes on on another account (accounts.js). */
 export const LIMIT_RESUME_TEXT = 'Your last turn was cut off: the Claude account it ran on reached its usage limit. You now run on another account. Carry on from where you stopped.';
+/** After the internet came back (network.js). */
+export const NET_RESUME_TEXT = 'Your last turn was cut off: this PC lost its internet connection, and it is back now. Carry on from where you stopped.';
 import { registerAttachment } from './files.js';
 
 const SANDBOX_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'sandbox');
@@ -82,6 +85,10 @@ export class Agent {
     this.accountId = null;
     /** What a refusal in the running turn said ({kind, resetsAt, window}): failover once the turn has ended. */
     this.limitHit = null;
+    /** The turn running now died on the network (network.js); the engine decides at its end. */
+    this.netHit = null;
+    /** Waiting for the internet: { since, resume } (resume: a turn died on it and is carried on when it is back). */
+    this.offline = null;
     /** Every account is out: messages wait in the journal until one comes back ({ until, resume }). */
     this.parked = null;
     this.exitWaiters = [];
@@ -172,6 +179,7 @@ export class Agent {
       account: this.accountId ? { id: this.accountId, label: this.hub.accountLabel ? this.hub.accountLabel(this.accountId) : this.accountId } : null,
       accountPin: this.accountPin,
       parked: this.parked ? { until: this.parked.until } : null,
+      offline: this.offline ? { since: this.offline.since } : null,
     };
   }
 
@@ -379,6 +387,9 @@ export class Agent {
       if (limit.kind || prev) this.limitHit = { kind: limit.kind || prev?.kind || null, resetsAt: limit.resetsAt || prev?.resetsAt || null, window: limit.window || prev?.window || null };
       else this.limitHit = { kind: null, resetsAt: limit.resetsAt, window: limit.window, rejectedOnly: true };
     }
+    // The network (network.js): a turn that dies on a dead line is told to the engine at its end, which checks the line.
+    const net = networkFailureFrom(msg);
+    if (net && this.turnRunning) this.netHit = net;
     this.norm.handleStream(msg);
     if (msg.type === 'result') this.afterResult();
   }
@@ -468,9 +479,12 @@ export class Agent {
     if (this.restartPending && !this.pendingUser.size) this.kill();
     // Refused for usage: the engine marks the account out and moves this agent on (accounts.js, index.js).
     else if (this.limitHit?.kind) { const limit = this.limitHit; this.limitHit = null; this.hub.onLimit?.(this, limit); }
+    // Died on the network: the engine checks the line; offline, this agent waits and is carried on when it is back.
+    else if (this.netHit && this.hub.onNetworkFailure) { const net = this.netHit; this.netHit = null; this.hub.onNetworkFailure(this, net); }
     // A wake-up that came due while it worked goes out now (schedule.js).
     else if (this.hub.scheduleCheck) setTimeout(() => this.hub.scheduleCheck(this), 1500).unref?.();
     this.limitHit = null;
+    this.netHit = null;
   }
 
   onEvent(kind, payload) {
@@ -556,6 +570,13 @@ export class Agent {
       this.hub.checkAccountsNow?.();
       return { uuid: opts.uuid, parked: true };
     }
+    // The internet is down (network.js): nothing goes into the dead line; the message waits in the journal and goes
+    // out when the line is back. Someone wants this agent now, so the line is checked again (at most every 15 s).
+    if (this.hub.isOffline?.()) {
+      this.goOffline(this.hub.offlineSince?.() || Date.now(), false);
+      this.hub.checkNetworkNow?.();
+      return { uuid: opts.uuid, parked: true };
+    }
     // Its process runs on an account it should no longer use (out, or the village went back to the first): switch first.
     if (this.proc && this.hub.chooseAccount) {
       const want = this.hub.chooseAccount(this);
@@ -620,6 +641,26 @@ export class Agent {
     const when = until ? new Date(until).toTimeString().slice(0, 5) : 'later';
     if (!was) this.emit('notice', { subtype: 'accounts', text: `Every Claude account is out of usage: this agent waits until ${when} at the latest, then goes on by itself. The engine checks every 10 minutes, and at once when you write here, in case an account comes back sooner.` });
     this.setStatus(STATUS.ERROR, `every account is out of usage until ${when}`);
+  }
+
+  /** The internet is down: wait, saying since when, and go on when the engine says the line is back (network.js). */
+  goOffline(since, resume) {
+    const was = this.offline;
+    this.offline = { since: was?.since ?? since, resume: Boolean(resume || was?.resume) };
+    const when = new Date(this.offline.since).toTimeString().slice(0, 5);
+    if (!was) this.emit('notice', { subtype: 'network', text: `This PC has no internet since ${when}: this agent waits and goes on by itself when the line is back. The engine checks every minute; messages you send now wait and go out then.` });
+    this.setStatus(STATUS.ERROR, `offline since ${when}`);
+  }
+
+  /** The line is back: carry on if a turn died on it, deliver what waited. -> { resumed, delivered } */
+  async backOnline() {
+    const offline = this.offline;
+    if (!offline) return { resumed: false, delivered: 0 };
+    this.offline = null;
+    if (!this.proc) this.start();
+    const out = await this.flushLeftovers({ resume: offline.resume, resumeText: NET_RESUME_TEXT });
+    this.recomputeStatus();
+    return out;
   }
 
   /** An account is back: resume on it, carry on if a turn was cut off, deliver what waited. */
@@ -754,7 +795,7 @@ export class Agent {
     if (resume) {
       this.resumedAt = Date.now();
       const label = this.hub.accountLabel ? this.hub.accountLabel(this.accountId) : this.accountId;
-      this.emit('notice', { subtype: 'resumed', text: text === LIMIT_RESUME_TEXT ? `Its Claude account ran out of usage: it goes on on ${label || 'another account'}, told to carry on.` : 'The engine restarted while this agent was working: it was told to carry on.' });
+      this.emit('notice', { subtype: 'resumed', text: text === LIMIT_RESUME_TEXT ? `Its Claude account ran out of usage: it goes on on ${label || 'another account'}, told to carry on.` : text === NET_RESUME_TEXT ? 'The internet is back: it was told to carry on.' : 'The engine restarted while this agent was working: it was told to carry on.' });
     }
     // An open permission / question / plan still blocks the CLI: talking to it doesn't resolve that.
     if (this.permissions.size) this.recomputeStatus();

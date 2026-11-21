@@ -20,7 +20,20 @@ export function whenText(until: number, now = Date.now()): string {
   return `on ${d.toLocaleDateString('en', { weekday: 'short' })} at ${clock(until)}`
 }
 
-export function ParkedBanner({ agent, compact = false }: { agent: Pick<EngineAgentState, 'parked' | 'name'>; compact?: boolean }) {
+export function ParkedBanner({ agent, compact = false }: { agent: Pick<EngineAgentState, 'parked' | 'name'> & { offline?: EngineAgentState['offline'] }; compact?: boolean }) {
+  // No internet (engine network.js): said the same way, with since when.
+  if (agent.offline) {
+    return (
+      <div role="status" data-agent-offline className={`shrink-0 rounded-lg border border-amber-300/50 bg-amber-400/15 ${compact ? 'px-2.5 py-1.5' : 'px-3 py-2.5'} text-amber-50`}>
+        <div className={`${compact ? 'text-[13px]' : 'text-[16px]'} font-bold leading-snug`}>
+          Waiting: this PC has no internet since {new Date(agent.offline.since).toTimeString().slice(0, 5)}.
+        </div>
+        <div className={`${compact ? 'text-[11.5px]' : 'text-[13px]'} mt-0.5 leading-snug text-amber-50/90`}>
+          It carries on by itself when the line is back. Nothing is lost: messages you send now wait and go out then.
+        </div>
+      </div>
+    )
+  }
   if (!agent.parked) return null
   const until = agent.parked.until
   return (

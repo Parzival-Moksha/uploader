@@ -106,12 +106,14 @@ function setup() {
   if (!fs.existsSync(bin('next', 'package.json'))) {
     say('Installing the Oasis packages (once, a minute or two) …')
     const [command, ...lead] = pnpm()
+    // Corepack asks before it downloads pnpm; nobody may be there to answer (an agent runs this), so it may not ask.
+    process.env.COREPACK_ENABLE_DOWNLOAD_PROMPT = '0'
     if (runSync(command, [...lead, 'install', '--frozen-lockfile', ...(SLIM ? ['--prod=false'] : [])]) !== 0) return fail('The package install failed.')
     steps.push('packages')
   }
   if (!fs.existsSync(path.join(HOME, '.env'))) {
     const lines = ['# Written by scripts/oasis.mjs on first run. Keys are optional; add them here.', 'DATABASE_URL="file:./data/oasis.db"']
-    if (SLIM) lines.push('NEXT_PUBLIC_OASIS_PROFILE=village', 'OASIS_EDITION=slim')
+    if (SLIM) lines.push('NEXT_PUBLIC_OASIS_PROFILE=village', 'NEXT_PUBLIC_OASIS_EDITION=slim', 'OASIS_EDITION=slim')
     fs.writeFileSync(path.join(HOME, '.env'), `${lines.join('\n')}\n`)
     steps.push('.env')
   }
@@ -177,6 +179,7 @@ function webEnv() {
   if (ENGINE_PORT !== 4530) env.NEXT_PUBLIC_AGENT_ENGINE_URL = `ws://127.0.0.1:${ENGINE_PORT}/ws`
   if (SLIM) {
     env.NEXT_PUBLIC_OASIS_PROFILE = 'village'
+    env.NEXT_PUBLIC_OASIS_EDITION = 'slim'
     env.OASIS_EDITION = 'slim'
   }
   return env

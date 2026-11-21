@@ -27,6 +27,7 @@ import { Looks } from './looks.js';
 import { Accounts, CACHE_COLD_MS, CLI, accountsFilesFor, paceLine } from './accounts.js';
 import { tinyTurn } from './probe.js';
 import { LIMIT_RESUME_TEXT } from './agent.js';
+import { CHECK_EVERY_MS as NET_CHECK_EVERY_MS, Network, fileCheck, spanText } from './network.js';
 import { Scheduler, DEFAULT_PROMPT, EVERY, REPEATS, appointmentLabel, describeSchedule, localDate, normalizeAppointment, normalizeSchedule, parseWhen, scheduleSettingsFileFor } from './schedule.js';
 import os from 'node:os';
 import { readOlderHistory } from './history.js';
@@ -58,7 +59,8 @@ const ME_SCRIPT = path.resolve(HERE, '..', 'scripts', 'me.mjs').replace(/\\/g, '
 const looks = new Looks({
   file: path.join(CHARACTERS_DIR, '_looks.json'),
   publicDir: path.join(ROOT, 'public'),
-  enabled: process.env.OASIS_LOOKS !== '0',
+  // Each description is a small `claude` call on the user's own plan: the packaged Oasis makes none unless asked (OASIS_LOOKS=1).
+  enabled: process.env.OASIS_LOOKS === '1' || (process.env.OASIS_EDITION !== 'slim' && process.env.OASIS_LOOKS !== '0'),
   log: (...a) => hub.log(...a),
   // A new description goes into the card of everyone who wears that avatar.
   onDescribed: (avatar) => { for (const a of agents.values()) if (a.sessionId && characters.read(a.sessionId).fields.avatar === avatar) refreshLook(a.sessionId); },
@@ -85,8 +87,16 @@ const accounts = new Accounts({
   log: (...a) => console.log(new Date().toISOString().slice(11, 19), ...a),
   onChange: () => accountsChanged(),
 });
+// The internet line (network.js). Tests: OASIS_NETWORK_CHECK_FILE ("down" = offline); OASIS_NETWORK_EVERY_MS.
+const network = new Network({
+  check: process.env.OASIS_NETWORK_CHECK_FILE ? fileCheck(process.env.OASIS_NETWORK_CHECK_FILE) : undefined,
+  now,
+  log: (...a) => console.log(new Date().toISOString().slice(11, 19), ...a),
+  onChange: (view) => { broadcast({ type: 'network', ...view }); scheduleSnapshot(); },
+});
 const scheduler = new Scheduler({
-  blocked: () => accounts.allExhausted(),
+  // Held while every account is out or the line is down; a wake-up that came due goes out once afterwards.
+  blocked: () => accounts.allExhausted() || network.offline,
   agents: () => ownedAgents(),
   now,
   settingsFile: process.env.OASIS_SCHEDULE_SETTINGS || scheduleSettingsFileFor(ROSTER_FILE),
@@ -156,6 +166,11 @@ const hub = {
   accountBackAt: (id) => accounts.view().accounts.find((a) => a.id === id)?.exhaustedUntil || null,
   now: () => now(),
   onLimit: (agent, limit) => failover(agent, limit),
+  /** The internet (network.js). */
+  isOffline: () => network.offline,
+  offlineSince: () => network.offlineSince,
+  checkNetworkNow: () => { void network.askedNow().then((r) => { if (r?.changed === 'up') void backOnline(r.offlineFor); }).catch(() => {}); },
+  onNetworkFailure: (agent, failure) => onNetworkFailure(agent, failure),
   /** The who-you-are note for an agent and what it was made from (agent.js sends it when due). */
   character: (agent) => characterFor(agent),
   /** Where this engine listens: agents get it as OASIS_ENGINE_URL. */
@@ -348,6 +363,78 @@ function failover(agent, limit) {
     other.sendChain = other.sendChain.then(() => other.switchAccount(`${accountLabel(from)} is out of usage`)).catch((e) => hub.log(`[${other.name}] move failed: ${e.message}`));
   }
 }
+
+// ─── the internet line (network.js) ───────────────────────────────────────────────────────────────
+/** Agents carried on at once when the line is back, and the pause between those groups (two dozen must not fire together). */
+const NET_RESUME_GROUP = 3;
+const NET_RESUME_GAP_MS = Number(process.env.OASIS_NET_RESUME_GAP_MS || 20_000);
+/** A turn that dies on the network while the check says the line works: carried on again at most this often. */
+const NET_BLIP_RETRIES = 3;
+const NET_BLIP_WINDOW_MS = 30 * 60_000;
+let netResuming = false;
+
+/**
+ * A turn of `agent` died on the network (agent.js afterResult). The agent waits (it is carried on later); the engine
+ * checks the line. Down: the village is offline since that turn. Up (a blip): it is carried on now, at most
+ * NET_BLIP_RETRIES times in half an hour; after that it stays in error, as before, for the owner to look at.
+ */
+function onNetworkFailure(agent, failure) {
+  const at = now();
+  hub.log(`[${agent.name}] the turn died on the network (${failure.text || failure.kind})`);
+  agent.goOffline(network.offlineSince ?? at, true);
+  void network.checkNow({ since: at }).then((r) => {
+    if (r.changed === 'up') return backOnline(r.offlineFor);
+    if (!r.online) return;
+    agent.netRetries = (agent.netRetries || []).filter((t) => at - t < NET_BLIP_WINDOW_MS);
+    if (agent.netRetries.length >= NET_BLIP_RETRIES) {
+      agent.offline = null;
+      agent.recomputeStatus();
+      hub.log(`[${agent.name}] the network failed it ${NET_BLIP_RETRIES} times in 30 min while the line checks fine: left in error`);
+      return;
+    }
+    agent.netRetries.push(at);
+    agent.sendChain = agent.sendChain.then(() => agent.backOnline()).catch((e) => hub.log(`[${agent.name}] carrying on after a network blip failed: ${e.message}`));
+  }).catch((e) => hub.log(`network: check failed: ${e.message}`));
+}
+
+/**
+ * The line is back: the agents that waited go on, NET_RESUME_GROUP at a time with NET_RESUME_GAP_MS between groups
+ * (each with the carry-on note if its turn died; held messages go out), held wake-ups go out once (the scheduler), and
+ * the owner gets one Telegram line: offline from when to when, who was carried on.
+ */
+async function backOnline(offlineFor) {
+  if (netResuming) return;
+  netResuming = true;
+  try {
+    const waiting = ownedAgents().filter((a) => a.offline);
+    const carried = waiting.filter((a) => a.offline.resume).map((a) => a.name);
+    const from = offlineFor?.from ? new Date(offlineFor.from).toTimeString().slice(0, 5) : '?';
+    const to = offlineFor?.to ? new Date(offlineFor.to).toTimeString().slice(0, 5) : new Date(now()).toTimeString().slice(0, 5);
+    const span = offlineFor?.from && offlineFor?.to ? ` (${spanText(offlineFor.to - offlineFor.from)})` : '';
+    const who = carried.length ? `carrying on ${carried.length > 6 ? `${carried.slice(0, 6).join(', ')} and ${carried.length - 6} more` : carried.join(', ')}` : 'no turn had died on it';
+    const line = `🌐 This PC was offline from ${from} to ${to}${span}. The line is back: ${who}; held wake-ups go out once.`;
+    hub.log(`network: ${line}`);
+    try { telegram?.say(line); } catch { /* no Telegram: the HUD said it */ }
+    for (let i = 0; i < waiting.length; i += NET_RESUME_GROUP) {
+      if (network.offline) break; // down again: the rest keep waiting
+      const group = waiting.slice(i, i + NET_RESUME_GROUP);
+      await Promise.all(group.map((a) => (a.sendChain = a.sendChain.then(() => a.backOnline()).catch((e) => hub.log(`[${a.name}] carrying on after the outage failed: ${e.message}`)))));
+      if (i + NET_RESUME_GROUP < waiting.length) await new Promise((r) => setTimeout(r, NET_RESUME_GAP_MS));
+    }
+    for (const a of ownedAgents()) scheduler.check?.(a);
+  } finally {
+    netResuming = false;
+  }
+}
+
+// While offline, the line is checked every minute (OASIS_NETWORK_EVERY_MS for tests); while online, every 5 minutes
+// (a name lookup and a HEAD: a few hundred bytes), so an idle village knows too, holds its wake-ups, and /network is
+// never more than 5 minutes stale for anything else on this PC that asks.
+const NET_ONLINE_EVERY_MS = Number(process.env.OASIS_NETWORK_ONLINE_EVERY_MS || 5 * 60_000);
+setInterval(() => {
+  if (!network.offline && network.checkedAt && now() - network.checkedAt < NET_ONLINE_EVERY_MS) return;
+  void network.checkNow().then((r) => { if (r.changed === 'up') void backOnline(r.offlineFor); }).catch(() => {});
+}, Number(process.env.OASIS_NETWORK_EVERY_MS || NET_CHECK_EVERY_MS)).unref();
 
 function tellOutage() {
   if (outageTold) return;
@@ -1005,7 +1092,15 @@ const server = http.createServer(async (req, res) => {
   if (!requestAllowed(req, url)) return sendJson(res, 403, { error: 'not allowed: this Oasis asks for its local key (open it with /oasis or scripts/oasis.mjs)' });
   try {
     if (req.method === 'GET' && url.pathname.startsWith('/file/')) return serveAttachment(url.pathname.slice('/file/'.length), res, req);
-    if (req.method === 'GET' && url.pathname === '/health') return sendJson(res, 200, { ok: true, agents: agents.size, clients: clients.size, restart: restartInfo(), accounts: accounts.view(), pace: paceLines(), claude: resolveClaude(), ears: earsStatus(), clipWatchdog: clipWatchdogState(), liveScribe: { model: LIVE_SCRIBE_MODEL, ready: hasLiveScribe() }, places: { missions: setting('missionsDir'), grill: setting('grillFile'), questions: setting('questionsDir') } });
+    // Is this PC online? For anything on it (Tyler's launcher): { online, offlineSince, checkedAt, why }. No token needed.
+    // ?fresh=1: check the line now first (at most every 15 s; otherwise the last check, at most 5 minutes old).
+    if (req.method === 'GET' && url.pathname === '/network') {
+      if (url.searchParams.get('fresh') === '1') {
+        try { const r = await network.askedNow(); if (r?.changed === 'up') void backOnline(r.offlineFor); } catch { /* the view says what is known */ }
+      }
+      return sendJson(res, 200, { ok: true, ...network.view() });
+    }
+    if (req.method === 'GET' && url.pathname === '/health') return sendJson(res, 200, { ok: true, agents: agents.size, clients: clients.size, restart: restartInfo(), network: network.view(), accounts: accounts.view(), pace: paceLines(), claude: resolveClaude(), ears: earsStatus(), clipWatchdog: clipWatchdogState(), liveScribe: { model: LIVE_SCRIBE_MODEL, ready: hasLiveScribe() }, places: { missions: setting('missionsDir'), grill: setting('grillFile'), questions: setting('questionsDir') } });
     if (req.method === 'GET' && url.pathname === '/api/agents') return sendJson(res, 200, snapshots());
     if (req.method === 'GET' && url.pathname === '/api/sessions') return sendJson(res, 200, await commands.listSessions({}));
     if (req.method === 'POST' && url.pathname === '/hook') {
@@ -1091,7 +1186,7 @@ wss.on('connection', (ws, req) => {
   for (const [id, list] of backlog) if (agents.has(id)) bl[id] = list;
   const show = pendingShow && Date.now() - pendingShow.at < 90000 && agents.has(pendingShow.agentId) ? pendingShow.agentId : undefined;
   pendingShow = null;
-  ws.send(JSON.stringify({ type: 'hello', agents: snapshots(), backlog: bl, server: { port: PORT, claude: resolveClaude().how, restart: restartInfo(), accounts: accounts.view() }, ...(show ? { show } : {}) }));
+  ws.send(JSON.stringify({ type: 'hello', agents: snapshots(), backlog: bl, server: { port: PORT, claude: resolveClaude().how, restart: restartInfo(), accounts: accounts.view(), network: network.view() }, ...(show ? { show } : {}) }));
   ws.on('message', async (raw) => {
     let msg;
     try { msg = JSON.parse(String(raw)); } catch { return; }

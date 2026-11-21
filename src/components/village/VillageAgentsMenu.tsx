@@ -12,7 +12,7 @@ import { useOasisStore } from '../../store/oasisStore'
 import { selectAttentionQueue, type EngineAgentState } from '../../store/slices/agentEngineSlice'
 import { getAgentEngineClient } from '../../lib/agent-engine-client'
 import { formatElapsed, subagentLook, visibleSubagents, type SubagentLook } from '../../lib/village/village-subagents'
-import { focusVillageAgent, focusVillageSubagent, getSessionPanelGeometry, getVillageScreen, subscribeVillageScreen } from './village-actions'
+import { focusVillageAgent, focusVillageSubagent, getSessionPanelGeometry, getVillageScreen, openVillagePicker, subscribeVillageScreen } from './village-actions'
 import { VILLAGE_HELPERS_COLOR, VILLAGE_OBSERVED_COLOR, cwdLabel, statusColor, villageAgentLook } from './village-status'
 import { wakeLine } from '../../lib/village/village-schedule'
 import { accountPieces } from '../../lib/village/village-accounts'
@@ -317,7 +317,18 @@ export function VillageAgentsMenu() {
             </div>
           )}
           {rows.length === 0 && (
-            <div className="px-2 py-2 text-[11px] leading-snug text-white/55">No agents yet. Stand in the circle and press E, or use + Summon.</div>
+            // A newcomer's first sentence: what to do, and the button to do it (the plaza's own sign is often behind them).
+            <div className="px-2 py-2 text-[11px] leading-snug text-white/70">
+              <div>No agents yet. Bring in one of your Claude Code sessions, or start a new one.</div>
+              <button
+                type="button"
+                className="mt-2 w-full rounded-md border border-emerald-300/45 bg-emerald-400/15 px-3 py-1.5 text-[12px] font-bold text-emerald-100 hover:bg-emerald-400/30"
+                onClick={() => openVillagePicker(true)}
+              >
+                Summon an agent
+              </button>
+              <div className="mt-1.5 text-white/45">Or stand in the circle on the plaza and press E.</div>
+            </div>
           )}
           {rows.map(row => {
             const focused = row.id === focusedId

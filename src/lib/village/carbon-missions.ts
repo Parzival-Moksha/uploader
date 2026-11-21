@@ -40,6 +40,10 @@ export interface CarbonMission {
   answer: string
   took: number | null
   hit: string
+  /** He pressed "not enough to decide": when, and a fingerprint of the body as it was then. */
+  unclear: { date: string; hash: string } | null
+  /** Still unclear: the body has not changed since. Such a mission sinks below the other open ones. */
+  sinking: boolean
   /** Everything under the title. */
   body: string
   markdown: string
@@ -70,6 +74,7 @@ export function parseCarbonMission(file: string, text: string): CarbonMission {
   const { head, end } = readHeader(lines)
   const titleAt = lines.findIndex((line, index) => index >= end && line.startsWith('# '))
   const title = titleAt >= 0 ? lines[titleAt].slice(2).trim() : file.replace(/\.md$/i, '').replace(/^\d{4}-\d{2}-\d{2}_/, '').replace(/[-_]+/g, ' ')
+  const body = lines.slice(titleAt >= 0 ? titleAt + 1 : end).join('\n').trim()
   const nums: Record<string, number> = {}
   for (const match of (head.score || '').matchAll(/(ease|impact|urgency)\s*(\d)/g)) nums[match[1]] = Number(match[2])
   const complete = 'ease' in nums && 'impact' in nums && 'urgency' in nums
@@ -94,9 +99,96 @@ export function parseCarbonMission(file: string, text: string): CarbonMission {
     answer: head.answer || '',
     took: num(head.took),
     hit: head.hit || '',
-    body: lines.slice(titleAt >= 0 ? titleAt + 1 : end).join('\n').trim(),
+    ...unclearOf(head.unclear, body),
+    body,
     markdown,
   }
+}
+
+/** A short, stable fingerprint of a mission's body (FNV-1a), to tell whether the asker has changed it. */
+export function bodyHash(body: string): string {
+  let hash = 2166136261
+  const text = body.replace(/\r\n?/g, '\n').trim()
+  for (let i = 0; i < text.length; i += 1) {
+    hash ^= text.charCodeAt(i)
+    hash = Math.imul(hash, 16777619) >>> 0
+  }
+  return hash.toString(16).padStart(8, '0')
+}
+
+function unclearOf(value: string | undefined, body: string): { unclear: CarbonMission['unclear']; sinking: boolean } {
+  const match = /^(\d{4}-\d{2}-\d{2})\s+([0-9a-f]{8})$/.exec((value || '').trim())
+  if (!match) return { unclear: null, sinking: false }
+  return { unclear: { date: match[1], hash: match[2] }, sinking: match[2] === bodyHash(body) }
+}
+
+/** "Not enough to decide": noted in the header with the body's fingerprint; the mission sinks until the body changes. */
+export function markUnclear(text: string, date: string): string {
+  const markdown = text.replace(/^﻿/, '').replace(/\r\n?/g, '\n')
+  const lines = markdown.split('\n')
+  const { end } = readHeader(lines)
+  const { body } = parseCarbonMission('x.md', markdown)
+  const header = lines.slice(0, end).filter(line => line.slice(0, line.indexOf(':')).trim().toLowerCase() !== 'unclear')
+  header.push(`unclear: ${date} ${bodyHash(body)}`)
+  return [...header, ...lines.slice(end)].join('\n')
+}
+
+/**
+ * Who to talk to about a mission: the agent named in `by` if it is in the village, else Anorak (a mission asked
+ * by Anorak or one of his helpers goes to him). Names match whole, any case; "Hacker (via Anorak)" finds Hacker.
+ */
+export function askingAgent<T extends { id: string; name: string }>(by: string, agents: T[]): T | null {
+  const wanted = by.toLowerCase().replace(/\(.*?\)/g, ' ').replace(/\s+/g, ' ').trim()
+  const byName = (name: string) => agents.find(agent => (agent.name || '').toLowerCase() === name)
+  const anorak = byName('anorakdev') || agents.find(agent => /^anorak/i.test(agent.name || '')) || null
+  if (!wanted || /anorak|helper|subagent/.test(wanted)) return anorak
+  const exact = byName(wanted)
+  if (exact) return exact
+  const first = wanted.split(/[,;+&]| and /)[0].trim()
+  return byName(first) || agents.find(agent => first.length > 1 && (agent.name || '').toLowerCase().startsWith(first)) || anorak
+}
+
+export type BodyPart = { kind: 'text'; text: string } | { kind: 'command'; text: string }
+
+/** A mission's body with its commands taken out, to stand in a box with a copy button: fenced blocks, and lines that are only `code`. */
+export function splitCommands(body: string): BodyPart[] {
+  const parts: BodyPart[] = []
+  let text: string[] = []
+  const flush = () => {
+    if (text.join('\n').trim()) parts.push({ kind: 'text', text: text.join('\n') })
+    text = []
+  }
+  const lines = body.replace(/\r\n?/g, '\n').split('\n')
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i]
+    const fence = /^\s*(```|~~~)/.exec(line)
+    if (fence) {
+      const code: string[] = []
+      let j = i + 1
+      while (j < lines.length && !lines[j].trim().startsWith(fence[1])) code.push(lines[j++])
+      flush()
+      if (code.join('').trim()) parts.push({ kind: 'command', text: code.join('\n').replace(/\s+$/, '') })
+      i = j
+      continue
+    }
+    const only = /^\s*(?:[-*]\s+|\d+\.\s+)?`([^`]+)`\s*$/.exec(line)
+    if (only) {
+      flush()
+      parts.push({ kind: 'command', text: only[1] })
+      continue
+    }
+    text.push(line)
+  }
+  flush()
+  return parts
+}
+
+/** The message the asking agent gets when he presses "not enough to decide". */
+export function formatUnclearNote(m: Pick<CarbonMission, 'file' | 'title'>): string {
+  return [
+    `[Mindcraft · Carbon] The owner could not decide "${m.title}" (docs/questions/${m.file}) from the file.`,
+    'Add what is missing to the file itself (the context, the command to run, the text to approve, what a yes and a no lead to), not in your thread. Until the file changes, the mission sits at the bottom of his list.',
+  ].join('\n')
 }
 
 export function isCarbonFile(name: string): boolean {
@@ -108,6 +200,8 @@ export type CarbonSort = 'priority' | 'oldest' | 'newest' | 'urgency' | 'impact'
 /** Open first, then parked, then answered; within each, by `sort` (priority by default), ties by date then name. */
 export function sortCarbon<T extends Pick<CarbonMission, 'file' | 'state' | 'asked' | 'priority' | 'urgency' | 'impact' | 'ease'>>(list: T[], sort: CarbonSort = 'priority'): T[] {
   const stateOrder: Record<CarbonState, number> = { open: 0, parked: 1, answered: 2 }
+  // An open mission he couldn't decide sinks below the other open ones until its body changes.
+  const rank = (m: T) => stateOrder[m.state] + ((m as { sinking?: boolean }).sinking && m.state === 'open' ? 0.5 : 0)
   const key = (m: T): number => {
     if (sort === 'priority') return -(m.priority ?? -1)
     if (sort === 'urgency') return -(m.urgency ?? 0)
@@ -116,7 +210,7 @@ export function sortCarbon<T extends Pick<CarbonMission, 'file' | 'state' | 'ask
     return 0
   }
   return [...list].sort((a, b) => {
-    const s = stateOrder[a.state] - stateOrder[b.state]
+    const s = rank(a) - rank(b)
     if (s) return s
     if (sort === 'oldest' || sort === 'newest') {
       const d = a.asked < b.asked ? -1 : a.asked > b.asked ? 1 : 0

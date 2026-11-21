@@ -623,6 +623,11 @@ export class AgentEngineClient {
         this.dispatch({ type: 'accounts', accounts })
         return
       }
+      case 'network': {
+        const { type: _type, ...network } = message
+        this.dispatch({ type: 'network', network })
+        return
+      }
       case 'event': {
         const event = message.event
         if (!event || typeof event !== 'object') return

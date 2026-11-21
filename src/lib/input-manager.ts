@@ -7,7 +7,7 @@
 // ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
 
 import { create } from 'zustand'
-import { LOCK_ANSWER_MS, installDragLook, isDragLookOn, noteLockFailed, noteLockGranted } from './drag-look'
+import { LOCK_ANSWER_MS, installDragLook, isDragLookOn, lockFailureCounts, noteLockFailed, noteLockGranted } from './drag-look'
 import { useEffect } from 'react'
 import { installPointerRelease, lockRequestPending, noteLockRequested, noteLockSettled } from './pointer-release'
 
@@ -491,15 +491,18 @@ export const useInputManager = create<InputManagerState>((set, get) => ({
     }
 
     if (!stillNeedsLock()) return
-    // This browser never gives the page the mouse (Claude Code's built-in browser): the camera turns by dragging.
-    if (isDragLookOn()) return
+    // A failure counts only when the window had focus and a click asked (lib/drag-look.ts lockFailureCounts).
+    const activation = (navigator as Navigator & { userActivation?: { isActive: boolean } }).userActivation
+    const fair = lockFailureCounts({ focused: document.hasFocus(), userActivated: activation ? activation.isActive : true })
+    // Drag look is on (this browser refused): ask again only on a click, so a browser that can lock gets it back.
+    if (isDragLookOn() && !fair) return
     // One request at a time: a second one while the first is on its way made the browser lock twice in a row.
     if (lockRequestPending()) return
     noteLockRequested()
     // A refusal, or no answer at all (some embedded panes neither lock nor say no), counts once per request
     // (lib/drag-look.ts decides when the camera turns by dragging instead).
     let failed = false
-    const fail = (reason: string) => { if (!failed) { failed = true; noteLockSettled(); noteLockFailed(reason) } }
+    const fail = (reason: string) => { if (!failed) { failed = true; noteLockSettled(); if (fair) noteLockFailed(reason) } }
     setTimeout(() => { if (!document.pointerLockElement && stillNeedsLock()) fail('no answer') }, LOCK_ANSWER_MS)
     try {
       const result = (canvas as HTMLElement).requestPointerLock() as unknown

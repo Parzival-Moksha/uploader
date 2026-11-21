@@ -116,7 +116,8 @@ import { PerfHeartbeat } from './forge/PerfHeartbeat'
 import { SunShadows } from './forge/SunShadows'
 import { RenderHygiene } from './forge/RenderHygiene'
 import { FlopSaverDriver } from './forge/FlopSaverDriver'
-import { AwayModeDriver, AwayOverlay } from './forge/AwayMode'
+import { AwayModeDriver, AwayOverlay, useAwayState } from './forge/AwayMode'
+import { CameraBlackbox } from './forge/CameraBlackbox'
 import { useFlopCaps } from '@/lib/use-flop-caps'
 import { GameMenu, OPEN_CONFIG_EVENT, OPEN_HELP_EVENT } from './game-menu/GameMenu'
 import { CharacterMenu } from './village/CharacterMenu'
@@ -1356,6 +1357,8 @@ function RookieMerlinInteractionOverlay({
 }
 
 export default function Scene() {
+  // Away mode's rest drives the Canvas's frameloop (see the Canvas below).
+  const awayResting = useAwayState().resting
   const hostedMode = useIsHostedOasis()
   // ─═̷─ Village profile (?profile=village or NEXT_PUBLIC_OASIS_PROFILE=village): engine agents at
   // desks; hosted / combat / quest / realtime-NPC / forms / multiplayer layers stay unmounted. ─═̷─
@@ -2069,6 +2072,9 @@ export default function Scene() {
   const CanvasContent = (
     <Canvas
       id="uploader-canvas"
+      // Away mode: R3F's Canvas re-applies its frameloop (default 'always') on every render, which undid a rest
+      // AwayModeDriver set (frames kept drawing under 'Resting', 2026-11-21). The Canvas follows the rest itself.
+      frameloop={awayResting ? 'never' : 'always'}
       camera={{ position: [12, 10, 12], fov: 50, near: 0.1, far: 500 }}
       gl={{ antialias: true, stencil: true }}
       onCreated={({ gl }) => {
@@ -2148,6 +2154,8 @@ export default function Scene() {
         <FlopSaverDriver />
         {/* Away mode: the world stops drawing while the owner is away (Settings → Graphics → Rest when away, F8) */}
         <AwayModeDriver />
+        {/* Last: the camera black box records where every frame left the camera (saved on a spin). */}
+        <CameraBlackbox />
         {/* The camera's slow drift behind the main menu (Esc). No frame callback while the menu is closed. */}
         <GameMenuCameraDrift />
         {/* The selected agent's effect and right-click-to-send. Nothing mounted while no agent is selected. */}

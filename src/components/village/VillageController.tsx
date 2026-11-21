@@ -157,8 +157,9 @@ export function VillageController() {
       <VillageImageViewer />
       <MarkdownReader />
       <VillageMissionReader />
-      {/* The Mindcraft work counter: today's time toward the vow, bottom left. */}
-      <WorkVowHud />
+      {/* The Mindcraft work counter: today's time toward the vow, bottom left. It is the owner's own discipline,
+          so the packaged Oasis (NEXT_PUBLIC_OASIS_EDITION=slim) does not greet a newcomer with "3 h to go". */}
+      {process.env.NEXT_PUBLIC_OASIS_EDITION !== 'slim' && <WorkVowHud />}
     </>
   )
 }
