@@ -16,7 +16,9 @@
 import { registerLipSync, unregisterLipSync, resumeLipSyncContext, type LipSyncController } from '../lip-sync'
 import { PLAYER_AVATAR_LIPSYNC_ID } from '../player-avatar-runtime'
 import { createWLipSyncLegacyController } from '../wlipsync-driver'
-import { isLiveDictationSupported, startLiveDictation, type DictationLine, type LiveDictation, type LiveDictationHandlers } from './live-dictation'
+import { isLiveDictationSupported, type DictationLine, type LiveDictation, type LiveDictationHandlers } from './live-dictation'
+import { isBrowserDictationSupported } from './browser-dictation'
+import { startVillageDictation } from './dictation-route'
 
 export type DictationPhase = 'idle' | 'starting' | 'listening' | 'stopping'
 
@@ -41,7 +43,8 @@ interface Store {
   listeners: Set<() => void>
   version: number
   saveTimer: ReturnType<typeof setTimeout> | null
-  starter: (handlers: LiveDictationHandlers) => Promise<LiveDictation>
+  /** Tests only: a fake dictation. Otherwise every press goes through startVillageDictation (dictation-route.ts). */
+  testStarter?: (handlers: LiveDictationHandlers) => Promise<LiveDictation>
   lipSync: boolean
 }
 
@@ -65,7 +68,6 @@ const store: Store = g.__oasisVillageDictation ??= {
   listeners: new Set(),
   version: 0,
   saveTimer: null,
-  starter: startLiveDictation,
   lipSync: true,
 }
 
@@ -196,7 +198,7 @@ export async function startDictation(agentId: string, lang = 'en'): Promise<void
   notify(false)
   const mine = () => store.sessions.get(agentId) === session
   try {
-    const dictation = await store.starter({
+    const dictation = await (store.testStarter || startVillageDictation)({
       lang,
       onStream: stream => { void startLipSync(session, stream) },
       onStatus: text => { if (!mine()) return; session.status = text; notify(false) },
@@ -274,7 +276,7 @@ export function dictationView(agentId: string): DictationView {
     level: session?.level || 0,
     status: session?.status || '',
     error: store.errors.get(agentId) || '',
-    supported: isLiveDictationSupported(),
+    supported: isLiveDictationSupported() || isBrowserDictationSupported(),
   }
 }
 
@@ -303,8 +305,8 @@ export function dictationVersion(): number {
 }
 
 /** Tests: a fake live dictation, no lip sync, no saved drafts. */
-export function __setDictationStarterForTest(starter: Store['starter']): void {
-  store.starter = starter
+export function __setDictationStarterForTest(starter: NonNullable<Store['testStarter']>): void {
+  store.testStarter = starter
   store.lipSync = false
   store.drafts.clear()
   store.sessions.clear()

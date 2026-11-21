@@ -9,6 +9,7 @@ import { useOasisStore } from '../../store/oasisStore'
 import { effectiveStatus, selectAttentionQueue } from '../../store/slices/agentEngineSlice'
 import { playVillageChime, unlockVillageAudio } from './village-sound'
 import { loadSeen, markSeen, planUnseenRestore, saveSeen } from '../../lib/village/village-seen'
+import { openMissionCounts, type MissionLike } from '../../lib/village/mission-attention'
 import { VillageImageViewer } from './VillageImageViewer'
 import { MarkdownReader } from './MarkdownReader'
 import { VillageMissionReader } from './VillageMissionReader'
@@ -124,6 +125,42 @@ export function VillageController() {
   useEffect(() => {
     const timer = window.setInterval(updateVillageProximity, 150)
     return () => window.clearInterval(timer)
+  }, [])
+
+  // The missions agents wrote for the owner (docs/questions): an agent with an open one needs him (the "?" and its
+  // number, N, the chime, walking up). Read every 30 s, and when an agent joins.
+  useEffect(() => {
+    let missions: MissionLike[] = []
+    let stopped = false
+    const apply = () => {
+      const engine = useOasisStore.getState().agentEngine
+      const agents = engine.order.map(id => engine.agents[id]).filter(Boolean).map(agent => ({ id: agent.id, name: agent.name }))
+      useOasisStore.getState().agentEngineDispatch({ type: 'missions/set', counts: openMissionCounts(missions, agents), at: Date.now() })
+    }
+    const poll = async () => {
+      try {
+        const response = await fetch('/api/village/questions', { cache: 'no-store' })
+        if (!response.ok || stopped) return
+        const data = await response.json() as { missions?: MissionLike[] }
+        missions = Array.isArray(data.missions) ? data.missions : []
+        apply()
+      } catch {
+        // No questions folder here (a hosted page): nobody waits on a mission.
+      }
+    }
+    void poll()
+    const timer = window.setInterval(() => { void poll() }, 30_000)
+    let order = useOasisStore.getState().agentEngine.order
+    const unsubscribe = useOasisStore.subscribe(state => {
+      if (state.agentEngine.order === order) return
+      order = state.agentEngine.order
+      apply()
+    })
+    return () => {
+      stopped = true
+      window.clearInterval(timer)
+      unsubscribe()
+    }
   }, [])
 
   // An agent starts needing you: a chime (heard from a background tab too) and "(2) " in the tab

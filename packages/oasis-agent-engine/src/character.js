@@ -101,6 +101,7 @@ export const GRILL_FILE = setting('grillFile');
 // Carbon tab reads the same place (data/questions next to data/missions), so a question an agent writes shows up there.
 export const QUESTIONS_DIR = setting('questionsDir') || path.join(OASIS_ROOT, 'data', 'questions');
 ensureQuestionsFolder(QUESTIONS_DIR);
+export const DECISION_LINE = 'If you need a decision from the owner, write a mission file; a finished report needs no question at its end.';
 export const ASK_LATER = askLaterLine({ questionsDir: QUESTIONS_DIR, grillFile: GRILL_FILE });
 export const ROLE_MAX = 240;
 export const WHO_MAX = 1200;
@@ -145,6 +146,9 @@ export function characterNote(card, { file = '', tools = '', showFiles = true } 
   // Not for a session in another window: it may not have the tool, so the mod says it there only when it does.
   if (showFiles) parts.push(SHOW_FILES);
   if (ASK_LATER) parts.push(ASK_LATER);
+  // The village tells "needs you" from "finished" by this (2026-11-21): a mission file walks the agent up to the owner,
+  // a reply ending with a question no longer does.
+  if (ASK_LATER) parts.push(DECISION_LINE);
   if (file) parts.push(`Your card is the file ${file}.`);
   return `[Oasis you: ${parts.map((p) => (/[.!?]$/.test(p) ? p : `${p}.`)).join(' ').replace(/\]/g, ')')}]`;
 }

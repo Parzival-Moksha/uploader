@@ -259,6 +259,10 @@ export class AgentEngineClient {
     return this.cmd('warmEars', engine ? { engine } : {})
   }
 
+  installEars() {
+    return this.cmd('installEars', {})
+  }
+
   spawnAgent(args: SpawnAgentArgs): Promise<EngineAgentSnapshot> {
     return this.cmd('spawnAgent', args)
   }

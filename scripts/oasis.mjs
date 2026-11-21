@@ -294,7 +294,7 @@ async function status() {
   say(`Engine (port ${ENGINE_PORT}): ${engine ? 'running' : 'not running'}`)
   say(`World  (port ${WEB_PORT}): ${web ? 'running' : 'not running'}`)
   say(`Edition: ${SLIM ? 'slim' : 'workshop'}, in ${HOME}`)
-  say(`Local key: ${REQUIRE_TOKEN ? 'asked for' : 'not asked for'}`)
+  say(`Local key: ${REQUIRE_TOKEN ? 'on (only this machine may talk to the Oasis; your browser got the key when the Oasis opened)' : 'off'}`)
   return 0
 }
 

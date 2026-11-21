@@ -97,6 +97,24 @@ async function ensurePython(status) {
   return setupPromise;
 }
 
+/**
+ * Settings' "Install the local helper" (the page, Settings > Sound): the same yes as a second press of the mic,
+ * remembered, and the setup starts at once. Asked again, it says how far it is. -> { state, text?, error? }
+ * state: ready (installed), installing, failed, off (OASIS_EARS_INSTALL=0). The speech model itself comes on first use.
+ */
+let install = { state: 'idle', text: '', error: '' };
+export function startEarsInstall(log) {
+  if (earsPaths().python) return { state: 'ready' };
+  if (process.env.OASIS_EARS_INSTALL === '0') return { state: 'off', error: 'Voice typing is switched off on this machine (OASIS_EARS_INSTALL=0).' };
+  if (install.state === 'installing') return { ...install };
+  saveSetting('earsInstall', 'yes');
+  install = { state: 'installing', text: 'Starting…', error: '' };
+  ensurePython((text) => { install.text = text; })
+    .then(() => { install = { state: 'ready', text: '', error: '' }; log?.('ears: installed from Settings'); warmEars(log); })
+    .catch((e) => { install = { state: 'failed', text: '', error: e.message }; log?.(`ears: install from Settings failed: ${e.message}`); });
+  return { ...install };
+}
+
 // --- the helper: one model, kept warm ----------------------------------------------------------------------------------
 class Helper extends EventEmitter {
   constructor(python, models, log) {

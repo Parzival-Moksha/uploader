@@ -253,10 +253,55 @@ export function answerCarbonMission(text: string, input: CarbonAnswer): string {
   set('state', input.state)
   if (input.state === 'answered') set('answered', input.date)
   else set('parked', input.date)
-  set('answer', input.answer)
+  // A long answer, or one with line breaks (a pasted terminal), keeps the header valid: its first line goes in
+  // `answer:`, the whole of it under "## His answer" at the end of the body (replacing an earlier one).
+  const full = input.answer.replace(/\r\n?/g, '\n').replace(/\s+$/, '')
+  const long = full.includes('\n') || full.length > ANSWER_LINE_MAX
+  set('answer', long ? shortAnswer(full) : full)
   if (input.took !== null && Number.isFinite(input.took)) set('took', String(Math.max(0, Math.round(input.took))))
-  const body = rest.length && rest[0].trim() ? ['', ...rest] : rest
+  let body = rest.length && rest[0].trim() ? ['', ...rest] : rest
+  const at = body.findIndex(line => /^##\s+His answer\s*$/i.test(line))
+  if (at >= 0) {
+    let next = body.findIndex((line, i) => i > at && /^##?\s/.test(line))
+    if (next < 0) next = body.length
+    body = [...body.slice(0, at), ...body.slice(next)]
+    while (body.length && !body[body.length - 1].trim()) body.pop()
+  }
+  if (long) body = [...body, ...(body.length && body[body.length - 1].trim() ? [''] : []), '## His answer', '', full, '']
   return [...header, ...body].join('\n')
+}
+
+/** The longest answer kept whole in the header line. */
+export const ANSWER_LINE_MAX = 200
+
+/** The header's line for a long answer: its first line, cut at a word, with "…" and a pointer to the rest. */
+export function shortAnswer(full: string): string {
+  const first = full.split('\n').find(line => line.trim())?.trim() || ''
+  const cut = first.length > ANSWER_LINE_MAX ? `${first.slice(0, first.lastIndexOf(' ', ANSWER_LINE_MAX) > 60 ? first.lastIndexOf(' ', ANSWER_LINE_MAX) : ANSWER_LINE_MAX)}…` : first
+  return `${cut} (in full under "His answer")`
+}
+
+/**
+ * Who asked, if it is in the village: the agent itself (it gets the answer straight away), or Anorak when he or a
+ * helper asked. `agent` is null when the asker has left (then only Anorak hears).
+ */
+export function resolveAsker<T extends { id: string; name: string }>(by: string, agents: T[]): { agent: T | null; isAnorak: boolean } {
+  const found = askingAgent(by, agents)
+  const isAnorak = Boolean(found && /^anorak/i.test(found.name))
+  const askedByAnorak = !by.trim() || /anorak|helper|subagent/i.test(by)
+  if (isAnorak && !askedByAnorak) return { agent: null, isAnorak: false } // the asker is not here: Anorak was only the fallback
+  return { agent: found, isAnorak }
+}
+
+/** The message the asking agent gets: the mission, his answer in full, act on it. */
+export function formatAnswerForAsker(m: Pick<CarbonMission, 'file' | 'title'>, answer: string, state: 'answered' | 'parked'): string {
+  return [
+    `[Mindcraft · Carbon] The owner ${state === 'parked' ? 'parked (later)' : 'answered'} your mission "${m.title}" (docs/questions/${m.file}):`,
+    '',
+    answer.trim(),
+    '',
+    state === 'parked' ? 'He will come back to it; nothing to do now unless his words say otherwise.' : 'Act on it. Anorak has the same note and keeps the books (hit, decisions).',
+  ].join('\n')
 }
 
 /** The quick answers. Yes is the recommendation, in its words. */
@@ -292,13 +337,15 @@ export function carbonWallMissions(list: CarbonMission[], max = 24): Mission[] {
 }
 
 /** The message Anorak gets when the owner answers. */
-export function formatAnswerNote(m: Pick<CarbonMission, 'file' | 'title' | 'recommend' | 'predict'>, answer: string, state: 'answered' | 'parked', took: number | null): string {
+export function formatAnswerNote(m: Pick<CarbonMission, 'file' | 'title' | 'recommend' | 'predict'>, answer: string, state: 'answered' | 'parked', took: number | null, told?: string): string {
   return [
     `[Mindcraft · Carbon] The owner ${state === 'parked' ? 'parked' : 'answered'} "${m.title}" (docs/questions/${m.file})${took !== null ? ` after ${took} min` : ''}:`,
     '',
     answer.trim(),
     '',
     `Recommendation was: ${m.recommend || '—'}. Your prediction was: ${m.predict || '—'}.`,
-    'The file has state, answered and answer in its header now. Act on it, write `hit` (yes / partly / no), and update the decisions and the board.',
+    told
+      ? `${told} has been told and acts on it. You keep the books: write \`hit\` (yes / partly / no), the decisions and the board.`
+      : 'The file has state, answered and answer in its header now. Act on it, write `hit` (yes / partly / no), and update the decisions and the board.',
   ].join('\n')
 }

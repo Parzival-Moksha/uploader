@@ -34,7 +34,7 @@ import {
 import { getVillageMemory, getVillageMemoryVersion, saveVillageMemory, subscribeVillageMemory } from '../../lib/village/village-memory'
 import { VRMCatalogRenderer } from '../forge/WorldObjects'
 import { useIsMobileOasis } from '../forge/MobileOasisControls'
-import { attentionRank, effectiveStatus } from '../../store/slices/agentEngineSlice'
+import { attentionRank, effectiveStatus, finishedQuietly, hasOpenDecision } from '../../store/slices/agentEngineSlice'
 import { AgentSessionView, SessionWindowHeader } from './AgentSessionView'
 import { VillageComposer } from './VillageComposer'
 import { GAME_HUD_TEXT, GameKeycap } from '../forge/GameKeycap'
@@ -240,7 +240,9 @@ function stopDomEvent(event: { stopPropagation: () => void; nativeEvent?: Event 
 }
 
 /** Label fields only, as one string, so streaming text doesn't re-render every label. */
-function useLabelInfo(agentId: string): { name: string; status: string; label: string; readOnly: boolean; unseen: boolean } | null {
+function useLabelInfo(agentId: string): { name: string; status: string; label: string; readOnly: boolean; decision: boolean; missions: number; finished: boolean } | null {
+  // The quiet tick goes after an hour by itself: look again each minute.
+  const minute = useMinute()
   const key = useOasisStore(s => {
     const agent = s.agentEngine.agents[agentId]
     if (!agent) return ''
@@ -248,13 +250,24 @@ function useLabelInfo(agentId: string): { name: string; status: string; label: s
     const look = villageAgentLook(agent)
     const helpers = look.helpers && look.status !== 'helpers' ? ` ×${look.helpers}` : ''
     const label = agent.readOnly ? (look.status === 'helpers' ? `observing · ${look.label}` : `observing${helpers}`) : `${look.label}${helpers}`
-    return [agentDisplayName(agent), look.status, label, agent.readOnly ? '1' : '', agent.unseen ? '1' : ''].join('\u0001')
+    const finished = finishedQuietly(agent, minute)
+    return [agentDisplayName(agent), look.status, label, agent.readOnly ? '1' : '', hasOpenDecision(agent) ? '1' : '', String(agent.openMissions || 0), finished ? '1' : ''].join('\u0001')
   })
   return useMemo(() => {
     if (!key) return null
-    const [name, status, label, readOnly, unseen] = key.split('\u0001')
-    return { name, status, label, readOnly: readOnly === '1', unseen: unseen === '1' }
+    const [name, status, label, readOnly, decision, missions, finished] = key.split('\u0001')
+    return { name, status, label, readOnly: readOnly === '1', decision: decision === '1', missions: Number(missions) || 0, finished: finished === '1' }
   }, [key])
+}
+
+/** The time, a new value each minute (for what fades by the clock, like the finished tick). */
+function useMinute(): number {
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 60_000)
+    return () => window.clearInterval(timer)
+  }, [])
+  return now
 }
 
 /**
@@ -290,7 +303,7 @@ function StationTag({ agentId, colorKey, avatarKey, keys }: { agentId: string; c
       rim={getAgentAccent(colorKey)}
       status={info.label}
       statusColor={info.readOnly ? VILLAGE_OBSERVED_COLOR : statusColor(info.status)}
-      marker={tagMarker(info.status, info.unseen)}
+      marker={tagMarker(info.status, { decision: info.decision, missions: info.missions, finished: info.finished })}
       avatarKey={avatarKey}
       x={STATION.avatar[0]}
       z={STATION.avatar[2]}

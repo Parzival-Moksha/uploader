@@ -252,7 +252,7 @@ export function WorkVowHud() {
     : state.otherTab
       ? `another Oasis tab is counting${state.other?.client ? ` (${state.other.client}${otherSince ? `, since ${otherSince}` : ''})` : ''}`
       : state.running
-        ? `counting: ${what} · ${rate} XP/min`
+        ? `counting: ${what}${rate < 1 ? ` · ×${rate}` : ''}`
         : hidden ? 'paused: tab hidden' : 'paused: move, type or talk to count'
   const statusColor = state.unsaved ? RED : state.running ? (rate >= 1 ? '#7dd3fc' : '#a7f3d0') : 'rgba(255,255,255,0.55)'
 

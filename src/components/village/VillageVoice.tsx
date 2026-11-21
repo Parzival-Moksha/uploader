@@ -17,6 +17,9 @@ import { pendingSpoken, splitSpoken } from '../../lib/village/village-spoken'
 import { getAgentEngineClient } from '../../lib/agent-engine-client'
 import type { EngineAgentState } from '../../store/slices/agentEngineSlice'
 import { isVillageVoiceRequested } from './village-actions'
+import { getSelectedVillageAgent } from '../../lib/village/agent-selection'
+import { attentionRank } from '../../store/slices/agentEngineSlice'
+import { isFinishedNearOnly, mayVoiceFinished } from './finished-voice'
 import {
   getAgentVoiceSettings,
   getVillageSpeechDebug,
@@ -101,7 +104,15 @@ export function VillageVoice() {
       // Not when T opened it with the microphone on: its voice would land in his dictation.
       if (engine.focusedAgentId && engine.focusedAgentId !== before.focusedAgentId) {
         const agent = engine.agents[engine.focusedAgentId]
-        if (agent && !isVillageVoiceRequested(agent.id)) sayUnheard(agent)
+        // Settings > Agents, "Speak finished reports only when I'm near": a report from afar (the Agents menu, N)
+        // waits; it is said when he opens it next to it, or with it selected.
+        const heard = agent && mayVoiceFinished({
+          needsYou: attentionRank(agent) !== null,
+          near: before.nearbyAgentId === agent.id || engine.nearbyAgentId === agent.id,
+          selected: getSelectedVillageAgent() === agent.id,
+          nearOnly: isFinishedNearOnly(),
+        })
+        if (agent && heard && !isVillageVoiceRequested(agent.id)) sayUnheard(agent)
       }
       // He walks up to an agent (its prompt shows): make the clip now, so it starts the moment he opens it.
       if (engine.nearbyAgentId && engine.nearbyAgentId !== before.nearbyAgentId) {

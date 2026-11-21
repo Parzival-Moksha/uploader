@@ -15,6 +15,7 @@ import { askingAgent, quickAnswer, sortCarbon, splitCommands, type CarbonMission
 import { setDraftText } from '../../lib/voice/village-dictation'
 import { useOasisStore } from '../../store/oasisStore'
 import { focusVillageAgent } from './village-actions'
+import { useMindcraftLook } from './mindcraft-look'
 
 const SORTS: Array<{ id: CarbonSort; label: string }> = [
   { id: 'priority', label: 'priority' },
@@ -72,7 +73,15 @@ function keepKeys(event: React.KeyboardEvent) {
   if (event.key !== 'Escape') event.stopPropagation()
 }
 
-function MissionView({ mission, onBack, onAnswered }: { mission: CarbonMission; onBack: () => void; onAnswered: () => void }) {
+/**
+ * The one way to answer a mission: an answer box with voice typing, Yes (the recommendation) / No / Later / Done,
+ * and "not enough to decide". Used by Mindcraft's Carbon tab, and by an agent's own panel (its missions, answered
+ * in place). It posts to /api/village/questions, which writes the file and tells the asker and Anorak.
+ * `onDone` runs after a successful answer (or "not enough"); the caller re-reads its list.
+ */
+export function CarbonAnswerBox({ mission, onDone }: { mission: CarbonMission; onDone: () => void }) {
+  useMindcraftLook()
+  const onAnswered = onDone
   const openedAt = useRef(Date.now())
   const [draft, setDraft] = useState('')
   const draftRef = useRef('')
@@ -91,24 +100,6 @@ function MissionView({ mission, onBack, onAnswered }: { mission: CarbonMission; 
       voiceBase.current = null
     },
   })
-  // The whole body, nothing cut; commands stand in their own box with a copy button.
-  const body = useMemo(() => splitCommands(mission.body).map((part, index) => (part.kind === 'command'
-    ? <CommandBox key={index} text={part.text} />
-    : <div key={index}>{renderMarkdown(part.text)}</div>)), [mission.body])
-  // Who to ask: the agent that asked (or Anorak), if it is in the village.
-  const asker = useOasisStore(s => {
-    const agents = s.agentEngine.order.map(id => s.agentEngine.agents[id]).filter(Boolean).map(a => ({ id: a.id, name: a.name || '' }))
-    const found = askingAgent(mission.by, agents)
-    return found ? `${found.id}${found.name}` : ''
-  })
-  const [askerId, askerName] = asker ? asker.split('') : ['', '']
-  // Talk to it about this mission: its panel opens over Mindcraft with the title quoted in its box; closing it
-  // comes back to this same mission (Mindcraft stays open underneath).
-  const talk = () => {
-    if (!askerId) return
-    setDraftText(askerId, `About the mission “${mission.title}”: `)
-    focusVillageAgent(askerId)
-  }
   // "Not enough to decide": the asker is told to add what is missing to the file; the mission sinks until it does.
   const notEnough = async () => {
     if (busy) return
@@ -157,6 +148,69 @@ function MissionView({ mission, onBack, onAnswered }: { mission: CarbonMission; 
   }
 
   return (
+    <div className="mc-scope" data-mindcraft="answer-box">
+        <div className="flex shrink-0 flex-col gap-2" onKeyDown={keepKeys}>
+          <div className="flex items-end gap-2">
+            <textarea
+              value={draft}
+              rows={2}
+              disabled={busy}
+              onChange={event => setDraft(event.target.value)}
+              onKeyDown={event => {
+                if (event.key === 'Enter' && !event.shiftKey) {
+                  event.preventDefault()
+                  void submit(draft, 'answered')
+                }
+              }}
+              placeholder={answered ? 'Change your answer (Enter sends)' : 'Say or type your answer (Enter sends)'}
+              className="mc-field min-w-0 flex-1 resize-none px-2.5 py-1.5 text-[15px] text-white outline-none placeholder:text-white/35"
+            />
+            {voice.supported && (
+              <button type="button" onClick={() => voice.toggle()} className="mc-btn px-3 py-2" style={INLINE_BTN} data-tone={voice.listening ? 'stop' : undefined} title={voice.listening ? 'Stop the mic' : 'Talk: your words appear in the box'}>
+                {voice.listening ? '■ mic' : '🎙'}
+              </button>
+            )}
+            <button type="button" disabled={busy || !draft.trim()} onClick={() => { void submit(draft, 'answered') }} className="mc-btn px-3 py-2" style={INLINE_BTN} data-tone="go">answer</button>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <button type="button" disabled={busy} onClick={() => quick('yes')} className="mc-btn px-3 py-1" style={INLINE_BTN} data-tone="go" title={mission.recommend ? `Yes: ${mission.recommend}` : 'Yes'}>Yes{mission.recommend ? ' (as recommended)' : ''}</button>
+            <button type="button" disabled={busy} onClick={() => quick('no')} className="mc-btn px-3 py-1" style={INLINE_BTN} data-tone="stop">No</button>
+            <button type="button" disabled={busy} onClick={() => quick('later')} className="mc-btn px-3 py-1" style={INLINE_BTN}>Later</button>
+            {mission.kind === 'task' && <button type="button" disabled={busy} onClick={() => quick('done')} className="mc-btn px-3 py-1" style={INLINE_BTN} data-tone="go">Done</button>}
+            {!answered && (
+              <button type="button" data-mindcraft="not-enough" disabled={busy} onClick={() => { void notEnough() }} className="ml-auto text-[13px] text-amber-200/80 underline decoration-dotted hover:text-amber-100" title="The asker is told to add what is missing to the file; until then this mission sits at the bottom">
+                not enough to decide
+              </button>
+            )}
+            {error && <span className="text-rose-300">{error}</span>}
+          </div>
+        </div>
+    </div>
+  )
+}
+
+function MissionView({ mission, onBack, onAnswered }: { mission: CarbonMission; onBack: () => void; onAnswered: () => void }) {
+  // The whole body, nothing cut; commands stand in their own box with a copy button.
+  const body = useMemo(() => splitCommands(mission.body).map((part, index) => (part.kind === 'command'
+    ? <CommandBox key={index} text={part.text} />
+    : <div key={index}>{renderMarkdown(part.text)}</div>)), [mission.body])
+  // Who to ask: the agent that asked (or Anorak), if it is in the village.
+  const asker = useOasisStore(s => {
+    const agents = s.agentEngine.order.map(id => s.agentEngine.agents[id]).filter(Boolean).map(a => ({ id: a.id, name: a.name || '' }))
+    const found = askingAgent(mission.by, agents)
+    return found ? `${found.id}${found.name}` : ''
+  })
+  const [askerId, askerName] = asker ? asker.split('') : ['', '']
+  // Talk to it about this mission: its panel opens over Mindcraft with the title quoted in its box; closing it
+  // comes back to this same mission (Mindcraft stays open underneath).
+  const talk = () => {
+    if (!askerId) return
+    setDraftText(askerId, `About the mission “${mission.title}”: `)
+    focusVillageAgent(askerId)
+  }
+  const answered = mission.state === 'answered'
+
+  return (
     <div data-mindcraft="carbon-mission" className="flex h-full min-h-0 flex-1 flex-col gap-2.5 text-[15px]">
       <div className="flex items-start gap-3">
         <button type="button" onClick={onBack} className="mc-field shrink-0 px-2.5 py-1 text-[13px] font-bold hover:brightness-125">← all missions</button>
@@ -191,42 +245,7 @@ function MissionView({ mission, onBack, onAnswered }: { mission: CarbonMission; 
           <div className="mt-2 rounded border border-emerald-300/30 bg-emerald-400/5 px-2 py-1"><span className="text-[11px] uppercase tracking-[0.14em] text-emerald-200/80">your answer{mission.answered ? `, ${dayShort(mission.answered)}` : ''}{mission.took !== null ? `, ${mission.took} min` : ''} </span>{mission.answer}</div>
         )}
       </div>
-      <div className="flex shrink-0 flex-col gap-2" onKeyDown={keepKeys}>
-        <div className="flex items-end gap-2">
-          <textarea
-            value={draft}
-            rows={2}
-            disabled={busy}
-            onChange={event => setDraft(event.target.value)}
-            onKeyDown={event => {
-              if (event.key === 'Enter' && !event.shiftKey) {
-                event.preventDefault()
-                void submit(draft, 'answered')
-              }
-            }}
-            placeholder={answered ? 'Change your answer (Enter sends)' : 'Say or type your answer (Enter sends)'}
-            className="mc-field min-w-0 flex-1 resize-none px-2.5 py-1.5 text-[15px] text-white outline-none placeholder:text-white/35"
-          />
-          {voice.supported && (
-            <button type="button" onClick={() => voice.toggle()} className="mc-btn px-3 py-2" style={INLINE_BTN} data-tone={voice.listening ? 'stop' : undefined} title={voice.listening ? 'Stop the mic' : 'Talk: your words appear in the box'}>
-              {voice.listening ? '■ mic' : '🎙'}
-            </button>
-          )}
-          <button type="button" disabled={busy || !draft.trim()} onClick={() => { void submit(draft, 'answered') }} className="mc-btn px-3 py-2" style={INLINE_BTN} data-tone="go">answer</button>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <button type="button" disabled={busy} onClick={() => quick('yes')} className="mc-btn px-3 py-1" style={INLINE_BTN} data-tone="go" title={mission.recommend ? `Yes: ${mission.recommend}` : 'Yes'}>Yes{mission.recommend ? ' (as recommended)' : ''}</button>
-          <button type="button" disabled={busy} onClick={() => quick('no')} className="mc-btn px-3 py-1" style={INLINE_BTN} data-tone="stop">No</button>
-          <button type="button" disabled={busy} onClick={() => quick('later')} className="mc-btn px-3 py-1" style={INLINE_BTN}>Later</button>
-          {mission.kind === 'task' && <button type="button" disabled={busy} onClick={() => quick('done')} className="mc-btn px-3 py-1" style={INLINE_BTN} data-tone="go">Done</button>}
-          {!answered && (
-            <button type="button" data-mindcraft="not-enough" disabled={busy} onClick={() => { void notEnough() }} className="ml-auto text-[13px] text-amber-200/80 underline decoration-dotted hover:text-amber-100" title="The asker is told to add what is missing to the file; until then this mission sits at the bottom">
-              not enough to decide
-            </button>
-          )}
-          {error && <span className="text-rose-300">{error}</span>}
-        </div>
-      </div>
+      <CarbonAnswerBox mission={mission} onDone={onAnswered} />
     </div>
   )
 }

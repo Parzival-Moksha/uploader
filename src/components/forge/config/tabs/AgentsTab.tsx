@@ -15,6 +15,7 @@ import { KitTabs, KitToggle } from '@/components/ui-kit'
 import { VillageWorldRow } from '@/components/village/VillageWorldRow'
 import { LEAVE_EFFECTS, getVillageLooks, getVillageLooksVersion, setVillageLooks, subscribeVillageLooks } from '@/lib/village/village-looks'
 import { isVillageVoiceOn, setVillageVoiceOn, subscribeVillageVoice } from '@/components/village/village-companion'
+import { isFinishedNearOnly, setFinishedNearOnly, subscribeFinishedNearOnly } from '@/components/village/finished-voice'
 import { WakeUpSettings } from './WakeUpSettings'
 import { AccountsSettings } from './AccountsSettings'
 import { ServicesSettings } from './ServicesSettings'
@@ -38,6 +39,7 @@ export function AgentsTab() {
   // Village bar).
   const chimeOn = useSyncExternalStore(subscribeVillageSound, isVillageSoundOn, () => true)
   const voicesOn = useSyncExternalStore(subscribeVillageVoice, isVillageVoiceOn, () => true)
+  const finishedNearOnly = useSyncExternalStore(subscribeFinishedNearOnly, isFinishedNearOnly, () => true)
   useSyncExternalStore(subscribeTagSettings, getTagSettingsVersion, () => 0)
   const tagSettings = getTagSettings()
   useSyncExternalStore(subscribeVillageLooks, getVillageLooksVersion, () => 0)
@@ -146,7 +148,7 @@ export function AgentsTab() {
           on={chimeOn}
           onToggle={() => setVillageSoundOn(!chimeOn)}
           title="Chime when an agent needs you"
-          hint={chimeOn ? 'A chime plays when an agent asks you something, finishes its work, or hits an error.' : 'Silent: the ! and ? over their heads still show it.'}
+          hint={chimeOn ? 'A chime plays when an agent needs you: a decision, a mission it wrote, or an error. Not when it just finished.' : 'Silent: the ! and ? over their heads still show it.'}
         />
         <SwitchRow
           data="village-voices"
@@ -154,6 +156,13 @@ export function AgentsTab() {
           onToggle={() => setVillageVoiceOn(!voicesOn)}
           title="Agent voices"
           hint={voicesOn ? 'Agents with Voice on (their settings menu) say a short version of each reply out loud.' : 'Muted: nothing is spoken or generated, whatever each agent is set to.'}
+        />
+        <SwitchRow
+          data="village-finished-near"
+          on={finishedNearOnly}
+          onToggle={() => setFinishedNearOnly(!finishedNearOnly)}
+          title="Speak finished reports only when I'm near"
+          hint={finishedNearOnly ? 'An agent that just finished speaks when you open it next to it or with it selected. One that needs you speaks wherever you open it.' : 'Every agent says its line when you open it, from anywhere.'}
         />
         <KitToggle
           checked={settings.villageAcademy !== false}

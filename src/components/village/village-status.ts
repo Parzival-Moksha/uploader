@@ -1,5 +1,5 @@
 import type { EngineAgentStatus } from '../../lib/agent-engine-types'
-import { effectiveStatus, runningSubagentCount, type EngineAgentState } from '../../store/slices/agentEngineSlice'
+import { effectiveStatus, hasOpenDecision, runningSubagentCount, type EngineAgentState } from '../../store/slices/agentEngineSlice'
 
 /** Ring / pill colours: green working, blue finished-waiting, amber needs-decision, red error, gray idle. */
 export const VILLAGE_STATUS_COLOR: Record<EngineAgentStatus, string> = {
@@ -14,7 +14,7 @@ export const VILLAGE_OBSERVED_COLOR = '#22d3ee'
 
 export const VILLAGE_STATUS_LABEL: Record<EngineAgentStatus, string> = {
   working: 'working',
-  waiting: 'waiting for you',
+  waiting: 'finished',
   'needs-decision': 'needs you',
   error: 'error',
   idle: 'idle',
@@ -28,8 +28,31 @@ export function statusColor(status: string | null | undefined): string {
 export function statusLabel(agent: Pick<EngineAgentState, 'status' | 'unseen'> & { parked?: EngineAgentState['parked']; offline?: EngineAgentState['offline'] }): string {
   if (agent.offline) return 'waiting for the internet'
   if (agent.parked) return 'waiting for usage'
+  // Finished and not opened yet: "finished" (a quiet tick over its head), never "waiting for you" (2026-11-21).
   if (agent.status === 'waiting' && !agent.unseen) return 'waiting'
   return VILLAGE_STATUS_LABEL[agent.status] || agent.status
+}
+
+/**
+ * Why it needs the owner, in a few words (after "needs you" over its head and in the Agents menu), or null when it
+ * doesn't: a card (permission, question, plan), a turn that ended on one, an error, or the missions it wrote.
+ */
+export function needsReason(agent: Pick<EngineAgentState, 'status' | 'decisions'> & { statusReason?: string | null; openMissions?: number; parked?: EngineAgentState['parked']; offline?: EngineAgentState['offline'] }): string | null {
+  const missions = agent.openMissions || 0
+  const missionWords = missions === 1 ? '1 mission' : `${missions} missions`
+  if (hasOpenDecision(agent)) {
+    const kind = agent.decisions[0]?.requestKind || (agent.statusReason === 'plan' ? 'plan' : agent.statusReason === 'question' ? 'question' : 'permission')
+    const what = kind === 'question' ? 'a question' : kind === 'plan' ? 'a plan to approve' : `permission${agent.decisions[0]?.toolName ? ` for ${agent.decisions[0].toolName}` : ''}`
+    return missions ? `${what} · ${missionWords}` : what
+  }
+  if (agent.status === 'error' && !agent.parked && !agent.offline) return agent.statusReason ? tagReason(agent.statusReason) : 'stopped'
+  if (missions) return `${missionWords} for you`
+  return null
+}
+
+function tagReason(reason: string): string {
+  const one = reason.replace(/\s+/g, ' ').trim()
+  return one.length > 36 ? `${one.slice(0, 35)}…` : one
 }
 
 /** Violet: the agent itself waits or idles, but its helpers (subagents) are still working. */
@@ -45,7 +68,7 @@ export interface VillageAgentLook {
 }
 
 /** What an agent's sign, desk and menu row show: its own status, unless only its helpers are still at it. */
-export function villageAgentLook(agent: Pick<EngineAgentState, 'status' | 'unseen' | 'decisions' | 'subagents' | 'lastEventAt'> & { resumedAt?: number | null; parked?: EngineAgentState['parked']; offline?: EngineAgentState['offline'] }, now?: number): VillageAgentLook {
+export function villageAgentLook(agent: Pick<EngineAgentState, 'status' | 'unseen' | 'decisions' | 'subagents' | 'lastEventAt'> & { statusReason?: string | null; openMissions?: number; resumedAt?: number | null; parked?: EngineAgentState['parked']; offline?: EngineAgentState['offline'] }, now?: number): VillageAgentLook {
   const status = effectiveStatus(agent)
   const helpers = runningSubagentCount(agent, now)
   if (helpers > 0 && (status === 'waiting' || status === 'idle')) {
@@ -53,7 +76,10 @@ export function villageAgentLook(agent: Pick<EngineAgentState, 'status' | 'unsee
   }
   // The engine restarted while it worked and told it to carry on: say so while that turn runs.
   const resumed = status === 'working' && agent.resumedAt ? ' · resumed' : ''
-  return { status, color: statusColor(status), label: `${statusLabel({ status, unseen: agent.unseen, parked: agent.parked, offline: agent.offline })}${resumed}`, helpers }
+  // Needs you: why, in a few words. Working with a mission out: it says so too.
+  const reason = needsReason(agent)
+  const why = reason && (status === 'needs-decision' || status === 'error' || status === 'working') ? ` · ${reason}` : ''
+  return { status, color: statusColor(status), label: `${statusLabel({ status, unseen: agent.unseen, parked: agent.parked, offline: agent.offline })}${resumed}${why}`, helpers }
 }
 
 /** Agents the Oasis runs, and desktop-app sessions running the Oasis plugin (bridged), get a text box. */

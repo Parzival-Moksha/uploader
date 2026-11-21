@@ -83,7 +83,7 @@ export function ManualTimeForm({ today, daySeconds, targetSeconds, onSaved }: {
         {!valid
           ? 'Whole numbers only: hours up to 24, minutes up to 59.'
           : minutes
-            ? <>This adds <b>{spokenDuration(minutes)}</b> to {date}{after !== null && before !== null ? <>: the day goes from {formatClock(before)} to <b>{formatClock(after)}</b>{targetSeconds ? (after >= targetSeconds ? ', which keeps the day' : `, still ${formatClock(targetSeconds - after)} short`) : ''}</> : null}. It earns {minutes} XP before the commitment.</>
+            ? <>This adds <b>{spokenDuration(minutes)}</b> to {date}{after !== null && before !== null ? <>: the day goes from {formatClock(before)} to <b>{formatClock(after)}</b>{targetSeconds ? (after >= targetSeconds ? ', which keeps the day' : `, still ${formatClock(targetSeconds - after)} short`) : ''}</> : null}.</>
             : 'Fill in hours, minutes, or both.'}
       </div>
       <div className="flex items-center gap-2">

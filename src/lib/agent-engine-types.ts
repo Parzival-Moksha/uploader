@@ -536,6 +536,8 @@ export interface EngineCommandMap {
   listSessions: { args: { limit?: number }; result: EngineSessionMeta[] }
   /** Load the dictation model ahead of the first mic press (never installs or downloads). */
   warmEars: { args: { engine?: 'elevenlabs' | 'local' }; result: { warming: boolean; ready?: boolean; model?: string } }
+  /** Settings > Sound: install the local voice-typing helper now; asked again, how far it is (engine ears.js). */
+  installEars: { args: Record<string, never>; result: { state: 'idle' | 'installing' | 'ready' | 'failed' | 'off'; text?: string; error?: string } }
   listLive: { args: Record<string, never>; result: Array<EngineLiveRegistryEntry & { sessionId: string }> }
   spawnAgent: { args: SpawnAgentArgs; result: EngineAgentSnapshot }
   send: { args: { agentId: string; text: string; priority?: 'now' | 'later'; images?: EngineSendPicture[] }; result: { uuid: string; midTurn: boolean } }

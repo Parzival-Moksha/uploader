@@ -236,6 +236,8 @@ export interface EngineAgentState {
   /** Finished (or failed) while the owner was not looking at it. */
   unseen: boolean
   attentionSince: number | null
+  /** Its open carbon missions (docs/questions files with its name in `by:`, state open): decisions it waits on. */
+  openMissions: number
   firstSeenAt: number
   lastEventAt: number
   /** Per-agent counter for unique log keys (keeps the reducer deterministic). */
@@ -298,6 +300,8 @@ export type AgentEngineAction =
   | { type: 'focus'; agentId: string | null }
   /** After a reload: these agents finished while you weren't looking (village-seen.ts). */
   | { type: 'unseen/restore'; agentIds: string[]; at: number }
+  /** Open carbon missions per agent id (agents missing from the map have none). */
+  | { type: 'missions/set'; counts: Record<string, number>; at: number }
   | { type: 'nearby'; agentId: string | null }
   | { type: 'picker'; open: boolean }
   | { type: 'sessions/loading' }
@@ -405,6 +409,7 @@ export function createAgentState(
     live: null,
     unseen: false,
     attentionSince: null,
+    openMissions: 0,
     firstSeenAt: at,
     lastEventAt: at,
     seq: 0,
@@ -485,11 +490,6 @@ function normalizeContext(ctx: Partial<EngineContextUsage>): EngineContextUsage 
   return { usedTokens, maxTokens, percent, model: str(ctx.model) }
 }
 
-/**
- * 0 = needs a decision, 1 = errored, 2 = finished while unseen. null = no attention needed.
- * An open permission / question / plan wins over the status: a mid-turn message makes the
- * engine report `working`, but the CLI is still blocked on the owner.
- */
 /** A subagent with no end counts as running for this long at most, so a lost notification can't hold an agent forever. */
 export const SUBAGENT_STALE_MS = 12 * 3600 * 1000
 
@@ -500,23 +500,56 @@ export function runningSubagentCount(agent: { subagents?: EngineSubagentState[];
   return count
 }
 
-export function attentionRank(agent: Pick<EngineAgentState, 'status' | 'unseen' | 'decisions'> & { subagents?: EngineSubagentState[]; lastEventAt?: number; parked?: EngineAgentState['parked']; offline?: EngineAgentState['offline'] }): number | null {
-  if (agent.status === 'needs-decision' || agent.decisions.length > 0) return 0
+/**
+ * A decision only the owner can make, open right now: a permission, question or plan card, or a turn that ended on
+ * one. Not a reply that merely ends with "?" (the engine's `question-text`): most of those are "done, anything
+ * else?" (the owner, 2026-11-21: "most agents are just coming to me saying: it's done, man").
+ */
+export function hasOpenDecision(agent: Pick<EngineAgentState, 'status' | 'decisions'> & { statusReason?: string | null }): boolean {
+  if (agent.decisions.length > 0) return true
+  return agent.status === 'needs-decision' && agent.statusReason !== 'question-text'
+}
+
+/**
+ * Who needs the owner (the loud "?", "needs you", the chime, the tab title's count, N, walking up to him):
+ * 0 = a decision card or a turn that ended on one, 1 = an error, 2 = a carbon mission it wrote that waits.
+ * null: no. A finished turn is not on this list (see finishedQuietly: a quiet tick, nothing more).
+ * An open permission / question / plan wins over the status: a mid-turn message makes the engine report `working`,
+ * but the CLI is still blocked on the owner.
+ */
+export function attentionRank(agent: Pick<EngineAgentState, 'status' | 'unseen' | 'decisions'> & { statusReason?: string | null; openMissions?: number; subagents?: EngineSubagentState[]; lastEventAt?: number; parked?: EngineAgentState['parked']; offline?: EngineAgentState['offline'] }): number | null {
+  if (hasOpenDecision(agent)) return 0
   // Waiting for an account's usage (engine accounts.js) is not stuck: it goes on by itself; no one walks up for it.
-  if (agent.parked || agent.offline) return null
-  if (agent.status === 'error') return 1
-  // idle too: a restarted engine resumes a finished agent as a fresh, idle process. Not while its helpers
-  // still work: there is nothing to do yet, and their reports start its next turn by themselves.
-  if (agent.unseen && (agent.status === 'waiting' || agent.status === 'idle')) return runningSubagentCount(agent) > 0 ? null : 2
+  if (!agent.parked && !agent.offline && agent.status === 'error') return 1
+  if ((agent.openMissions || 0) > 0) return 2
   return null
+}
+
+/** How long a finished agent's quiet tick stays when the owner doesn't open it. */
+export const FINISHED_TICK_MS = 3600_000
+
+/**
+ * It finished a turn the owner hasn't opened, and asks nothing: the quiet tick over its head, for an hour at most.
+ * No chime, no walking up, not in N's round, not in the tab's count.
+ */
+export function finishedQuietly(agent: Pick<EngineAgentState, 'status' | 'unseen' | 'decisions' | 'lastOutcomeAt' | 'lastTurn'> & { statusReason?: string | null; openMissions?: number; subagents?: EngineSubagentState[]; lastEventAt?: number; parked?: EngineAgentState['parked']; offline?: EngineAgentState['offline'] }, now = Date.now()): boolean {
+  if (!agent.unseen || attentionRank(agent) !== null) return false
+  const done = agent.status === 'waiting' || agent.status === 'idle' || (agent.status === 'needs-decision' && !hasOpenDecision(agent))
+  if (!done || runningSubagentCount(agent) > 0) return false
+  const at = agent.lastTurn?.ts ?? agent.lastOutcomeAt
+  return at === null || at === undefined || now - at < FINISHED_TICK_MS
 }
 
 /**
  * The status to show (ring, label, chips): an open decision always reads as needs-decision, and
  * a finished agent the owner hasn't seen reads as waiting even after an engine restart (idle).
  */
-export function effectiveStatus(agent: Pick<EngineAgentState, 'status' | 'decisions' | 'unseen'> & { parked?: EngineAgentState['parked']; offline?: EngineAgentState['offline'] }): EngineAgentStatus {
+export function effectiveStatus(agent: Pick<EngineAgentState, 'status' | 'decisions' | 'unseen'> & { statusReason?: string | null; openMissions?: number; parked?: EngineAgentState['parked']; offline?: EngineAgentState['offline'] }): EngineAgentStatus {
   if (agent.decisions.length > 0) return 'needs-decision'
+  // A reply that ends with "?" is a finished turn, not a decision (hasOpenDecision).
+  if (agent.status === 'needs-decision' && !hasOpenDecision(agent)) return (agent.openMissions || 0) > 0 ? 'needs-decision' : 'waiting'
+  // A mission it wrote waits for him: it needs him, unless it is busy working on.
+  if ((agent.openMissions || 0) > 0 && (agent.status === 'waiting' || agent.status === 'idle')) return 'needs-decision'
   // Waiting for usage: calm, not an error (the engine reports it as one so the agent's turn reads as cut off).
   if (agent.parked || agent.offline) return 'waiting'
   if (agent.status === 'idle' && agent.unseen) return 'waiting'
@@ -1157,6 +1190,18 @@ export function agentEngineReducer(state: AgentEngineState, action: AgentEngineA
       return agents === state.agents ? state : { ...state, agents }
     }
 
+    case 'missions/set': {
+      let agents = state.agents
+      for (const id of state.order) {
+        const agent = agents[id]
+        if (!agent) continue
+        const count = Math.max(0, Math.floor(action.counts[id] || 0))
+        if (count === agent.openMissions) continue
+        agents = { ...agents, [id]: withAttention({ ...agent, openMissions: count }, action.at) }
+      }
+      return agents === state.agents ? state : { ...state, agents }
+    }
+
     case 'nearby': {
       const id = action.agentId && state.agents[action.agentId] ? action.agentId : null
       return id === state.nearbyAgentId ? state : { ...state, nearbyAgentId: id }
@@ -1262,7 +1307,7 @@ export function prependHistory(
 
 // ─── selectors ──────────────────────────────────────────────────────────────
 
-/** Agents that need the owner: decisions first, then errors, then finished-and-unseen. Oldest first within a group. */
+/** Agents that need the owner: decisions first, then errors, then open missions. Oldest first within a group. */
 export function selectAttentionQueue(state: Pick<AgentEngineState, 'agents' | 'order'>): string[] {
   const ranked: Array<{ id: string; rank: number; since: number; index: number }> = []
   state.order.forEach((id, index) => {
@@ -1283,8 +1328,11 @@ export function selectAttentionQueue(state: Pick<AgentEngineState, 'agents' | 'o
 export function selectNextAgentForN(state: Pick<AgentEngineState, 'agents' | 'order' | 'focusedAgentId'>): string | null {
   const queue = selectAttentionQueue(state)
   const current = state.focusedAgentId
-  const candidate = queue.find(id => id !== current)
-  if (candidate) return candidate
+  // Round the queue: the one after the open agent (a mission stays open after he looked, so "the first one that
+  // isn't open" would bounce between two).
+  const at = current ? queue.indexOf(current) : -1
+  const candidate = at < 0 ? queue[0] : queue[(at + 1) % queue.length]
+  if (candidate && candidate !== current) return candidate
   if (queue.length) return null // only the focused agent needs attention
   const ids = state.order.filter(id => state.agents[id])
   if (!ids.length) return null

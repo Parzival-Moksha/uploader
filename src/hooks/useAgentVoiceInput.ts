@@ -6,10 +6,12 @@ import { createWLipSyncLegacyController } from '@/lib/wlipsync-driver'
 import {
   isLiveDictationSupported,
   joinDictation,
-  startLiveDictation,
   type DictationLine,
   type LiveDictation,
 } from '@/lib/voice/live-dictation'
+import { isBrowserDictationSupported } from '@/lib/voice/browser-dictation'
+// The engine's ears (ElevenLabs, the local helper) when it has some, else the browser's own (dictation-route.ts).
+import { startVillageDictation } from '@/lib/voice/dictation-route'
 
 // ░▒▓ The mic on every agent text box: live dictation (Moonshine Medium Streaming in the agent engine). ▓▒░
 // Words arrive while you talk (onLiveText); the whole dictation goes to onTranscript once it has settled.
@@ -115,7 +117,7 @@ export function useAgentVoiceInput({
       setError('Mic input needs localhost or HTTPS. Open Oasis locally or behind HTTPS and try again.')
       return
     }
-    if (!isLiveDictationSupported()) {
+    if (!isLiveDictationSupported() && !isBrowserDictationSupported()) {
       setError('Browser microphone capture is unavailable here.')
       return
     }
@@ -127,7 +129,7 @@ export function useAgentVoiceInput({
     onLiveTextRef.current?.('')
     let finished = false
     try {
-      const dictation = await startLiveDictation({
+      const dictation = await startVillageDictation({
         lang,
         onStream: stream => { void startPlayerLipSync(stream) },
         onStatus: text => { setBackendState('loading'); setBackendMessage(text) },
@@ -170,7 +172,7 @@ export function useAgentVoiceInput({
   }, [enabled, focusTargetRef, lang, startPlayerLipSync, stop, stopPlayerLipSync])
 
   useEffect(() => {
-    setSupported(isLiveDictationSupported())
+    setSupported(isLiveDictationSupported() || isBrowserDictationSupported())
   }, [enabled])
 
   useEffect(() => {

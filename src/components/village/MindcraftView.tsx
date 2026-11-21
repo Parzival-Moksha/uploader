@@ -54,7 +54,6 @@ function UnitRow({ unit, date, onRemoveManual }: { unit: WorkUnit; date: string;
           )}
         </span>
         <span className="shrink-0 whitespace-nowrap text-right font-bold tabular-nums">{hms(unit.seconds)}</span>
-        <span className="min-w-[78px] shrink-0 whitespace-nowrap text-right tabular-nums text-white/60">{unit.xp} XP</span>
         {unit.kind === 'manual' && typeof unit.manualIndex === 'number' && onRemoveManual && (
           <button
             type="button"
@@ -99,16 +98,15 @@ function DayList({ days, today, target, empty, onRemoveManual }: { days: Mindcra
               <span className="mc-track min-w-0 flex-1">
                 <span className="block h-full" style={{ width: `${(day.seconds / (target ? Math.max(target, top) : top)) * 100}%`, background: hit ? '#34d399' : '#fbbf24' }} />
               </span>
-              {/* Hours are the main number; XP stands beside it, smaller. */}
+              {/* Hours only on screen (the owner, 2026-11-22: "hours"); XP is in the counter's detail, where it feeds the Profile level. */}
               <span className="shrink-0 whitespace-nowrap text-right text-[17px] font-bold tabular-nums" style={{ color: hit ? '#34d399' : '#fff' }}>{hms(day.seconds)}</span>
-              <span className="min-w-[78px] shrink-0 whitespace-nowrap text-right tabular-nums text-white/65">{day.xp} XP</span>
             </button>
             {isOpen && (
               <div className="flex flex-col gap-1 border-t border-white/10 px-3 py-2">
                 {day.units.map((unit, index) => <UnitRow key={index} unit={unit} date={day.date} onRemoveManual={onRemoveManual} />)}
                 {(day.bonusXp || day.penaltyXp) ? (
                   <div className="mt-1 text-white/55">
-                    {day.bonusXp ? <>The day was kept: its XP counts double (+{day.bonusXp}).</> : <>The day fell short: −{day.penaltyXp} XP for the missing minutes.</>} That is inside the {day.xp} XP above.
+                    {day.bonusXp ? <>The day was kept.</> : <>The day fell short of the vow.</>}
                   </div>
                 ) : null}
               </div>
@@ -195,7 +193,7 @@ export function MindcraftView({ carbonFile }: { carbonFile?: string | null } = {
   const tabs = [
     { id: 'carbon' as const, label: 'Carbon', sub: 'your missions' },
     { id: 'silicon' as const, label: 'Silicon', sub: `agents today ${hms(snapshot.agentHours?.today || 0)}` },
-    { id: 'today' as const, label: 'Today', sub: `you ${hms(snapshot.today.seconds)} · ${book.totals.owner.xp} XP in all` },
+    { id: 'today' as const, label: 'Today', sub: `you ${hms(snapshot.today.seconds)}` },
   ]
   const vow = snapshot.commitments[0]
   return (
@@ -204,11 +202,11 @@ export function MindcraftView({ carbonFile }: { carbonFile?: string | null } = {
         <div>
           <div className="mc-eyebrow">Mindcraft</div>
           <div className="mc-title text-[26px] leading-tight">
-            Today {hms(snapshot.today.seconds)} {snapshot.targetSeconds !== null && <span className="text-white/45">/ {hms(snapshot.targetSeconds)}</span>} <span className="text-[17px] text-white/60">· {book.owner.find(day => day.date === snapshot.date)?.xp ?? snapshot.today.xp} XP</span>
+            Today {hms(snapshot.today.seconds)} {snapshot.targetSeconds !== null && <span className="text-white/45">/ {hms(snapshot.targetSeconds)}</span>}
           </div>
           {vow && (
             <div className="mc-note" style={{ fontSize: 21 }}>
-              {vow.label}. A day kept counts <span className="text-emerald-300">double</span>; a missing minute costs <span className="text-rose-300">{vow.penaltyPerMinute} XP</span>.
+              {vow.label}.
             </div>
           )}
         </div>
@@ -266,7 +264,7 @@ export function MindcraftView({ carbonFile }: { carbonFile?: string | null } = {
         />
       )}
       <div className="mc-foot shrink-0 pt-2 leading-snug" style={{ fontSize: 16, display: tab === 'carbon' ? 'none' : undefined }}>
-        Hours are the main number, and XP is time: 1 XP a minute of work, for you and for every agent; 0.7 only for time in the world with nothing in focus. A mission&rsquo;s priority decides what comes next, not what it pays. A day runs from {snapshot.settings.dayStartsAt} to {snapshot.settings.dayStartsAt}.
+        Hours are what counts here. Behind them, in the counter&rsquo;s detail and your Profile level, XP is time: 1 XP a minute of work, for you and for every agent; 0.7 only for time in the world with nothing in focus. A mission&rsquo;s priority decides what comes next, not what it pays. A day runs from {snapshot.settings.dayStartsAt} to {snapshot.settings.dayStartsAt}.
       </div>
     </div>
   )

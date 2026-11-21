@@ -175,11 +175,11 @@ export function tagTriangleCount(style: TagStyle, text: string): number {
 }
 
 // The markers: one extruded glyph each, shared by every agent; a body material per status colour, a rim per agent colour.
-const markerGeometry = new Map<TagMarker, THREE.BufferGeometry>()
+const markerGeometry = new Map<string, THREE.BufferGeometry>()
 const markerMaterial = new Map<string, THREE.MeshStandardMaterial>()
 const rimMaterial = new Map<string, THREE.MeshBasicMaterial>()
 
-function markerGeometryFor(loaded: Font, glyph: TagMarker): THREE.BufferGeometry {
+function markerGeometryFor(loaded: Font, glyph: Exclude<TagMarker, 'tick'>): THREE.BufferGeometry {
   let geometry = markerGeometry.get(glyph)
   if (!geometry) {
     geometry = new TextGeometry(glyph, { font: loaded, size: TAG.markerSize, height: TAG.markerSize * 0.2, curveSegments: 6, bevelEnabled: true, bevelThickness: 0.014, bevelSize: 0.012, bevelSegments: 2 })
@@ -187,6 +187,38 @@ function markerGeometryFor(loaded: Font, glyph: TagMarker): THREE.BufferGeometry
     markerGeometry.set(glyph, geometry)
   }
   return geometry
+}
+
+// The quiet tick (it finished, he has not looked): a small check mark, still and facing the camera, dimmer than a
+// marker; nothing to chase (the owner, 2026-11-21: finished reports are not "I need you").
+let tickGeometry: THREE.BufferGeometry | null = null
+const tickMaterial = new Map<string, THREE.MeshStandardMaterial>()
+
+function tickGeometryFor(): THREE.BufferGeometry {
+  if (!tickGeometry) {
+    const w = TAG.markerSize * 0.5
+    const shape = new THREE.Shape()
+    // A check mark as one outline: the short stroke down to the bottom, the long stroke up to the right.
+    shape.moveTo(-0.5 * w, 0.02 * w)
+    shape.lineTo(-0.16 * w, -0.34 * w)
+    shape.lineTo(0.55 * w, 0.42 * w)
+    shape.lineTo(0.42 * w, 0.55 * w)
+    shape.lineTo(-0.16 * w, -0.08 * w)
+    shape.lineTo(-0.37 * w, 0.15 * w)
+    shape.closePath()
+    tickGeometry = new THREE.ExtrudeGeometry(shape, { depth: w * 0.12, bevelEnabled: false })
+    tickGeometry.center()
+  }
+  return tickGeometry
+}
+
+function tickMaterialFor(color: string): THREE.MeshStandardMaterial {
+  let material = tickMaterial.get(color)
+  if (!material) {
+    material = new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.25, roughness: 0.6, transparent: true, opacity: 0.8, toneMapped: false })
+    tickMaterial.set(color, material)
+  }
+  return material
 }
 
 function markerMaterialFor(color: string): THREE.MeshStandardMaterial {
@@ -394,7 +426,7 @@ export function VillageTag({ agentId, name, color, rim, status, statusColor, mar
   useSyncExternalStore(subscribeTagSettings, getTagSettingsVersion, () => 0)
   const { style } = getTagSettings()
   const regular = useFont(style === 'outline' && !keys ? null : 'regular')
-  const bold = useFont(style === 'extruded' || marker || keys ? 'bold' : null)
+  const bold = useFont(style === 'extruded' || (marker && marker !== 'tick') || keys ? 'bold' : null)
   const root = useRef<THREE.Group>(null)
   const board = useRef<THREE.Group>(null)
   const holder = useRef<THREE.Group>(null)
@@ -440,7 +472,7 @@ export function VillageTag({ agentId, name, color, rim, status, statusColor, mar
     if (entry.current) entry.current.spin = spinRef.current
   }, [marker, bold])
 
-  const markerGeo = marker && bold ? markerGeometryFor(bold, marker) : null
+  const markerGeo = marker && marker !== 'tick' && bold ? markerGeometryFor(bold, marker) : null
   return (
     <group ref={root} position-x={x} position-z={z} name="village-tag">
       <group ref={board}>
@@ -462,6 +494,10 @@ export function VillageTag({ agentId, name, color, rim, status, statusColor, mar
             {statusGeometry && <mesh name="village-tag-status" geometry={statusGeometry} material={tagMaterial} position={[0, TAG.statusAt, 0]} raycast={NO_RAYCAST} />}
             {nameGeometry && <mesh name="village-tag-name" geometry={nameGeometry} material={tagMaterial} position={[0, TAG.nameAt, 0]} raycast={NO_RAYCAST} />}
           </>
+        )}
+        {/* Finished, not looked at: the quiet tick where a marker would be, still and facing the camera. */}
+        {marker === 'tick' && (
+          <mesh name="village-tag-tick" geometry={tickGeometryFor()} material={tickMaterialFor(statusColor)} position={[0, TAG.markerAt, 0]} raycast={NO_RAYCAST} />
         )}
         {/* T / E / F, just over its head, in the slot kept for them under the status word. */}
         {keys && bold && regular && (

@@ -18,6 +18,7 @@ import {
   subscribeVoiceTypingEngine,
   type VoiceTypingEngine,
 } from '@/lib/voice/voice-typing-engine'
+import { VoiceTypingSetup } from './VoiceTypingSetup'
 
 /** Your own footsteps (0 = silent; the default is a third of the old, too-loud level). */
 function FootstepSlider() {
@@ -158,8 +159,9 @@ function VoiceTypingSection() {
         })}
       </div>
       <div className="mt-1 text-[10px] leading-snug text-white/40">
-        Used by T and the mic on text fields. Without an ElevenLabs key the agent engine types with Moonshine.
+        Used by T and the mic on text fields. Without an ElevenLabs key the local helper types (Moonshine); without either, your browser's own speech recognition.
       </div>
+      <VoiceTypingSetup />
     </section>
   )
 }

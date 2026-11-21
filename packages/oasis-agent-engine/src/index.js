@@ -35,7 +35,7 @@ import { loadRoster, saveRoster, saveRosterNow } from './roster.js';
 import { takeVoiceMessage } from './scribe.js';
 import { takePictures } from './pictures.js';
 import { resolveClaude } from './claude.js';
-import { listen as earsListen, warmEars, earsStatus, stopEars } from './ears.js';
+import { listen as earsListen, warmEars, earsStatus, stopEars, startEarsInstall } from './ears.js';
 import { listenScribe, hasLiveScribe, LIVE_SCRIBE_MODEL } from './scribe-live.js';
 import { readTextFile, serveAttachment, writeTextFile } from './files.js';
 import { startClipWatchdog, stopClipWatchdog, clipWatchdogState } from './clip-watchdog.js';
@@ -533,6 +533,8 @@ function getAgent(id, { owned = false } = {}) {
 // ------------------------------------------------------------------ commands
 const commands = {
   // Voice typing through ElevenLabs has nothing to warm; Moonshine (chosen, or no ElevenLabs key) loads its model.
+  /** Settings > Sound: install the local voice-typing helper now (ears.js startEarsInstall); asked again, its progress. */
+  installEars() { return startEarsInstall((m) => hub.log(m)); },
   warmEars({ engine } = {}) {
     if (engine === 'elevenlabs' && hasLiveScribe()) return { warming: false, ready: true, model: `elevenlabs ${LIVE_SCRIBE_MODEL}` };
     return warmEars((m) => hub.log(m));

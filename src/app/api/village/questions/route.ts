@@ -14,7 +14,7 @@ import { NextRequest, NextResponse } from 'next/server'
 
 import { guardAgentRoute } from '@/lib/local-request-guard'
 import { missionsDir } from '@/lib/oasis-settings'
-import { answerCarbonMission, askingAgent, formatAnswerNote, formatUnclearNote, isCarbonFile, markUnclear, parseCarbonMission, sortCarbon } from '@/lib/village/carbon-missions'
+import { answerCarbonMission, askingAgent, formatAnswerForAsker, formatAnswerNote, resolveAsker, formatUnclearNote, isCarbonFile, markUnclear, parseCarbonMission, sortCarbon } from '@/lib/village/carbon-missions'
 import { isAutomationRequest } from '@/lib/village/work-vow'
 
 export const dynamic = 'force-dynamic'
@@ -70,12 +70,10 @@ function rewriteBoard(): Promise<string> {
 }
 
 /** Tell Anorakdev through the agent engine. Never fails the answer: the file is the record. */
-async function tellAnorak(text: string): Promise<string> {
-  return tellAgent('Anorak', text)
-}
+type EngineAgent = { id: string; name: string }
 
-/** Tell the agent named in `by` (else Anorak) through the agent engine. Never throws. */
-async function tellAgent(by: string, text: string): Promise<string> {
+/** The engine's address, its key, and who is in the village now. Never throws: no engine is an empty village. */
+async function engine(): Promise<{ base: string; headers: Record<string, string>; agents: EngineAgent[]; error?: string }> {
   const base = (process.env.OASIS_ENGINE_URL || 'http://127.0.0.1:4530').replace(/\/+$/, '')
   const headers: Record<string, string> = { 'content-type': 'application/json' }
   try {
@@ -83,14 +81,43 @@ async function tellAgent(by: string, text: string): Promise<string> {
     const token = (await fs.readFile(tokenFile, 'utf8').catch(() => '')).trim()
     if (token) headers['x-oasis-token'] = token
     const list = await (await fetch(`${base}/api/agents`, { headers, signal: AbortSignal.timeout(4000) })).json() as Array<{ id: string; name?: string }> | { agents?: Array<{ id: string; name?: string }> }
-    const agents = (Array.isArray(list) ? list : list.agents || []).map(a => ({ id: a.id, name: a.name || '' }))
-    const target = askingAgent(by, agents)
-    if (!target) return 'no such agent, and no Anorak in the village'
-    const response = await fetch(`${base}/api/cmd`, { method: 'POST', headers, body: JSON.stringify({ cmd: 'send', agentId: target.id, text, priority: 'later', source: 'Mindcraft' }), signal: AbortSignal.timeout(6000) })
-    return response.ok ? `sent to ${target.name}` : `engine said ${response.status}`
+    return { base, headers, agents: (Array.isArray(list) ? list : list.agents || []).map(a => ({ id: a.id, name: a.name || '' })) }
   } catch (error) {
-    return `engine not reached: ${error instanceof Error ? error.message : String(error)}`
+    return { base, headers, agents: [], error: `engine not reached: ${error instanceof Error ? error.message : String(error)}` }
   }
+}
+
+async function send(e: Awaited<ReturnType<typeof engine>>, agent: EngineAgent, text: string): Promise<boolean> {
+  try {
+    const response = await fetch(`${e.base}/api/cmd`, { method: 'POST', headers: e.headers, body: JSON.stringify({ cmd: 'send', agentId: agent.id, text, priority: 'later', source: 'Mindcraft' }), signal: AbortSignal.timeout(6000) })
+    return response.ok
+  } catch {
+    return false
+  }
+}
+
+/** Tell the agent named in `by` (else Anorak) through the agent engine. Never throws. */
+async function tellAgent(by: string, text: string): Promise<string> {
+  const e = await engine()
+  if (e.error) return e.error
+  const target = askingAgent(by, e.agents)
+  if (!target) return 'no such agent, and no Anorak in the village'
+  return (await send(e, target, text)) ? `sent to ${target.name}` : 'the engine did not take it'
+}
+
+/**
+ * His answer goes straight to the agent that asked ("act on it"), and to Anorak, who keeps the books (Anorak's
+ * call, 2026-11-22). A mission Anorak or a helper asked, or one whose asker has left the village: Anorak only.
+ */
+async function tellAnswer(mission: ReturnType<typeof parseCarbonMission>, answer: string, state: 'answered' | 'parked', took: number | null): Promise<string> {
+  const e = await engine()
+  if (e.error) return e.error
+  const asker = resolveAsker(mission.by, e.agents)
+  const anorak = askingAgent('Anorak', e.agents)
+  let toldAsker = ''
+  if (asker.agent && !asker.isAnorak && (await send(e, asker.agent, formatAnswerForAsker(mission, answer, state)))) toldAsker = asker.agent.name
+  const toldAnorak = anorak ? await send(e, anorak, formatAnswerNote(mission, answer, state, took, toldAsker || undefined)) : false
+  return [toldAsker && `sent to ${toldAsker}`, toldAnorak && anorak && `sent to ${anorak.name}`].filter(Boolean).join(', ') || 'nobody in the village to tell'
 }
 
 export async function POST(request: NextRequest) {
@@ -131,6 +158,6 @@ export async function POST(request: NextRequest) {
   const next = answerCarbonMission(current, { answer: body.answer, state, took, date: localDate() })
   await fs.writeFile(file, next, 'utf8')
   const mission = parseCarbonMission(path.basename(file), next)
-  const [told, board] = await Promise.all([tellAnorak(formatAnswerNote(mission, body.answer, state, took)), rewriteBoard()])
+  const [told, board] = await Promise.all([tellAnswer(mission, body.answer, state, took), rewriteBoard()])
   return NextResponse.json({ ok: true, mission, told, board })
 }

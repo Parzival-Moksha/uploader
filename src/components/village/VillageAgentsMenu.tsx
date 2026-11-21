@@ -253,8 +253,24 @@ export function VillageAgentsMenu() {
   const groupHeading = new Map<string, string>()
   if (worldGroups.length > 1) worldGroups.forEach(group => groupHeading.set(group.ids[0], group.here ? `Here · ${group.name}` : group.name))
   const worldOrder = new Map(worldGroups.flatMap(group => group.ids).map((id, index) => [id, index]))
-  rows.sort((a, b) => (worldOrder.get(a.id) ?? 0) - (worldOrder.get(b.id) ?? 0))
   const attention = new Set(attentionKey ? attentionKey.split(',') : [])
+  // Who needs you comes first (the owner, 2026-11-21), in the attention queue's order, each with its reason
+  // ("needs you · a question", "· 2 missions for you", "error · …"); then everyone else by world as before.
+  const queueOrder = new Map((attentionKey ? attentionKey.split(',') : []).map((id, index) => [id, index]))
+  const rank = (id: string) => queueOrder.get(id) ?? Number.MAX_SAFE_INTEGER
+  rows.sort((a, b) => rank(a.id) - rank(b.id) || (worldOrder.get(a.id) ?? 0) - (worldOrder.get(b.id) ?? 0))
+  if (attention.size) {
+    const firstNeeding = rows.find(row => attention.has(row.id))
+    if (firstNeeding) {
+      // The world headings move to the first row of each world that is not in "Needs you".
+      groupHeading.clear()
+      groupHeading.set(firstNeeding.id, 'Needs you')
+      for (const group of worldGroups) {
+        const first = rows.find(row => !attention.has(row.id) && group.ids.includes(row.id))
+        if (first) groupHeading.set(first.id, worldGroups.length > 1 ? (group.here ? `Here · ${group.name}` : group.name) : 'The others')
+      }
+    }
+  }
   const helpersWorking = rows.reduce((sum, row) => sum + row.helpers.filter(helper => helper.look === 'running').length, 0)
   const geometry = getSessionPanelGeometry(viewport.width, viewport.height)
   const top = railBottom + 12

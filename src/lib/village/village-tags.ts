@@ -2,17 +2,28 @@
 // Pure: which colour a name is, which marker a status gets, where the pieces sit above the head. The drawing
 // is components/village/VillageTags.tsx (3D text, no HTML).
 
-/** What the owner sees over an agent that wants him: like a quest giver in an MMO. */
-export type TagMarker = '!' | '?'
-
 /**
- * "!" when the agent has something to tell the owner (it finished and he has not looked, or it is stuck);
- * "?" when it asks him for a decision. Nothing while it works, idles, or after he has looked.
+ * What stands over an agent's head. Like a quest giver in an MMO when it needs the owner: "?" a decision, "?2" two
+ * missions it wrote wait for him, "!" an error. "tick": it finished and he has not looked (a small quiet check mark,
+ * still, for an hour at most). Nothing while it works, idles, or after he has looked.
  */
-export function tagMarker(status: string | null | undefined, unseen: boolean): TagMarker | null {
-  if (status === 'needs-decision') return '?'
+export type TagMarker = '!' | '?' | `?${number}` | 'tick'
+
+export interface TagMarkerState {
+  /** An open decision (village: hasOpenDecision). */
+  decision?: boolean
+  /** Open carbon missions it wrote. */
+  missions?: number
+  /** Finished, not opened yet, asks nothing (finishedQuietly). */
+  finished?: boolean
+}
+
+export function tagMarker(status: string | null | undefined, state: TagMarkerState = {}): TagMarker | null {
   if (status === 'error') return '!'
-  if (status === 'waiting' && unseen) return '!'
+  const missions = Math.max(0, Math.floor(state.missions || 0))
+  if (missions > 0) return `?${missions}`
+  if (state.decision || status === 'needs-decision') return '?'
+  if (state.finished) return 'tick'
   return null
 }
 
