@@ -15,19 +15,17 @@ import { academyLaneLook, layoutAcademyMap } from '../../lib/village/academy-map
 import { AcademyMapEngine, type MapNodeSpec } from './academy-map-engine'
 import { getKeychainState, keyStates, subscribeKeychain, watchKeychainFromMap } from './keychain-store'
 import {
-  closeAcademyMap,
   getAcademyState,
   mapContent,
   mapSetId,
   mapTrainee,
-  openAcademyMap,
   openAcademyReader,
   selectAcademyTrainee,
   setAcademyMapSet,
   subscribeAcademy,
   useAcademyEnabled,
 } from './academy-store'
-import { getCharacterState, setCharacterTab, subscribeCharacter } from './character-store'
+import { closeCharacter, getCharacterState, openCharacter, setCharacterTab, subscribeCharacter } from './character-store'
 import { showNotice } from '../forge/GlobalNotice'
 import { VILLAGE_FONT_BODY, VILLAGE_TYPE_CLASS } from './village-status'
 
@@ -36,18 +34,18 @@ const BUTTON = 'rounded-md border border-white/15 bg-white/5 px-2 py-1 text-[11p
 /** The HUD's way in. */
 export function AcademyMapButton() {
   const enabled = useAcademyEnabled()
-  const open = useSyncExternalStore(subscribeCharacter, () => getCharacterState().open && getCharacterState().tab === 'skills', () => false)
+  const open = useSyncExternalStore(subscribeCharacter, () => getCharacterState().open, () => false)
   const has = useSyncExternalStore(subscribeAcademy, () => Boolean(getAcademyState().content), () => false)
   if (!enabled || !has) return null
   return (
     <button
       type="button"
       data-academy-map-button
-      onClick={() => (open ? closeAcademyMap() : openAcademyMap())}
+      onClick={() => (open ? closeCharacter() : openCharacter())}
       className="shrink-0 rounded-md border border-amber-300/40 bg-amber-400/15 px-2.5 py-1 text-[11px] font-black text-amber-50 transition hover:bg-amber-400/30"
-      title="The skill map: what your agents can learn, and what they have (K)"
+      title="Your character, your agents' skills and your keys (K)"
     >
-      <span className="mr-1 rounded bg-black/40 px-1 font-mono">K</span>Skills
+      <span className="mr-1 rounded bg-black/40 px-1 font-mono">K</span>Character
     </button>
   )
 }

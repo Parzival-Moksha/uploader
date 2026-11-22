@@ -1,6 +1,7 @@
 'use client'
 
-// Settings > Agents > Oasis services: the agent engine and the page server, their state, and a Restart button for
+// Settings > Misc > Oasis services (moved from Agents on 22 Nov, where the owner did not find it): a green or red light
+// for the agent engine and the page server, since when each runs, and a Restart button for
 // each (the owner's click only; /api/oasis/services asks the supervisor, scripts/oasis-supervisor.mjs). Without the
 // supervisor (the old two-window launcher) it says how to get it. The red warning when one is down is
 // ConnectionWarning's; this is where to act on it.
@@ -28,6 +29,23 @@ const STATE_TEXT: Record<ServiceView['state'], string> = {
 }
 
 const clock = (ms: number) => new Date(ms).toTimeString().slice(0, 5)
+
+/** "08:54" today, "Fri 08:54" another day. */
+export function sinceText(ms: number, now = Date.now()): string {
+  const d = new Date(ms)
+  return d.toDateString() === new Date(now).toDateString() ? clock(ms) : `${d.toLocaleDateString('en', { weekday: 'short' })} ${clock(ms)}`
+}
+
+/** Green running, amber on its way, red down. */
+export function lightColor(state: string | null | undefined): string {
+  if (state === 'running') return '#22c55e'
+  if (state === 'starting' || state === 'stopping') return '#f59e0b'
+  return '#ef4444'
+}
+
+export function Light({ color, title }: { color: string; title?: string }) {
+  return <span aria-hidden title={title} className="inline-block h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: color, boxShadow: `0 0 6px ${color}` }} />
+}
 
 export function ServicesSettings() {
   const [data, setData] = useState<{ supervisor: boolean; services: ServiceView[] } | null>(null)
@@ -62,16 +80,19 @@ export function ServicesSettings() {
   return (
     <section data-services-settings>
       <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-1.5 font-mono">Oasis services</div>
-      {error && <div className="text-[11px] text-amber-300 mb-1">{error}</div>}
+      {error && <div className="flex items-center gap-2 text-[11px] text-amber-300 mb-1"><Light color={lightColor('down')} />{error}</div>}
       {data && data.services.map(service => (
         <div key={service.name} className="flex items-center justify-between gap-2 py-1" data-service={service.name} data-service-state={service.state}>
-          <div className="min-w-0">
+          <div className="flex min-w-0 items-center gap-2">
+            <Light color={lightColor(service.state)} />
+            <div className="min-w-0">
             <div className="text-sm text-gray-300">{service.label}</div>
             <div className={`text-[10px] ${service.state === 'running' ? 'text-gray-500' : 'text-amber-300'}`} title={service.log ? `Log: ${service.log}` : undefined}>
               {STATE_TEXT[service.state] || service.state}
-              {service.state === 'running' && service.since ? ` since ${clock(service.since)}` : ''}
+              {service.state === 'running' && service.since ? ` since ${sinceText(service.since)}` : ''}
               {data.supervisor ? (service.managed ? ' · no window' : ' · in its own window') : ''}
               {service.restarts ? ` · restarted ${service.restarts}×` : ''}
+            </div>
             </div>
           </div>
           <button
@@ -85,11 +106,12 @@ export function ServicesSettings() {
           </button>
         </div>
       ))}
-      <div className="text-[10px] text-gray-500 mt-1">
-        {data?.supervisor
+      {!data && !error && <div className="text-[11px] text-gray-500">checking…</div>}
+      {data && <div className="text-[10px] text-gray-500 mt-1">
+        {data.supervisor
           ? 'The supervisor runs both without windows, keeps their logs in C:\\af_oasis\\logs and starts one again if it stops.'
           : 'The servers run in windows of their own (the OASIS launcher). Start the Oasis from the "Oasis app" desktop icon to run them hidden and restart them from here.'}
-      </div>
+      </div>}
     </section>
   )
 }

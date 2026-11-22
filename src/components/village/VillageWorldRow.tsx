@@ -14,6 +14,7 @@ import { isStageWorldName } from '../../lib/village/village-stage'
 import { showNotice } from '../forge/GlobalNotice'
 import { currentVillageWorld, getVillageHomesFile, setVillageWorld } from './village-homes'
 import { useVillageWorldsVersion, villageWorldName } from './village-worlds'
+import { VILLAGE_EVERYWHERE } from '../../lib/village/village-worlds'
 
 type Mode = 'one' | 'with'
 
@@ -22,7 +23,8 @@ export function VillageWorldRow() {
   const [busy, setBusy] = useState(false)
   const worldName = useOasisStore(s => s.worldRegistry.find(entry => entry.id === (s.viewingWorldId || s.activeWorldId))?.name || '')
   const village = getVillageHomesFile().villageWorld
-  const mode: Mode = village ? 'one' : 'with'
+  // Unset is one world too (the page sets it to the first world the village opens in); "with" is a choice.
+  const mode: Mode = village === VILLAGE_EVERYWHERE ? 'with' : 'one'
   const choose = (next: Mode) => {
     if (busy || next === mode) return
     const here = currentVillageWorld()
@@ -32,12 +34,12 @@ export function VillageWorldRow() {
       return
     }
     setBusy(true)
-    setVillageWorld(next === 'one' ? here : null)
+    setVillageWorld(next === 'one' ? here : VILLAGE_EVERYWHERE)
       .catch(error => showNotice(`Could not change it: ${error instanceof Error ? error.message : String(error)}`, 'error'))
       .finally(() => setBusy(false))
   }
   return (
-    <div className="py-1.5" data-village-world={village || 'with-me'}>
+    <div className="py-1.5" data-village-world={village === VILLAGE_EVERYWHERE ? 'with-me' : village || 'one'}>
       <KitTabs<Mode>
         tabs={[
           { id: 'one', label: 'Agents live in one world', title: 'Each agent stays in its world; the Agents menu reaches it from anywhere' },
@@ -47,9 +49,9 @@ export function VillageWorldRow() {
         onChange={choose}
       />
       <div className="kit-hint mt-1">
-        {village
-          ? `They live in ${villageWorldName(village)}, unless one has its own home. Agents set to "Follow across worlds" (Anorak) come along. From any world the Agents menu reaches the others: Call here or Go there.`
-          : 'Everyone appears wherever you are.'}
+        {mode === 'with'
+          ? 'Everyone appears wherever you are.'
+          : `Each agent lives in its home world: where it was summoned${village ? `, else ${villageWorldName(village)}` : ''}. Only agents with "Follow across worlds" on (Anorak) come along when you change worlds. From any world the Agents menu reaches the others: Call here or Go there.`}
       </div>
     </div>
   )

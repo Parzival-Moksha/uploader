@@ -45,7 +45,13 @@ export function earsPaths() {
 // --- first-use setup: our own Python folder ------------------------------------------------------------------------------
 function findSystemPython() {
   // The Microsoft Store stub (WindowsApps\python.exe) only opens the Store, so check that it really runs.
-  for (const [cmd, pre] of [['py', ['-3']], ['python', []], ['python3', []]]) {
+  // A Mac without Apple's command-line tools has a /usr/bin/python3 stub that opens an install window: only real
+  // Pythons there (Homebrew, python.org), and the plain python3 only when xcode-select says the tools are in place.
+  const candidates = process.platform === 'darwin'
+    ? [['/opt/homebrew/bin/python3', []], ['/usr/local/bin/python3', []], ['/Library/Frameworks/Python.framework/Versions/Current/bin/python3', []],
+       ...(spawnSync('xcode-select', ['-p'], { stdio: 'ignore' }).status === 0 ? [['python3', []]] : [])]
+    : [['py', ['-3']], ['python', []], ['python3', []]];
+  for (const [cmd, pre] of candidates) {
     const r = spawnSync(cmd, [...pre, '-c', 'import sys; print(sys.version_info[0])'], { encoding: 'utf8', windowsHide: true });
     if (r.status === 0 && String(r.stdout).trim() === '3') return [cmd, pre];
   }
@@ -70,7 +76,7 @@ let earsAskedAt = 0;
 const EARS_ASK_MS = 10 * 60_000;
 /** What the first press of the mic answers in the packaged Oasis. */
 export const EARS_ASK = 'Voice typing needs a local helper that is not installed yet. Press the mic again to install it: it uses your Python 3, downloads about 50 MB of packages and one speech model (once, about a minute), and runs on this machine only.';
-async function ensurePython(status) {
+async function ensurePython(status, { asked = false } = {}) {
   const found = earsPaths().python;
   if (found) return found;
   // The packaged Oasis installs nothing unasked: the helper is a Python folder of about 50 MB plus a speech model
@@ -78,7 +84,7 @@ async function ensurePython(status) {
   // it is remembered (this machine's settings, `earsInstall`). OASIS_EARS_INSTALL=1 says yes ahead, =0 never.
   // The owner's own Oasis (no edition set) sets itself up as before.
   if (process.env.OASIS_EARS_INSTALL === '0') throw new Error('Voice typing is switched off on this machine (OASIS_EARS_INSTALL=0).');
-  if (process.env.OASIS_EDITION === 'slim' && process.env.OASIS_EARS_INSTALL !== '1' && setting('earsInstall') !== 'yes') {
+  if (!asked && process.env.OASIS_EDITION === 'slim' && process.env.OASIS_EARS_INSTALL !== '1' && setting('earsInstall') !== 'yes') {
     if (Date.now() - earsAskedAt > EARS_ASK_MS) {
       earsAskedAt = Date.now();
       throw new Error(EARS_ASK);
@@ -98,21 +104,68 @@ async function ensurePython(status) {
 }
 
 /**
- * Settings' "Install the local helper" (the page, Settings > Sound): the same yes as a second press of the mic,
- * remembered, and the setup starts at once. Asked again, it says how far it is. -> { state, text?, error? }
- * state: ready (installed), installing, failed, off (OASIS_EARS_INSTALL=0). The speech model itself comes on first use.
+ * Can the local helper run here at all? Its speech package (moonshine-voice 0.1.5) ships wheels for Windows, Linux and
+ * Apple-silicon Macs on macOS 15 or newer only; anywhere else the page's browser recognition is the voice typing.
  */
-let install = { state: 'idle', text: '', error: '' };
-export function startEarsInstall(log) {
-  if (earsPaths().python) return { state: 'ready' };
-  if (process.env.OASIS_EARS_INSTALL === '0') return { state: 'off', error: 'Voice typing is switched off on this machine (OASIS_EARS_INSTALL=0).' };
-  if (install.state === 'installing') return { ...install };
-  saveSetting('earsInstall', 'yes');
-  install = { state: 'installing', text: 'Starting…', error: '' };
-  ensurePython((text) => { install.text = text; })
-    .then(() => { install = { state: 'ready', text: '', error: '' }; log?.('ears: installed from Settings'); warmEars(log); })
-    .catch((e) => { install = { state: 'failed', text: '', error: e.message }; log?.(`ears: install from Settings failed: ${e.message}`); });
+export function earsPlatform(platform = process.platform, arch = process.arch, release = os.release()) {
+  if (platform !== 'darwin') return { ok: true };
+  if (arch !== 'arm64') return { ok: false, why: "The local voice-typing helper needs an Apple-silicon Mac (its speech package has no Intel build); your browser's recognition types instead." };
+  if (Number(String(release).split('.')[0]) < 24) return { ok: false, why: "The local voice-typing helper needs macOS 15 or newer; your browser's recognition types instead." };
+  return { ok: true };
+}
+
+/**
+ * The helper's setup, from Settings' button (installEars) or by itself at a packaged engine's first start
+ * (autoInstallEars): its Python packages (about 50 MB, 160 MB on disk), then the English speech model (about 260 MB,
+ * fetched and checked by the speech package on the helper's first start). Asked again, it says how far it is.
+ * state: idle, installing, ready, failed, off (OASIS_EARS_INSTALL=0), unsupported (earsPlatform). step: packages, model.
+ */
+let install = { state: 'idle', step: '', text: '', error: '', startedAt: 0, auto: false };
+export function earsSetupState() {
+  const where = earsPlatform();
+  if (!where.ok) return { state: 'unsupported', error: where.why };
+  if (install.state === 'idle' && earsPaths().python && helper?.ready) return { state: 'ready' };
   return { ...install };
+}
+
+export function startEarsInstall(log, { auto = false } = {}) {
+  const where = earsPlatform();
+  if (!where.ok) return { state: 'unsupported', error: where.why };
+  if (process.env.OASIS_EARS_INSTALL === '0') return { state: 'off', error: "Voice typing's local helper is switched off on this machine (OASIS_EARS_INSTALL=0)." };
+  if (install.state === 'installing' || install.state === 'ready') return { ...install };
+  saveSetting('earsInstall', 'yes'); // started by itself or from Settings: a press of the mic meanwhile is no question
+  install = { state: 'installing', step: 'packages', text: 'Starting…', error: '', startedAt: Date.now(), auto };
+  const failed = (e) => { install = { ...install, state: 'failed', text: '', error: e.message || String(e) }; log?.(`ears: setup ${auto ? '(by itself)' : 'from Settings'} failed: ${install.error}`); };
+  (earsPaths().python ? Promise.resolve(earsPaths().python) : ensurePython((text) => { install.text = text; }, { asked: true }))
+    .then((python) => {
+      // The model: the helper fetches it on its first start (status lines "Downloading Moonshine (en): 40%").
+      install.step = 'model';
+      install.text = 'Loading the speech model…';
+      const h = getHelper(python, earsPaths().models, log);
+      sleepLater();
+      if (h.ready) { install = { ...install, state: 'ready', text: '' }; return; }
+      const onMsg = (m) => {
+        if (m.t === 'status' && m.text) install.text = m.text;
+        else if (m.t === 'ready') { h.off('msg', onMsg); install = { ...install, state: 'ready', text: '' }; log?.(`ears: set up ${auto ? 'by itself' : 'from Settings'} in ${Math.round((Date.now() - install.startedAt) / 1000)} s`); }
+        else if (m.t === 'error') { h.off('msg', onMsg); failed(new Error(m.text || 'the voice helper stopped')); }
+      };
+      h.on('msg', onMsg);
+    })
+    .catch(failed);
+  return { ...install };
+}
+
+/**
+ * A packaged engine's first start: voice typing is part of the Oasis (the owner, 2026-11-22: "talking is kind of the
+ * point"), so with no ElevenLabs key the helper sets itself up in the background; the page's browser recognition types
+ * until it is ready, and the mic switches over by itself. Not on the owner's own Oasis (no edition: as before), not
+ * with OASIS_EARS_INSTALL=0, not where it cannot run, and only once it is missing (a set-up helper just stays cold).
+ */
+export function autoInstallEars(log, { hasKey = false } = {}) {
+  if (process.env.OASIS_EDITION !== 'slim' || process.env.OASIS_EARS_INSTALL === '0' || hasKey) return null;
+  if (!earsPlatform().ok || earsPaths().python) return null;
+  log?.('ears: setting itself up in the background (packages about 50 MB, speech model about 260 MB)');
+  return startEarsInstall(log, { auto: true });
 }
 
 // --- the helper: one model, kept warm ----------------------------------------------------------------------------------

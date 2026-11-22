@@ -36,7 +36,7 @@ import { loadRoster, saveRoster, saveRosterNow } from './roster.js';
 import { takeVoiceMessage } from './scribe.js';
 import { takePictures } from './pictures.js';
 import { resolveClaude } from './claude.js';
-import { listen as earsListen, warmEars, earsStatus, stopEars, startEarsInstall } from './ears.js';
+import { listen as earsListen, warmEars, earsStatus, stopEars, startEarsInstall, earsSetupState, autoInstallEars } from './ears.js';
 import { listenScribe, hasLiveScribe, LIVE_SCRIBE_MODEL } from './scribe-live.js';
 import { readTextFile, serveAttachment, writeTextFile } from './files.js';
 import { startClipWatchdog, stopClipWatchdog, clipWatchdogState } from './clip-watchdog.js';
@@ -512,6 +512,36 @@ function checkOutAccounts({ asked = false } = {}) {
   return checking;
 }
 
+/**
+ * Every account's own meter, kept true (the owner, 22 Nov: "one usage meter per account"; /health had shown the CLI
+ * login at 8% for two days while things outside the engine spent it to 12%). An account's figures come with every turn
+ * on it (rate_limit_event, unifiedWindows). When they are older than FRESH_MS and the Oasis is open (a page is
+ * connected), one tiny check turn on that account reads them again (haiku, no tools: a few dozen tokens). The CLI's
+ * own `/usage` is free but answers only for the CLI's login, not for a token account (tried 22 Nov: no limits listed).
+ * Each window keeps when it was read (`at`); a figure that could not be refreshed stays with its age.
+ */
+const FRESH_MS = Number(process.env.OASIS_ACCOUNTS_FRESH_MS || 15 * 60_000);
+const freshTried = new Map(); // account id -> last try (the engine's clock)
+let freshening = null;
+function freshenAccounts({ force = false } = {}) {
+  if (freshening) return freshening;
+  if (!force && clients.size === 0) return Promise.resolve([]);
+  const t = now();
+  const due = accounts.staleAccounts(FRESH_MS, t).filter((a) => force || t - (freshTried.get(a.id) || 0) >= FRESH_MS);
+  if (!due.length) return Promise.resolve([]);
+  freshening = Promise.all(due.map(async (a) => {
+    freshTried.set(a.id, t);
+    const r = await tinyTurn(a.token);
+    if (r.usage) accounts.record(a.id, r.usage);
+    if (r.ok && r.refused && r.usage?.resetsAt) accounts.exhaust(a.id, { resetsAt: r.usage.resetsAt, window: r.usage.rateLimitType, kind: r.kind });
+    if (!r.usage) hub.log(`accounts: could not read ${accountLabel(a.id)}'s usage (${r.reason || 'no rate_limit_event'})`);
+    return { id: a.id, read: Boolean(r.usage) };
+  }))
+    .finally(() => { freshening = null; });
+  return freshening;
+}
+setInterval(() => { void freshenAccounts().catch((e) => hub.log(`accounts: refreshing usage failed: ${e.message}`)); }, Number(process.env.OASIS_ACCOUNTS_FRESH_EVERY_MS || 5 * 60_000)).unref();
+
 /** Every 15 s, and when the test clock moves: an account is back, so the agents that waited go on. */
 async function accountsTick() {
   if (accounts.allExhausted()) return;
@@ -557,6 +587,8 @@ const commands = {
   // Voice typing through ElevenLabs has nothing to warm; Moonshine (chosen, or no ElevenLabs key) loads its model.
   /** Settings > Sound: install the local voice-typing helper now (ears.js startEarsInstall); asked again, its progress. */
   installEars() { return startEarsInstall((m) => hub.log(m)); },
+  /** The helper's setup as it stands (read-only: the page's line while it sets itself up, Settings > Sound). */
+  earsSetup() { return earsSetupState(); },
   warmEars({ engine } = {}) {
     if (engine === 'elevenlabs' && hasLiveScribe()) return { warming: false, ready: true, model: `elevenlabs ${LIVE_SCRIBE_MODEL}` };
     return warmEars((m) => hub.log(m));
@@ -891,6 +923,8 @@ ${you.note}` : text);
   /** The village's account: "auto" (the one whose week ends first) or an account id. Applies from each agent's next turn. */
   /** Ask every account marked out with one tiny turn now (the HUD's "check now", agents, scripts). */
   async checkAccounts() { const checked = await checkOutAccounts({ asked: true }); return { ok: true, data: { checked, ...accounts.view() } }; },
+  /** Read every account's usage now (one tiny turn each whose figures are older than 15 minutes). */
+  async refreshUsage() { const read = await freshenAccounts({ force: true }); return { ok: true, data: { read, ...accounts.view() } }; },
   setDefaultAccount({ account }) { return { ok: true, data: { villageDefault: accounts.setVillageDefault(account), ...accounts.view() } }; },
   /** Pin one agent to an account (null: back to the village's choice). An idle agent moves now. */
   setAccount({ agentId, agent, account }) {
@@ -1357,6 +1391,8 @@ process.on('exit', () => { for (const a of ownedAgents()) { try { a.proc?.kill()
 startClipWatchdog((m) => hub.log(m));
 
 server.listen(PORT, HOST, () => {
+  // A packaged engine sets voice typing's local helper up by itself on its first start (ears.js autoInstallEars).
+  try { autoInstallEars((m) => hub.log(m), { hasKey: hasLiveScribe() }); } catch (e) { hub.log(`ears: could not start its setup: ${e.message}`); }
   hub.log(`Oasis agent engine on http://${HOST}:${PORT}  (ws /ws)  claude: ${resolveClaude().how}`);
   journal.load();
   journal.beat();

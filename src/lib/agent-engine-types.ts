@@ -495,6 +495,16 @@ export type EngineServerMessage =
 
 // ─── commands (browser → engine) ────────────────────────────────────────────
 
+/** Voice typing's local helper being set up (engine ears.js): packages, then the speech model. */
+export interface EarsSetupState {
+  state: 'idle' | 'installing' | 'ready' | 'failed' | 'off' | 'unsupported'
+  step?: '' | 'packages' | 'model'
+  text?: string
+  error?: string
+  startedAt?: number
+  auto?: boolean
+}
+
 export interface SpawnAgentArgs {
   name?: string
   cwd: string
@@ -537,7 +547,9 @@ export interface EngineCommandMap {
   /** Load the dictation model ahead of the first mic press (never installs or downloads). */
   warmEars: { args: { engine?: 'elevenlabs' | 'local' }; result: { warming: boolean; ready?: boolean; model?: string } }
   /** Settings > Sound: install the local voice-typing helper now; asked again, how far it is (engine ears.js). */
-  installEars: { args: Record<string, never>; result: { state: 'idle' | 'installing' | 'ready' | 'failed' | 'off'; text?: string; error?: string } }
+  installEars: { args: Record<string, never>; result: EarsSetupState }
+  /** The helper's setup as it stands, read-only (the line while it sets itself up). */
+  earsSetup: { args: Record<string, never>; result: EarsSetupState }
   listLive: { args: Record<string, never>; result: Array<EngineLiveRegistryEntry & { sessionId: string }> }
   spawnAgent: { args: SpawnAgentArgs; result: EngineAgentSnapshot }
   send: { args: { agentId: string; text: string; priority?: 'now' | 'later'; images?: EngineSendPicture[] }; result: { uuid: string; midTurn: boolean } }

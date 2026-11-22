@@ -34,6 +34,7 @@ import { KitToggle } from '@/components/ui-kit'
 import { getVoiceTypingEngine } from '../../lib/voice/voice-typing-engine'
 import { PictureChips, useComposerPictures } from './ComposerPictures'
 import { subscribeVillageSend, subscribeVillageVoiceStop, subscribeVillageVoiceToggle, takeVillageVoiceRequest } from './village-actions'
+import { VoiceSetupLine } from './VoiceSetupLine'
 
 function describeError(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
@@ -302,6 +303,8 @@ export function VillageComposer({ agentId, large = false, containerHeight }: {
       {voiceNote && (
         <div className={`text-[11px] leading-snug ${voice.error ? 'text-amber-200' : 'text-rose-100/90'}`}>{voiceNote}</div>
       )}
+      {/* Voice typing's local helper setting itself up: one plain line (VoiceSetupLine.tsx). */}
+      <VoiceSetupLine />
       <div className="flex flex-wrap items-center justify-between gap-2">
         {owned ? (
           <span data-urgent-help title={urgentHelp(hermes)}>

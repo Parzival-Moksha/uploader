@@ -16,13 +16,22 @@ export interface AgentWorldInput {
 }
 
 /**
- * The world it is in: the owner's when it follows; the one it was called into; its home world; the one world
- * where it has a home spot; else the village's world. null: everywhere (no village world chosen yet), which is
- * how the village behaved before worlds had their own agents.
+ * The village's world when the owner chose "Agents come with me" (Settings > Agents): everyone appears wherever he
+ * is. Stored as the village's world in the homes file; unset (null) is not this any more (2026-11-22: the owner
+ * walked into Portal Zero and all 25 agents were there; "I thought that by default they just spawn in a specific
+ * world"): the page sets the village's world the first time it is opened in one.
+ */
+export const VILLAGE_EVERYWHERE = 'everywhere'
+
+/**
+ * The world it is in: the owner's when it follows across worlds; the one it was called into; its home world (where
+ * it was summoned); the one world where it has a home spot; else the village's world. null: every world, only
+ * with "Agents come with me" (or for the moment before a fresh village has its world).
  */
 export function agentWorld(input: AgentWorldInput, villageWorld: string | null, currentWorld: string | null): string | null {
   if (input.follows) return currentWorld
   if (input.calledTo) return input.calledTo
+  if (villageWorld === VILLAGE_EVERYWHERE) return null
   if (input.homeWorld) return input.homeWorld
   if (input.homeSpots.length === 1) return input.homeSpots[0]
   return villageWorld

@@ -5,7 +5,7 @@
 // in Scene.tsx. Replaces the old monolithic SettingsContent pile.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { CONFIG_TABS, type ConfigTabId } from './types'
 import { GraphicsTab } from './tabs/GraphicsTab'
 import { FontsTab } from './tabs/FontsTab'
@@ -16,6 +16,7 @@ import { WorldVfxTab } from './tabs/WorldVfxTab'
 import { AgentsTab } from './tabs/AgentsTab'
 import { ExperimentsTab } from './tabs/ExperimentsTab'
 import { MiscTab } from './tabs/MiscTab'
+import { CONFIG_TAB_EVENT, takeRequestedConfigTab } from './config-tab-request'
 import { SettingsLookControls } from './SettingsLookControls'
 
 export interface ConfigMenuProps {
@@ -74,7 +75,16 @@ function SettingsCrest() {
 }
 
 export function ConfigMenu({ menuOpacity, onMenuOpacityChange, consoleControl, initialTab = 'graphics' }: ConfigMenuProps) {
-  const [activeTab, setActiveTab] = useState<ConfigTabId>(initialTab)
+  const [activeTab, setActiveTab] = useState<ConfigTabId>(() => takeRequestedConfigTab() || initialTab)
+  // Asked for a tab while open (the main menu's service lights: Misc).
+  useEffect(() => {
+    const onTab = (event: Event) => {
+      const tab = (event as CustomEvent<{ tab?: ConfigTabId }>).detail?.tab
+      if (tab) { takeRequestedConfigTab(); setActiveTab(tab) }
+    }
+    window.addEventListener(CONFIG_TAB_EVENT, onTab)
+    return () => window.removeEventListener(CONFIG_TAB_EVENT, onTab)
+  }, [])
 
   const tabProps = { menuOpacity, onMenuOpacityChange, consoleControl }
 

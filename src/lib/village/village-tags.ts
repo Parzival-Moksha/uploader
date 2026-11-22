@@ -3,14 +3,14 @@
 // is components/village/VillageTags.tsx (3D text, no HTML).
 
 /**
- * What stands over an agent's head. Like a quest giver in an MMO when it needs the owner: "?" a decision, "?2" two
- * missions it wrote wait for him, "!" an error. "tick": it finished and he has not looked (a small quiet check mark,
- * still, for an hour at most). Nothing while it works, idles, or after he has looked.
+ * What stands over an agent's head. Loud, like a quest giver in an MMO, only when it is stopped on the owner: "?"
+ * an open permission or question card, "!" an error. Quiet (small, still, dim): `#2` two missions it wrote wait in
+ * Mindcraft; "tick" it finished and he has not looked (an hour at most). Nothing while it works or idles.
  */
-export type TagMarker = '!' | '?' | `?${number}` | 'tick'
+export type TagMarker = '!' | '?' | `#${number}` | 'tick'
 
 export interface TagMarkerState {
-  /** An open decision (village: hasOpenDecision). */
+  /** An open decision card (village: hasOpenDecision). */
   decision?: boolean
   /** Open carbon missions it wrote. */
   missions?: number
@@ -19,12 +19,17 @@ export interface TagMarkerState {
 }
 
 export function tagMarker(status: string | null | undefined, state: TagMarkerState = {}): TagMarker | null {
+  if (state.decision) return '?'
   if (status === 'error') return '!'
   const missions = Math.max(0, Math.floor(state.missions || 0))
-  if (missions > 0) return `?${missions}`
-  if (state.decision || status === 'needs-decision') return '?'
+  if (missions > 0) return `#${missions}`
   if (state.finished) return 'tick'
   return null
+}
+
+/** The quiet markers: small, still, dim, nothing to chase. */
+export function isQuietMarker(marker: TagMarker | null): boolean {
+  return marker === 'tick' || (marker !== null && marker.startsWith('#'))
 }
 
 function hashString(value: string): number {

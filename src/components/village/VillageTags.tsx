@@ -21,7 +21,7 @@ import { FontLoader, type Font } from 'three/examples/jsm/loaders/FontLoader.js'
 import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js'
-import { SIDE_DARKER, TAG, divideColor, shadeColor, tagScale, tagText, type TagMarker } from '../../lib/village/village-tags'
+import { SIDE_DARKER, TAG, divideColor, isQuietMarker, shadeColor, tagScale, tagText, type TagMarker } from '../../lib/village/village-tags'
 import { getTagSettings, getTagSettingsVersion, subscribeTagSettings, type TagStyle } from '../../lib/village/tag-style'
 import { measureVillageBody } from './village-companion'
 
@@ -179,7 +179,7 @@ const markerGeometry = new Map<string, THREE.BufferGeometry>()
 const markerMaterial = new Map<string, THREE.MeshStandardMaterial>()
 const rimMaterial = new Map<string, THREE.MeshBasicMaterial>()
 
-function markerGeometryFor(loaded: Font, glyph: Exclude<TagMarker, 'tick'>): THREE.BufferGeometry {
+function markerGeometryFor(loaded: Font, glyph: string): THREE.BufferGeometry {
   let geometry = markerGeometry.get(glyph)
   if (!geometry) {
     geometry = new TextGeometry(glyph, { font: loaded, size: TAG.markerSize, height: TAG.markerSize * 0.2, curveSegments: 6, bevelEnabled: true, bevelThickness: 0.014, bevelSize: 0.012, bevelSegments: 2 })
@@ -472,7 +472,10 @@ export function VillageTag({ agentId, name, color, rim, status, statusColor, mar
     if (entry.current) entry.current.spin = spinRef.current
   }, [marker, bold])
 
-  const markerGeo = marker && marker !== 'tick' && bold ? markerGeometryFor(bold, marker) : null
+  // Loud ("?" a card, "!" an error) spin over the head; the missions' number is quiet: small, still, dim, facing him.
+  const quietCount = marker && marker.startsWith('#') ? marker.slice(1) : null
+  const markerGeo = marker && !isQuietMarker(marker) && bold ? markerGeometryFor(bold, marker) : null
+  const countGeo = quietCount && bold ? markerGeometryFor(bold, quietCount) : null
   return (
     <group ref={root} position-x={x} position-z={z} name="village-tag">
       <group ref={board}>
@@ -496,6 +499,9 @@ export function VillageTag({ agentId, name, color, rim, status, statusColor, mar
           </>
         )}
         {/* Finished, not looked at: the quiet tick where a marker would be, still and facing the camera. */}
+        {countGeo && (
+          <mesh name="village-tag-missions" geometry={countGeo} material={tickMaterialFor('#fbbf24')} position={[0, TAG.markerAt, 0]} scale={0.45} raycast={NO_RAYCAST} />
+        )}
         {marker === 'tick' && (
           <mesh name="village-tag-tick" geometry={tickGeometryFor()} material={tickMaterialFor(statusColor)} position={[0, TAG.markerAt, 0]} raycast={NO_RAYCAST} />
         )}

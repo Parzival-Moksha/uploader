@@ -10,6 +10,7 @@ import { effectiveStatus, selectAttentionQueue } from '../../store/slices/agentE
 import { playVillageChime, unlockVillageAudio } from './village-sound'
 import { loadSeen, markSeen, planUnseenRestore, saveSeen } from '../../lib/village/village-seen'
 import { applyVillageMissionCounts, refreshVillageMissions } from './village-missions-client'
+import { watchVillageHomeWorlds } from './village-worlds'
 import { setAgentPanelTab } from './AgentPanelTabs'
 import { VillageImageViewer } from './VillageImageViewer'
 import { MarkdownReader } from './MarkdownReader'
@@ -152,6 +153,9 @@ export function VillageController() {
       unsubscribe()
     }
   }, [])
+
+  // Agents live in worlds: the village's world when unset, and a new agent's home where it was summoned.
+  useEffect(() => watchVillageHomeWorlds(), [])
 
   // An agent starts needing you: a chime (heard from a background tab too) and "(2) " in the tab
   // title. Browsers allow sound only after a click or key press, so every gesture (re)unlocks it.

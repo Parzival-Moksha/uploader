@@ -25,19 +25,27 @@ export function chooseDictationRoute(facts: EarsFacts): DictationRoute {
   return 'engine'
 }
 
-/** warmEars' answer → the engine can type: a model means ElevenLabs's key or an installed helper; ready means one runs. */
+/**
+ * warmEars' answer → the engine can type now: ElevenLabs (its key), or the local helper with its model loaded. A
+ * helper still installing, downloading or loading its model does not count: the browser types meanwhile (the owner's
+ * first agent, 2026-11-22, had a mic that did nothing while the helper was not there yet).
+ */
 export function engineHasEars(answer: { ready?: boolean; model?: string } | null | undefined): boolean {
-  return Boolean(answer && (answer.model || answer.ready))
+  if (!answer) return false
+  if (answer.model?.startsWith('elevenlabs')) return true
+  return answer.ready === true
 }
 
 const PROBE_MS = 60_000
+/** A "not yet" is asked again soon: the helper may be ready a few seconds later, and the mic switches by itself. */
+const PROBE_NOT_YET_MS = 8_000
 let probe: { at: number; ears: boolean } | null = null
 
 /** Asks the engine once a minute at most (warmEars also warms whichever ears it has, as the composer already does). */
 async function engineEars(): Promise<{ open: boolean; ears: boolean }> {
   const client = getAgentEngineClient()
   if (!client.isOpen) return { open: false, ears: false }
-  if (probe && Date.now() - probe.at < PROBE_MS) return { open: true, ears: probe.ears }
+  if (probe && Date.now() - probe.at < (probe.ears ? PROBE_MS : PROBE_NOT_YET_MS)) return { open: true, ears: probe.ears }
   try {
     // 'elevenlabs' answers with its model when the key is there, and falls back to the local helper's answer.
     const ears = engineHasEars(await client.warmEars('elevenlabs'))

@@ -285,6 +285,18 @@ export class Accounts {
       .map((a) => ({ id: a.id, token: a.token }));
   }
 
+  /** When this account's figures were last read (the newest window's reading, ms), or null. */
+  readAt(id) {
+    const w = this.state[this.aliasOf(id) || id]?.windows || {};
+    const times = Object.values(w).map((x) => x?.at || 0).filter(Boolean);
+    return times.length ? Math.max(...times) : null;
+  }
+
+  /** Accounts that take turns but whose figures are older than `maxAgeMs` (or were never read): [{ id, token }]. */
+  staleAccounts(maxAgeMs, now = this.now()) {
+    return this.available(now).filter((a) => now - (this.readAt(a.id) || 0) >= maxAgeMs).map((a) => ({ id: a.id, token: a.token }));
+  }
+
   /** The accounts that may take a turn now (an alias offered once). */
   available(now = this.now()) {
     const aliased = this.aliasOf(CLI);
@@ -365,6 +377,7 @@ export class Accounts {
         why: (this.state[a.id]?.exhaustedUntil || 0) > now ? this.state[a.id].why : null,
         windows: this.state[a.id]?.windows || {},
         pace: a.id === CLI && aliased ? null : this.pace(a.id, now),
+        readAt: this.readAt(a.id),
       })),
     };
   }

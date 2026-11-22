@@ -501,27 +501,29 @@ export function runningSubagentCount(agent: { subagents?: EngineSubagentState[];
 }
 
 /**
- * A decision only the owner can make, open right now: a permission, question or plan card, or a turn that ended on
- * one. Not a reply that merely ends with "?" (the engine's `question-text`): most of those are "done, anything
- * else?" (the owner, 2026-11-21: "most agents are just coming to me saying: it's done, man").
+ * A decision only the owner can make, open right now: a permission, question or plan card the agent is stopped on.
+ * Not a turn that ended on a question in its text (`question-text`), nor one a built-in safety check refused
+ * (`permission-denied`: the agent is not waiting on him), nor a mission it wrote (those wait in Mindcraft).
+ * The owner, 2026-11-22: "I'm followed by this huge throng of agents... just a random report."
  */
-export function hasOpenDecision(agent: Pick<EngineAgentState, 'status' | 'decisions'> & { statusReason?: string | null }): boolean {
+export function hasOpenDecision(agent: Pick<EngineAgentState, 'decisions'> & { status?: EngineAgentState['status']; statusReason?: string | null }): boolean {
   if (agent.decisions.length > 0) return true
-  return agent.status === 'needs-decision' && agent.statusReason !== 'question-text'
+  // The engine's word for a card it holds (a page that has not seen the card yet, an engine restarted with one open).
+  // An engine before 8ea9e94 also says needs-decision for a refused tool (permission-denied): not a card (Citizens).
+  return agent.status === 'needs-decision' && OPEN_CARD_REASONS.has(agent.statusReason || '')
 }
 
+const OPEN_CARD_REASONS = new Set(['permission', 'question', 'plan'])
+
 /**
- * Who needs the owner (the loud "?", "needs you", the chime, the tab title's count, N, walking up to him):
- * 0 = a decision card or a turn that ended on one, 1 = an error, 2 = a carbon mission it wrote that waits.
- * null: no. A finished turn is not on this list (see finishedQuietly: a quiet tick, nothing more).
- * An open permission / question / plan wins over the status: a mid-turn message makes the engine report `working`,
- * but the CLI is still blocked on the owner.
+ * Who is loud (the "?" or "!", "needs you", the chime, the tab title's count, N, walking up when "Come to me" is
+ * on): 0 = an open decision card, 1 = an error. null: no. Missions (openMissions) are a quiet number over its head;
+ * a finished turn is a quiet tick (finishedQuietly).
  */
 export function attentionRank(agent: Pick<EngineAgentState, 'status' | 'unseen' | 'decisions'> & { statusReason?: string | null; openMissions?: number; subagents?: EngineSubagentState[]; lastEventAt?: number; parked?: EngineAgentState['parked']; offline?: EngineAgentState['offline'] }): number | null {
   if (hasOpenDecision(agent)) return 0
   // Waiting for an account's usage (engine accounts.js) is not stuck: it goes on by itself; no one walks up for it.
   if (!agent.parked && !agent.offline && agent.status === 'error') return 1
-  if ((agent.openMissions || 0) > 0) return 2
   return null
 }
 
@@ -546,10 +548,8 @@ export function finishedQuietly(agent: Pick<EngineAgentState, 'status' | 'unseen
  */
 export function effectiveStatus(agent: Pick<EngineAgentState, 'status' | 'decisions' | 'unseen'> & { statusReason?: string | null; openMissions?: number; parked?: EngineAgentState['parked']; offline?: EngineAgentState['offline'] }): EngineAgentStatus {
   if (agent.decisions.length > 0) return 'needs-decision'
-  // A reply that ends with "?" is a finished turn, not a decision (hasOpenDecision).
-  if (agent.status === 'needs-decision' && !hasOpenDecision(agent)) return (agent.openMissions || 0) > 0 ? 'needs-decision' : 'waiting'
-  // A mission it wrote waits for him: it needs him, unless it is busy working on.
-  if ((agent.openMissions || 0) > 0 && (agent.status === 'waiting' || agent.status === 'idle')) return 'needs-decision'
+  // A turn that ended on a question in its text, or on a refusal by a safety check, is finished: no card waits.
+  if (agent.status === 'needs-decision' && !hasOpenDecision(agent)) return 'waiting'
   // Waiting for usage: calm, not an error (the engine reports it as one so the agent's turn reads as cut off).
   if (agent.parked || agent.offline) return 'waiting'
   if (agent.status === 'idle' && agent.unseen) return 'waiting'
@@ -1307,7 +1307,7 @@ export function prependHistory(
 
 // ─── selectors ──────────────────────────────────────────────────────────────
 
-/** Agents that need the owner: decisions first, then errors, then open missions. Oldest first within a group. */
+/** Agents that need the owner: open decision cards first, then errors. Oldest first within a group. */
 export function selectAttentionQueue(state: Pick<AgentEngineState, 'agents' | 'order'>): string[] {
   const ranked: Array<{ id: string; rank: number; since: number; index: number }> = []
   state.order.forEach((id, index) => {

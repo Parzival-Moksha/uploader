@@ -16,9 +16,9 @@ import { VillageWorldRow } from '@/components/village/VillageWorldRow'
 import { LEAVE_EFFECTS, getVillageLooks, getVillageLooksVersion, setVillageLooks, subscribeVillageLooks } from '@/lib/village/village-looks'
 import { isVillageVoiceOn, setVillageVoiceOn, subscribeVillageVoice } from '@/components/village/village-companion'
 import { isFinishedNearOnly, setFinishedNearOnly, subscribeFinishedNearOnly } from '@/components/village/finished-voice'
+import { isComeToMeOn, setComeToMeOn, subscribeComeToMe } from '@/components/village/come-to-me'
 import { WakeUpSettings } from './WakeUpSettings'
 import { AccountsSettings } from './AccountsSettings'
-import { ServicesSettings } from './ServicesSettings'
 
 /** An on/off row: the kit switch (the design picked in Settings > Experiments > Switches), a title and a line on what it does now. */
 function SwitchRow({ on, onToggle, title, hint, data }: { on: boolean; onToggle: () => void; title: string; hint: string; data: string }) {
@@ -40,6 +40,7 @@ export function AgentsTab() {
   const chimeOn = useSyncExternalStore(subscribeVillageSound, isVillageSoundOn, () => true)
   const voicesOn = useSyncExternalStore(subscribeVillageVoice, isVillageVoiceOn, () => true)
   const finishedNearOnly = useSyncExternalStore(subscribeFinishedNearOnly, isFinishedNearOnly, () => true)
+  const comeToMe = useSyncExternalStore(subscribeComeToMe, isComeToMeOn, () => false)
   useSyncExternalStore(subscribeTagSettings, getTagSettingsVersion, () => 0)
   const tagSettings = getTagSettings()
   useSyncExternalStore(subscribeVillageLooks, getVillageLooksVersion, () => 0)
@@ -148,7 +149,7 @@ export function AgentsTab() {
           on={chimeOn}
           onToggle={() => setVillageSoundOn(!chimeOn)}
           title="Chime when an agent needs you"
-          hint={chimeOn ? 'A chime plays when an agent needs you: a decision, a mission it wrote, or an error. Not when it just finished.' : 'Silent: the ! and ? over their heads still show it.'}
+          hint={chimeOn ? 'A chime plays when an agent is stopped on you: a permission or question card, or an error. Not for missions, not when it just finished.' : 'Silent: the ! and ? over their heads still show it.'}
         />
         <SwitchRow
           data="village-voices"
@@ -156,6 +157,13 @@ export function AgentsTab() {
           onToggle={() => setVillageVoiceOn(!voicesOn)}
           title="Agent voices"
           hint={voicesOn ? 'Agents with Voice on (their settings menu) say a short version of each reply out loud.' : 'Muted: nothing is spoken or generated, whatever each agent is set to.'}
+        />
+        <SwitchRow
+          data="village-come-to-me"
+          on={comeToMe}
+          onToggle={() => setComeToMeOn(!comeToMe)}
+          title="Agents come to me when they're stuck"
+          hint={comeToMe ? 'An agent stopped on a permission or question card, or on an error, walks up to you (unless its own Come to me is off). Missions and finished reports never do.' : 'Off: they stay where they are; the ? or ! over their heads shows it. Follow me (Anorak) is separate.'}
         />
         <SwitchRow
           data="village-finished-near"
@@ -254,8 +262,7 @@ export function AgentsTab() {
       <WakeUpSettings />
       {/* The Claude accounts the agents run on, and the village's default (the engine keeps them). */}
       <AccountsSettings />
-      {/* The agent engine and the page server: their state and a Restart button each (scripts/oasis-supervisor.mjs). */}
-      <ServicesSettings />
+      {/* The engine and page server's lights and Restart buttons moved to Settings > Misc (ServicesSettings). */}
     </div>
   )
 }

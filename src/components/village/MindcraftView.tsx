@@ -9,7 +9,7 @@
 // row; click it and it opens into its units of work: one per mission, one for time with agents, one
 // for just being in the Oasis. Never a row per turn.
 
-import { useCallback, useEffect, useLayoutEffect, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useMindcraftLook } from './mindcraft-look'
 import { useOasisStore } from '../../store/oasisStore'
 import { ManualTimeForm } from './ManualTimeForm'
@@ -271,6 +271,8 @@ export function MindcraftView({ carbonFile }: { carbonFile?: string | null } = {
 }
 
 const WINDOW_Z = 9395
+/** On top: above the agent panels (9400 and up), below the game rail (10400), dialogs and the main menu (20000). */
+const WINDOW_Z_TOP = 10300
 // Nearly full screen (the owner: "honestly, that could be full screen somehow"), between the always-on buttons.
 const WINDOW_MAX_WIDTH = 1500
 const WINDOW_GAP = 12
@@ -312,15 +314,37 @@ export function overlayObstacles(minZ = WINDOW_Z, ignore = '[data-ui-panel="mind
   return out
 }
 
+/**
+ * Esc for the Mindcraft window. Listened for once, when this code loads, so it comes before the listeners an agent
+ * panel adds when it opens: with Mindcraft on top, Esc closes Mindcraft, not the panel underneath.
+ */
+let escapeHandler: ((event: KeyboardEvent) => void) | null = null
+const escapeHolder = globalThis as unknown as { __oasisMindcraftEsc?: boolean }
+if (typeof window !== 'undefined' && !escapeHolder.__oasisMindcraftEsc) {
+  escapeHolder.__oasisMindcraftEsc = true
+  window.addEventListener('keydown', event => {
+    if (event.key === 'Escape') (globalThis as unknown as { __oasisMindcraftEscHandler?: (e: KeyboardEvent) => void }).__oasisMindcraftEscHandler?.(event)
+  }, { capture: true })
+}
+
 /** The view as a window over the world. Esc or a click outside closes it. */
 export function MindcraftWindow() {
   const kitStyle = useKitStyle()
   const [open, setOpen] = useState(false)
   const [carbonFile, setCarbonFile] = useState<string | null>(null)
+  // Whichever opened last is on top (until Hipster's one layer order for the Oasis): Mindcraft opened over an agent
+  // panel draws above it (the owner, 2026-11-22); an agent opened from Mindcraft (Talk to, N, a click) draws above Mindcraft.
+  const [onTop, setOnTop] = useState(true)
+  useEffect(() => useOasisStore.subscribe((state, prev) => {
+    const now = state.agentEngine.focusedAgentId
+    if (now === prev.agentEngine.focusedAgentId) return
+    setOnTop(!now)
+  }), [])
   useEffect(() => {
     const onOpen = (event: Event) => {
       const file = (event as CustomEvent<{ carbon?: string }>).detail?.carbon
       setCarbonFile(typeof file === 'string' ? file : null)
+      setOnTop(true)
       setOpen(true)
     }
     window.addEventListener(MINDCRAFT_EVENT, onOpen)
@@ -328,21 +352,29 @@ export function MindcraftWindow() {
   }, [])
   useEffect(() => {
     if (!open) return
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return
+    const handler = (event: KeyboardEvent) => {
       // An agent's panel opened from a mission is on top: Esc closes that, and Mindcraft stays on the mission.
-      if (useOasisStore.getState().agentEngine.focusedAgentId) return
+      if (useOasisStore.getState().agentEngine.focusedAgentId && !onTopRef.current) return
       event.stopImmediatePropagation()
       setOpen(false)
     }
-    window.addEventListener('keydown', onKey, { capture: true })
-    return () => window.removeEventListener('keydown', onKey, { capture: true })
+    escapeHandler = handler
+    ;(globalThis as unknown as { __oasisMindcraftEscHandler?: (e: KeyboardEvent) => void }).__oasisMindcraftEscHandler = handler
+    return () => {
+      escapeHandler = null
+      const g = globalThis as unknown as { __oasisMindcraftEscHandler?: (e: KeyboardEvent) => void }
+      if (g.__oasisMindcraftEscHandler === handler) g.__oasisMindcraftEscHandler = undefined
+    }
   }, [open])
+  const onTopRef = useRef(onTop)
+  onTopRef.current = onTop
+  const z = onTop ? WINDOW_Z_TOP : WINDOW_Z
   // Beside the always-on buttons, not under them: measured on open and on every resize.
   const [band, setBand] = useState<{ left: number; right: number } | null>(null)
   useLayoutEffect(() => {
     if (!open) return
-    const measure = () => setBand(clearBand(window.innerWidth, overlayObstacles()))
+    // Only what stands above Mindcraft's own layer is in its way (on top: the game rail, not an agent panel).
+    const measure = () => setBand(clearBand(window.innerWidth, overlayObstacles(onTopRef.current ? WINDOW_Z_TOP : WINDOW_Z)))
     measure()
     const late = window.setTimeout(measure, 300) // overlays that settle after the first paint
     window.addEventListener('resize', measure)
@@ -350,7 +382,7 @@ export function MindcraftWindow() {
       window.clearTimeout(late)
       window.removeEventListener('resize', measure)
     }
-  }, [open])
+  }, [open, onTop])
   if (!open) return null
   const vw = typeof window === 'undefined' ? 1280 : window.innerWidth
   const area = band || { left: 0, right: vw }
@@ -358,13 +390,13 @@ export function MindcraftWindow() {
   const left = area.left + (area.right - area.left - width) / 2
   return (
     <>
-      <div className="fixed inset-0 z-[9390] bg-slate-950/70 backdrop-blur-sm" onClick={() => setOpen(false)} />
+      <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm" style={{ zIndex: z - 5 }} onClick={() => setOpen(false)} />
       <div
         data-ui-panel="mindcraft"
         // A kit panel (Hipster's UI kit), so the one menu-style switch reaches Mindcraft too.
         data-kit-style={kitStyle}
-        className="kit-panel fixed top-[5%] z-[9395] flex h-[90%] flex-col px-2 pb-1 pt-0"
-        style={{ left, width }}
+        className="kit-panel fixed top-[5%] flex h-[90%] flex-col px-2 pb-1 pt-0"
+        style={{ left, width, zIndex: z }}
       >
         <button type="button" onClick={() => setOpen(false)} title="Close (Esc)" className="mc-scope absolute right-1 top-1 z-10"><span className="mc-close flex items-center justify-center">✕</span></button>
         <MindcraftView carbonFile={carbonFile} />

@@ -32,7 +32,8 @@ import { EffortSelect } from './EffortSelect'
 import { AccountSelect } from './AccountSelect'
 import { EyesToggle } from './EyesToggle'
 import { ChromeToggle } from './ChromeToggle'
-import { VoiceKitToggle } from './CompanionToggles'
+import { FollowKitToggle, VoiceKitToggle } from './CompanionToggles'
+import { FollowWorldsToggle } from './FollowWorldsToggle'
 import { AgentSettingsSections } from './AgentSettingsMenu'
 import { AcademyTrainToggle } from './VillageAcademyTrainee'
 import { usePanelLook } from './PanelLook'
@@ -305,6 +306,19 @@ export function AgentSessionPanel() {
  * The agent's settings page (its panel's Settings tab, in the side panel and on the full screen): model and mode on
  * top, then thinking, account and its switches, Follow across worlds, and the thread's text size.
  */
+/**
+ * Follow me and Follow across worlds, at the top of every agent's Settings (2026-11-22: on the Hacker's he could not
+ * find them; they were deep in the Walking section, under its name, character, schedule and voice).
+ */
+function FollowPair({ agent }: { agent: EngineAgentState }) {
+  return (
+    <div data-agent-follow-pair className="flex flex-col gap-1">
+      <FollowKitToggle agent={agent} />
+      <FollowWorldsToggle agentKey={agent.sessionId || agent.id} name={agent.name} kit />
+    </div>
+  )
+}
+
 export function AgentControls({ agent }: { agent: EngineAgentState }) {
   const mergedModelsKey = useOasisStore(s => JSON.stringify(mergeModelLists(Object.values(s.agentEngine.agents).map(a => a.models))))
   const mergedModels = useMemo(() => JSON.parse(mergedModelsKey) as ModelOption[], [mergedModelsKey])
@@ -349,6 +363,7 @@ export function AgentControls({ agent }: { agent: EngineAgentState }) {
           </KitSelectField>
           <EffortSelect agent={agent} />
           </div>
+          <FollowPair agent={agent} />
           <div className="flex flex-wrap items-center gap-2">
           {/* Its Claude account (engine accounts.js), when there is more than one. */}
           <AccountSelect agent={agent} />
@@ -359,7 +374,10 @@ export function AgentControls({ agent }: { agent: EngineAgentState }) {
           <VoiceKitToggle agent={agent} />
         </>
       ) : (
-        <div className="flex flex-wrap items-center gap-2"><AcademyTrainToggle agent={agent} /></div>
+        <>
+          <FollowPair agent={agent} />
+          <div className="flex flex-wrap items-center gap-2"><AcademyTrainToggle agent={agent} /></div>
+        </>
       )}
       <ThreadFontSlider />
       <div className="kit-hint">{agent.runtime === 'hermes' ? `Hermes${agent.remoteHost ? ` on ${agent.remoteHost}` : ''} · ` : ''}{modelLabel(agent)}</div>

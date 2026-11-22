@@ -34,6 +34,8 @@ import {
   type TileMotion,
 } from '@/lib/game-menu/menu-feel'
 import { GameMenuTileArt, MENU_TILES, type MenuTileId } from './GameMenuTileArt'
+import { ServicesLights } from '@/components/village/ServicesLights'
+import { requestConfigTab } from '@/components/forge/config/config-tab-request'
 
 export const OPEN_PROFILE_EVENT = 'oasis:open-profile'
 export const OPEN_CONFIG_EVENT = 'oasis:open-config'
@@ -468,6 +470,11 @@ function GameMenuScreen({ closing }: { closing: boolean }) {
       <div className="ogm-backdrop" onClick={() => close()} />
       <div ref={stageRef} className="ogm-stage">
         <MenuTitle rect={layout.title} tiltRef={titleTiltRef} />
+        {/* The agent engine and the page server, green or red; a click opens Settings > Misc (since when, Restart). */}
+        <ServicesLights
+          style={{ position: 'absolute', left: 16, top: 16, zIndex: 5, pointerEvents: 'auto' }}
+          onOpen={() => { useGameMenu.getState().closeMenu(); requestConfigTab('misc'); window.dispatchEvent(new CustomEvent(OPEN_CONFIG_EVENT)) }}
+        />
         {view === 'tiles' && MENU_TILES.map((tile, i) => {
           const r = layout.tiles[i]
           return (

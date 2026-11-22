@@ -35,9 +35,8 @@ import { ACCENT_SWATCHES } from '../../lib/village/village-tags'
 import { SPEECH_SPEED, VILLAGE_VOICES, villageVoice } from '../../lib/village/village-voices'
 import type { EngineAgentState } from '../../store/slices/agentEngineSlice'
 import { AvatarGallery } from '../forge/AvatarGallery'
-import { pressVillageFollow, setVillageFollowFor, useVillageFollowView } from './follow-view'
+import { pressVillageFollow, useVillageFollowView } from './follow-view'
 import { HomeSection } from './HomeSection'
-import { FollowWorldsToggle } from './FollowWorldsToggle'
 import { showNotice } from '../forge/GlobalNotice'
 import {
   agentVoiceChosenBy,
@@ -143,7 +142,6 @@ function WalkingSection({ agentId, agentKey, name }: { agentId: string; agentKey
   useSyncExternalStore(subscribeVillageFollow, getVillageFollowVersion, () => 0)
   const come = isVillageComeOn(agentKey)
   const view = useVillageFollowView(agentId, agentKey, name)
-  const follow = view !== 'off'
   return (
     <div className="mb-3">
       <div className={HEADING}>Walking · {name}</div>
@@ -154,14 +152,7 @@ function WalkingSection({ agentId, agentKey, name }: { agentId: string; agentKey
         hint="When it needs a decision, has finished or is stuck, it walks to you and waits in silence; its line plays when you open it (E or F)."
         data-agent-come={come ? 'on' : 'off'}
       />
-      <KitToggle
-        checked={follow}
-        onChange={next => setVillageFollowFor(agentId, agentKey, name, next)}
-        label="Follow me"
-        hint="It walks beside you all the time (the same switch as “follow” in the panel)."
-        data-agent-follow={view}
-      />
-      <FollowWorldsToggle agentKey={agentKey} name={name} kit />
+      {/* Follow me and Follow across worlds are at the top of the Settings page (AgentSessionPanel FollowPair). */}
       {view === 'parked' && (
         <button type="button" data-agent-follow-again onClick={() => pressVillageFollow(agentId, agentKey, name)} className="ml-5 mt-0.5 text-[10.5px] text-amber-200/90 underline-offset-2 hover:underline">
           parked where you sent it · follow me again

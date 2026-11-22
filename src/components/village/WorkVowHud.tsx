@@ -82,7 +82,7 @@ function WhereTimeWent({ snapshot }: { snapshot: WorkSnapshot }) {
       {day.missions.map(mission => (
         <Bar key={mission.file} label={`${mission.title} ×${WORK_VALOR.mission}`} seconds={mission.seconds} total={day.seconds} color="#38bdf8" right={`${formatClock(mission.seconds)} · ${mission.xp} XP`} />
       ))}
-      {day.agentSeconds > 0 && <Bar label={`With agents ×${WORK_VALOR.agent}`} seconds={day.agentSeconds} total={day.seconds} color="#c084fc" />}
+      {/* Time with agents shows once, as "Daily agent work" below, which opens into each agent (the owner: "with agents is a duplicate"). */}
       <Bar label={`In the Oasis ×${snapshot.settings?.freeValor ?? WORK_VALOR.free}`} seconds={day.freeSeconds} total={day.seconds} color="#34d399" />
       {withAgents > 0 && (
         <div className="mt-1.5">

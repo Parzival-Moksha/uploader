@@ -416,7 +416,11 @@ export class Normalizer {
     if (denials.length) {
       const plan = denials.some((d) => (d.toolName || d.tool_name) === 'ExitPlanMode');
       const ask = denials.some((d) => (d.toolName || d.tool_name) === 'AskUserQuestion');
-      return { outcome: 'needs-decision', reason: plan ? 'plan' : ask ? 'question' : 'permission-denied' };
+      // A tool refused with no card open (the CLI's built-in safety check, a hook, dontAsk): there is nothing for the
+      // owner to answer, so the turn is finished; the reason says a command was refused (22 Nov: a refused Bash pinged
+      // the owner "needs you" and put a loud marker over the agent, with no card and nothing waiting for him).
+      if (!plan && !ask) return { outcome: 'done-waiting', reason: 'permission-denied' };
+      return { outcome: 'needs-decision', reason: plan ? 'plan' : 'question' };
     }
     if (ctx.permissionMode === 'plan' && /plan/i.test(t.lastText)) return { outcome: 'needs-decision', reason: 'plan' };
     if (/\?\s*(\*\*)?\s*$/.test(t.lastText.trim())) return { outcome: 'needs-decision', reason: 'question-text' };

@@ -2,8 +2,8 @@
 // The owner (2026-11-22), asked whether voice typing should be optional at install on a Mac: "ALWAYS". So when the
 // engine has neither an ElevenLabs key nor the local helper, the mic uses the Web Speech API: Chrome and Edge
 // (SpeechRecognition / webkitSpeechRecognition; Chrome sends the audio to Google to recognise it), Safari
-// (webkitSpeechRecognition; Apple's recogniser). Firefox has none (switched off in its releases): there the mic stays
-// with the engine, which offers to install the local helper.
+// (webkitSpeechRecognition; Apple's recogniser). Firefox has none (switched off in its releases), and Brave's never
+// answers (isBraveBrowser): there the mic stays with the engine, which offers to install the local helper.
 // Same interface as live-dictation.ts, so village-dictation.ts and every box that shows it (the composer, the T
 // window) work unchanged: partial lines while he talks, a final line once he pauses, stop() settles and ends.
 
@@ -32,8 +32,17 @@ export function browserRecognition(): RecognitionCtor | null {
   return w.SpeechRecognition || w.webkitSpeechRecognition || null
 }
 
+/**
+ * Brave has webkitSpeechRecognition but not the Google service behind it: start() fails at once with "network",
+ * every time (found 22 Nov 2026 in the owner's Brave app window of the Uploader, an Oasis with no ElevenLabs key).
+ * So Brave counts as a browser without a recogniser, like Firefox: the mic stays with the engine and its helper.
+ */
+export function isBraveBrowser(nav: unknown = typeof navigator !== 'undefined' ? navigator : undefined): boolean {
+  return Boolean(nav && typeof nav === 'object' && 'brave' in nav && (nav as { brave?: unknown }).brave)
+}
+
 export function isBrowserDictationSupported(): boolean {
-  return Boolean(browserRecognition())
+  return Boolean(browserRecognition()) && !isBraveBrowser()
 }
 
 /** Whose servers hear the audio, for the one honest line. */

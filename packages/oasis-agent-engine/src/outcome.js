@@ -21,6 +21,8 @@ export function restoreOutcome(entry) {
   if (!entry) return null;
   if (typeof entry.turnOpenAt === 'number') return { outcome: 'error', reason: STOPPED_MID_TURN, at: entry.turnOpenAt };
   const o = entry.lastOutcome;
+  // Saved before 22 Nov, a refused tool read as a decision: it is a finished turn (normalize.js outcome).
+  if (o && o.outcome === 'needs-decision' && o.reason === 'permission-denied') return { outcome: 'done-waiting', reason: 'permission-denied', at: typeof o.at === 'number' ? o.at : null };
   if (o && typeof o.outcome === 'string') return { outcome: o.outcome, reason: o.reason ?? null, at: typeof o.at === 'number' ? o.at : null };
   return null;
 }

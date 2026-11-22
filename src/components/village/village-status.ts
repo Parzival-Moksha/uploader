@@ -38,16 +38,18 @@ export function statusLabel(agent: Pick<EngineAgentState, 'status' | 'unseen'> &
  * doesn't: a card (permission, question, plan), a turn that ended on one, an error, or the missions it wrote.
  */
 export function needsReason(agent: Pick<EngineAgentState, 'status' | 'decisions'> & { statusReason?: string | null; openMissions?: number; parked?: EngineAgentState['parked']; offline?: EngineAgentState['offline'] }): string | null {
-  const missions = agent.openMissions || 0
-  const missionWords = missions === 1 ? '1 mission' : `${missions} missions`
   if (hasOpenDecision(agent)) {
-    const kind = agent.decisions[0]?.requestKind || (agent.statusReason === 'plan' ? 'plan' : agent.statusReason === 'question' ? 'question' : 'permission')
-    const what = kind === 'question' ? 'a question' : kind === 'plan' ? 'a plan to approve' : `permission${agent.decisions[0]?.toolName ? ` for ${agent.decisions[0].toolName}` : ''}`
-    return missions ? `${what} · ${missionWords}` : what
+    const card = agent.decisions[0]
+    return card?.requestKind === 'question' ? 'a question' : card?.requestKind === 'plan' ? 'a plan to approve' : `permission${card?.toolName ? ` for ${card.toolName}` : ''}`
   }
   if (agent.status === 'error' && !agent.parked && !agent.offline) return agent.statusReason ? tagReason(agent.statusReason) : 'stopped'
-  if (missions) return `${missionWords} for you`
   return null
+}
+
+/** Its open missions, as a quiet note after its status ("· 2 missions"): they wait in Mindcraft, not on him. */
+export function missionsNote(agent: { openMissions?: number }): string {
+  const missions = agent.openMissions || 0
+  return missions ? ` · ${missions === 1 ? '1 mission' : `${missions} missions`}` : ''
 }
 
 function tagReason(reason: string): string {
@@ -78,8 +80,8 @@ export function villageAgentLook(agent: Pick<EngineAgentState, 'status' | 'unsee
   const resumed = status === 'working' && agent.resumedAt ? ' · resumed' : ''
   // Needs you: why, in a few words. Working with a mission out: it says so too.
   const reason = needsReason(agent)
-  const why = reason && (status === 'needs-decision' || status === 'error' || status === 'working') ? ` · ${reason}` : ''
-  return { status, color: statusColor(status), label: `${statusLabel({ status, unseen: agent.unseen, parked: agent.parked, offline: agent.offline })}${resumed}${why}`, helpers }
+  const why = reason ? ` · ${reason}` : ''
+  return { status, color: statusColor(status), label: `${statusLabel({ status, unseen: agent.unseen, parked: agent.parked, offline: agent.offline })}${resumed}${why}${missionsNote(agent)}`, helpers }
 }
 
 /** Agents the Oasis runs, and desktop-app sessions running the Oasis plugin (bridged), get a text box. */

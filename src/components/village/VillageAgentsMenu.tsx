@@ -231,7 +231,10 @@ export function VillageAgentsMenu() {
   const railBottom = useRailBottom()
   const railWidth = useRailButtonWidth()
   const phone = viewport.width < 700
-  const [collapsed, setCollapsed] = useCollapsed(phone)
+  // Until the newcomer opens or closes it himself: open only while the village is empty (it holds the one invitation),
+  // folded once the first agent is there (the owner, 2026-11-22: "when the first agent spawns, the agent menu is not
+  // expanded"). A choice he made is kept (useCollapsed).
+  const [collapsed, setCollapsed] = useCollapsed(phone || !villageEmpty)
   // The rows' own height, so the open list can rise above its tab instead of scrolling (desktop).
   const contentRef = useRef<HTMLDivElement>(null)
   const [contentHeight, setContentHeight] = useState(0)

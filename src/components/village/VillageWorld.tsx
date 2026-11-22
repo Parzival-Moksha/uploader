@@ -75,6 +75,7 @@ import { VillageTag, VillageTagDriver, deskScreenHeight, useVillageTagReach, vil
 import { VillageLeaveEffect } from './VillageLeaveEffect'
 import { ThreadFontScale, useAgentPanelTab } from './AgentPanelTabs'
 import { AgentMissionsPage } from './AgentMissionsPage'
+import { isComeToMeOn, subscribeComeToMe } from './come-to-me'
 import { AgentControls } from './AgentSessionPanel'
 import { useVillageLeaving } from './village-leave'
 import { isStageWorldName, stationAtAnchor } from '../../lib/village/village-stage'
@@ -729,7 +730,9 @@ function VillageStation({ agentId, placement, avatarUrl, windowVisible, helperLa
   // In a Council (village-council.ts) a member stands where the scene puts it, and nobody walks up to the owner.
   useSyncExternalStore(subscribeCouncil, getCouncilVersion, () => 0)
   const staged = isCouncilMember(agentId) && !stone
-  const visiting = isVillageComeOn(followKey) && needsSince !== null && needsSince !== heardFor && !stone && !isCouncilOn()
+  // Settings > Agents "Agents come to me when they're stuck" (off by default, come-to-me.ts), and its own switch.
+  const comeToMe = useSyncExternalStore(subscribeComeToMe, isComeToMeOn, () => false)
+  const visiting = comeToMe && isVillageComeOn(followKey) && needsSince !== null && needsSince !== heardFor && !stone && !isCouncilOn()
   // The owner is talking to another agent (its panel or its full screen): wait a few metres back, don't interrupt.
   const ownerBusy = useOasisStore(s => s.agentEngine.focusedAgentId !== null && s.agentEngine.focusedAgentId !== agentId)
   // Sent somewhere with a right-click while selected: it walks there and stays (an order beats "Follow me"),

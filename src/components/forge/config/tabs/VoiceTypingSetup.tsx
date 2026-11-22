@@ -10,6 +10,7 @@ import { KitButton } from '@/components/ui-kit'
 import { getAgentEngineClient } from '@/lib/agent-engine-client'
 import { browserRecognizerOwner, isBrowserDictationSupported } from '@/lib/voice/browser-dictation'
 import { forgetEarsProbe } from '@/lib/voice/dictation-route'
+import { VoiceSetupLine } from '@/components/village/VoiceSetupLine'
 
 type Now = 'checking' | 'elevenlabs' | 'helper' | 'browser' | 'none' | 'offline'
 
@@ -72,6 +73,7 @@ export function VoiceTypingSetup() {
   return (
     <div className="mt-2 rounded-lg border border-white/10 bg-black/25 p-2 text-[10.5px] leading-snug text-white/65" data-voice-typing-now={now}>
       <div>{line[now]}</div>
+      <VoiceSetupLine className="mt-1" />
       {showInstall && (
         <div className="mt-1.5">
           <KitButton
@@ -84,7 +86,7 @@ export function VoiceTypingSetup() {
           </KitButton>
           <div className="mt-1 text-white/45">{HELPER_WHAT}</div>
           {install?.state === 'installing' && install.text && <div className="mt-1 text-white/60">{install.text}</div>}
-          {(install?.state === 'failed' || install?.state === 'off') && install.error && <div role="alert" className="mt-1 text-amber-200">{install.error}</div>}
+          {(install?.state === 'failed' || install?.state === 'off' || install?.state === 'unsupported') && install.error && <div role="alert" className="mt-1 text-amber-200">{install.error}</div>}
         </div>
       )}
     </div>

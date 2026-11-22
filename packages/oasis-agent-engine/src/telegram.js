@@ -192,6 +192,14 @@ export function lastQuestion(text) {
   return all.length > 300 ? `…${all.slice(-300)}` : all;
 }
 
+/** Does this agent's state need the owner: an error, or an open card (permission, question, plan)? */
+export function needsOwner(a) {
+  if (a.status === 'error') return true;
+  if (a.status !== 'needs-decision') return false;
+  if (a.permissions?.length) return true;
+  return ['permission', 'question', 'plan'].includes(a.statusReason);
+}
+
 /** "🟠 Tyler needs you: allow Bash: npm test?" / "🔴 Tyler is stuck: claude exited (code 1)". */
 export function pingText(a, { lastText = '', lastTurnEnd = null } = {}) {
   const name = a.name || a.id;
@@ -869,6 +877,9 @@ export class TelegramLine {
     const a = this.listAgents().find((x) => x.id === id);
     if (!a || a.status !== p.status) return;
     const why = `${a.name} (${a.status}${a.statusReason ? `: ${a.statusReason}` : ''})`;
+    // Only an open card (a permission, a question, a plan) or an error needs the owner. A reply ending with "?" or a
+    // tool the CLI refused by itself does not: no ping, so nothing wakes him for it (Anorak, 22 Nov).
+    if (!needsOwner(a)) return this.log(`no ping for ${why}: no card open and no error`);
     if (!this.state.pings) return this.log(`no ping for ${why}: pings are off`);
     if (!this.cfg.ok) return this.log(`no ping for ${why}: no bot config`);
     // A watched transcript replays its past when the Oasis starts watching it: an old question is not news.

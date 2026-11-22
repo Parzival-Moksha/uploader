@@ -6,7 +6,7 @@ export type CharacterTab = 'character' | 'skills' | 'keys'
 
 export const CHARACTER_TABS: Array<{ id: CharacterTab; label: string; hint: string }> = [
   { id: 'character', label: 'Character', hint: 'Level, XP, avatar, accounts' },
-  { id: 'skills', label: 'Skills', hint: 'The skill map (K)' },
+  { id: 'skills', label: 'Skills', hint: 'The skill map' },
   { id: 'keys', label: 'Keys', hint: 'The keychain' },
 ]
 
@@ -14,7 +14,7 @@ export function isCharacterTab(value: unknown): value is CharacterTab {
   return value === 'character' || value === 'skills' || value === 'keys'
 }
 
-/** K: the skill map. Same as the skill map's key before it moved into this menu. */
+/** K opens and closes the menu (the skill map's key before it moved into this menu). */
 export const CHARACTER_SKILLS_KEY = 'KeyK'
 
 export interface CharacterKeyContext {
@@ -35,10 +35,10 @@ export interface CharacterKeyContext {
   worldKeysFree: boolean
 }
 
-export type CharacterKeyAction = 'open-skills' | 'to-skills' | 'close'
+export type CharacterKeyAction = 'open' | 'close'
 
 /**
- * K opens the menu on Skills; K on Skills closes it, K on another tab goes to Skills. Esc closes it,
+ * K opens the menu (always on its Character tab, the owner 2026-11-22) and K closes it. Esc closes it,
  * unless a skill's sheet is open (that closes first) or a text field has the keyboard.
  */
 export function characterKeyAction(c: CharacterKeyContext): CharacterKeyAction | null {
@@ -46,10 +46,10 @@ export function characterKeyAction(c: CharacterKeyContext): CharacterKeyAction |
   if (c.open) {
     if (c.code === 'Escape') return c.readerOpen || c.typing ? null : 'close'
     if (c.code !== CHARACTER_SKILLS_KEY || c.typing || c.readerOpen) return null
-    return c.tab === 'skills' ? 'close' : 'to-skills'
+    return 'close'
   }
   if (c.code !== CHARACTER_SKILLS_KEY || c.typing || c.agentOpen || !c.worldKeysFree) return null
-  return 'open-skills'
+  return 'open'
 }
 
 /** XP still to go and the level's span, from what /api/profile says (progress is a share of the span). */

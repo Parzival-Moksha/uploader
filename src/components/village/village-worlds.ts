@@ -7,10 +7,11 @@ import { useSyncExternalStore } from 'react'
 import { useOasisStore } from '../../store/oasisStore'
 import { villageAgentKey } from '../../lib/village/village-layout'
 import { homeSpotWorlds } from '../../lib/village/village-homes'
-import { agentWorld, isAgentHere } from '../../lib/village/village-worlds'
+import { VILLAGE_EVERYWHERE, agentWorld, isAgentHere } from '../../lib/village/village-worlds'
+import { isStageWorldName } from '../../lib/village/village-stage'
 import { getVillageFollowVersion, subscribeVillageFollow } from './village-companion'
 import { FOLLOW_DEFAULT } from '../../lib/village/village-follow'
-import { currentVillageWorld, getVillageHomesFile, getVillageHomesVersion, subscribeVillageHomes } from './village-homes'
+import { currentVillageWorld, getVillageHomesFile, getVillageHomesVersion, setVillageWorld, subscribeVillageHomes } from './village-homes'
 import { getVillageIdentity, getVillageIdentityVersion, queueVillageIdentity, subscribeVillageIdentity } from '../../lib/village/village-identity-client'
 
 /** Its own home world, from the shared identity store (absent: the village's world). */
@@ -58,7 +59,7 @@ export function isVillageAgentHere(agentId: string): boolean {
 
 /** A world's name for people ("Zen Workshop"). */
 export function villageWorldName(world: string | null): string {
-  if (!world) return 'every world'
+  if (!world || world === VILLAGE_EVERYWHERE) return 'every world'
   return useOasisStore.getState().worldRegistry.find(entry => entry.id === world)?.name || 'another world'
 }
 
@@ -69,4 +70,53 @@ export function useVillageWorldsVersion(): number {
   const identity = useSyncExternalStore(subscribeVillageIdentity, getVillageIdentityVersion, () => 0)
   const world = useOasisStore(s => s.viewingWorldId || s.activeWorldId || '')
   return homes * 1000 + follow * 7 + identity * 13 + world.length
+}
+
+function worldIsPlain(world: string | null): world is string {
+  if (!world) return false
+  const name = useOasisStore.getState().worldRegistry.find(entry => entry.id === world)?.name || ''
+  return !isStageWorldName(name)
+}
+
+/**
+ * Keeps agents in their worlds (VillageController mounts it):
+ * - a village whose world was never set gets the world it is open in now (a fresh Oasis; "Agents live in one
+ *   world" is the default), never a Council stage;
+ * - an agent that appears while the page is connected (summoned from the circle, the guide, "Move it here", or
+ *   started by another agent) gets the world the owner is in as its home, once its session is known (the identity
+ *   store is keyed by session). Agents already there when the page connects keep what they have.
+ */
+export function watchVillageHomeWorlds(): () => void {
+  let seeded = false
+  let known: Set<string> | null = null
+  const fresh = new Map<string, string>() // agent id -> the world it appeared in
+  const tick = () => {
+    const state = useOasisStore.getState()
+    const engine = state.agentEngine
+    const here = currentVillageWorld()
+    if (!seeded && getVillageHomesVersion() > 0 && getVillageHomesFile().villageWorld === null && worldIsPlain(here)) {
+      seeded = true
+      void setVillageWorld(here).catch(() => { seeded = false })
+    }
+    if (engine.connection.status !== 'open') { known = null; return }
+    if (known === null) { known = new Set(engine.order); return }
+    for (const id of engine.order) {
+      if (!known.has(id)) {
+        known.add(id)
+        if (worldIsPlain(here)) fresh.set(id, here)
+      }
+    }
+    for (const [id, world] of fresh) {
+      const agent = engine.agents[id]
+      if (!agent) { fresh.delete(id); continue }
+      if (!agent.sessionId) continue
+      fresh.delete(id)
+      const key = villageAgentKey({ id, sessionId: agent.sessionId })
+      if (!homeWorldOf(key)) setVillageAgentHomeWorld(key, world)
+    }
+  }
+  tick()
+  const unsubscribe = useOasisStore.subscribe(tick)
+  const unhomes = subscribeVillageHomes(tick)
+  return () => { unsubscribe(); unhomes() }
 }

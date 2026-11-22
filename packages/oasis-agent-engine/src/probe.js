@@ -46,13 +46,14 @@ export function runClaude(token, send, onMessage, timeoutMs, extra = []) {
  *   { ok: true, refused: false, usage }            the account takes turns now
  *   { ok: true, refused: true, kind, usage }        out of usage (usage.resetsAt: when, if it said)
  *   { ok: false, reason }                           anything else (bad token, network, 529, timeout): no verdict
- * usage: the last rate_limit_event's { rateLimitType, utilization, resetsAt, status } or null.
+ * usage: the last rate_limit_event's rate_limit_info ({ rateLimitType, utilization, resetsAt, status, unifiedWindows }) or
+ * null: every window's figure, as accounts.js record() reads it.
  */
 export function tinyTurn(token, { timeoutMs = 120_000 } = {}) {
   let usage = null;
   let kind = null;
   return runClaude(token, (proc) => proc.stdin.write(`${JSON.stringify({ type: 'user', message: { role: 'user', content: 'Reply with the word OK.' }, parent_tool_use_id: null, session_id: '' })}\n`), (m, finish) => {
-    if (m.type === 'rate_limit_event' && m.rate_limit_info) usage = { rateLimitType: m.rate_limit_info.rateLimitType, utilization: m.rate_limit_info.utilization, resetsAt: m.rate_limit_info.resetsAt, status: m.rate_limit_info.status };
+    if (m.type === 'rate_limit_event' && m.rate_limit_info) usage = { ...m.rate_limit_info };
     const k = m.api_error || m.message?.api_error || null;
     if (LIMIT_KINDS.has(k)) kind = k;
     if (m.type === 'result') {

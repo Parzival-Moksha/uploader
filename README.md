@@ -37,7 +37,8 @@ node scripts/oasis.mjs start
 
 - **The page server** on `127.0.0.1:4516` (Next.js): the 3D village in your browser.
 - **The agent engine** on `127.0.0.1:4530`: it lists your Claude Code sessions from `~/.claude/projects`, mirrors them, and runs the ones you start in the village as ordinary `claude` processes under your own account, with the permission mode you choose. Permission prompts appear in the village for you to answer; nothing is approved for you.
-- Both listen on this machine only. Nothing is sent to us: no account, no telemetry.
+- **On its first start, the voice-typing helper sets itself up:** it needs a Python 3 on your machine, downloads about 50 MB of Python packages from PyPI (pinned versions) and a 259 MB English speech model (Moonshine, MIT) from download.moonshine.ai, each file checked against its published list. About a minute. It then turns your voice into text on this machine, without sending it anywhere. Until it is ready, and on machines where it cannot run (no Python 3, an Intel Mac, macOS before 15), the microphone uses your browser's own speech recognition, which sends the audio to the browser's maker. `OASIS_EARS_INSTALL=0` in `.env` switches the helper off.
+- Both servers listen on this machine only. Nothing is sent to us: no account, no telemetry.
 
 ## Voice
 

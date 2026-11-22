@@ -10,6 +10,7 @@ import type { SharedTabProps } from '../types'
 import { AppWindowSection } from '../AppWindowSection'
 import { MenuFeelSettings } from '@/components/game-menu/GameMenuExperiment'
 import { KitToggle } from '@/components/ui-kit'
+import { ServicesSettings } from './ServicesSettings'
 
 export function MiscTab({ consoleControl }: SharedTabProps) {
   const { settings, effectiveRp1Mode, rp1Locked, updateSetting } = useContext(SettingsContext)
@@ -22,6 +23,8 @@ export function MiscTab({ consoleControl }: SharedTabProps) {
 
   return (
     <div className="space-y-3">
+      {/* The agent engine and the page server: a light each, since when, and Restart (scripts/oasis-supervisor.mjs). */}
+      <ServicesSettings />
       <AppWindowSection />
       <MenuFeelSettings />
       {consoleControl && (

@@ -330,7 +330,7 @@ export function CharacterMenu() {
     if (prev._uiLayerStack.includes(CHARACTER_MENU_LAYER) && !state._uiLayerStack.includes(CHARACTER_MENU_LAYER)) closeCharacter()
   }), [])
 
-  // K: the Skills tab. Esc: the open sheet first, then the menu.
+  // K opens and closes it (on Character). Esc: the open sheet first, then the menu.
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.code !== 'KeyK' && event.code !== 'Escape') return
@@ -359,8 +359,7 @@ export function CharacterMenu() {
       if (!action) return
       // K needs the Academy; Esc always closes.
       if (action !== 'close' && !academy) return
-      if (action === 'open-skills') openCharacter('skills')
-      else if (action === 'to-skills') setCharacterTab('skills')
+      if (action === 'open') openCharacter()
       else closeCharacter()
       event.preventDefault()
       event.stopImmediatePropagation()
