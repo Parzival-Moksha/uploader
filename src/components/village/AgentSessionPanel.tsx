@@ -38,8 +38,9 @@ import { AcademyTrainToggle } from './VillageAcademyTrainee'
 import { usePanelLook } from './PanelLook'
 import { dismissVillageAgent } from './village-leave'
 import { AgentWhereBar } from './AgentWhereBar'
-import { AgentPanelTabBar, ThreadFontScale, ThreadFontSlider, useAgentPanelTab } from './AgentPanelTabs'
-import { KitSelectField } from '@/components/ui-kit'
+import { AgentPanelHeaderTabs, ThreadFontScale, ThreadFontSlider, useAgentPanelTab } from './AgentPanelTabs'
+import { AgentMissionsPage } from './AgentMissionsPage'
+import { KitSelectField, KitChip } from '@/components/ui-kit'
 import { VILLAGE_FONT_BODY, VILLAGE_FONT_DISPLAY, VILLAGE_TYPE_CLASS, agentDisplayName, canTalkTo, cwdLabel, formatCost, modelLabel, statusColor, statusLabel } from './village-status'
 import { useKitStyle } from '@/components/ui-kit'
 
@@ -236,9 +237,11 @@ export function AgentSessionPanel() {
           <span className="h-16 w-1 rounded-full bg-white/15 transition group-hover:bg-white/50" />
         </div>
       )}
-      <div className="flex shrink-0 items-start justify-between gap-2">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
+      {/* The name keeps its room: with Mindcraft and Settings in the header the buttons go to a second line on a
+          narrow panel rather than squeezing the name to a letter per line. */}
+      <div className="flex shrink-0 flex-wrap items-start justify-between gap-x-2 gap-y-1">
+        <div className="min-w-[9rem] flex-1">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
             <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: color, boxShadow: `0 0 10px ${color}` }} />
             <span className="min-w-0 break-words text-[17px] font-bold leading-tight tracking-wide" style={{ fontFamily: VILLAGE_FONT_DISPLAY }}>{agentDisplayName(agent)}</span>
             <StatusPill
@@ -252,39 +255,26 @@ export function AgentSessionPanel() {
             {agent.usage.sessionCostUsd > 0 ? ` · ${formatCost(agent.usage.sessionCostUsd)} here` : ''}
           </div>
         </div>
-        <div className="flex shrink-0 items-center gap-1">
-          <button
-            type="button"
-            disabled={busy}
-            onClick={dismiss}
-            title={agent.owned ? 'Stop this agent and remove it from the village' : 'Stop observing'}
-            className="rounded-md border border-white/15 bg-white/5 px-2 py-1 text-[10.5px] font-bold text-white/85 transition hover:bg-rose-400/20 hover:text-rose-100"
-          >
+        <div className="ml-auto flex shrink-0 items-center gap-1">
+          {/* Its pages: Mindcraft (its missions for you) and Settings; the thread when neither is pressed. */}
+          <AgentPanelHeaderTabs missions={agent.openMissions || 0} />
+          <KitChip tone="danger" disabled={busy} onClick={dismiss} title={agent.owned ? 'Stop this agent and remove it from the village' : 'Stop observing'}>
             {agent.owned ? 'dismiss' : 'unobserve'}
-          </button>
-          <button
-            type="button"
-            onClick={() => pressVillageView('F')}
-            title="Zoom into the agent's screen and talk there (F)"
-            className="rounded-md border border-white/15 bg-white/5 px-2 py-1 font-mono text-[10.5px] font-bold text-white/85 transition hover:bg-white/15"
-          >
+          </KitChip>
+          <KitChip onClick={() => pressVillageView('F')} title="Zoom into the agent's screen and talk there (F)">
             F screen
-          </button>
-          <button
-            type="button"
-            onClick={() => leaveVillageFocus()}
-            title="Back to the world (Esc)"
-            className="rounded-md border border-white/15 bg-white/5 px-2 py-1 text-[12px] font-bold text-white/85 transition hover:bg-white/15"
-          >
+          </KitChip>
+          <KitChip onClick={() => leaveVillageFocus()} title="Back to the world (Esc)" aria-label="Close">
             ✕
-          </button>
+          </KitChip>
         </div>
       </div>
 
-      {/* Two pages (AgentPanelTabs.tsx): the thread, and its settings (model, mode, the switches, text size). */}
-      <AgentPanelTabBar />
+      {/* Three pages (AgentPanelTabs.tsx, chosen in the header): the thread, its missions, its settings. */}
       {panelTab === 'settings' ? (
         <AgentControls agent={agent} />
+      ) : panelTab === 'mindcraft' ? (
+        <AgentMissionsPage agentId={agent.id} name={agent.name} />
       ) : (
         <>
       {/* Where it is when that is not here: Call here / Go there / Send home (village-worlds.ts). */}

@@ -9,6 +9,7 @@
 // The account is the token in CLAUDE_CODE_OAUTH_TOKEN ("tok-a" -> "a"), or "cli" without one.
 import fs from 'node:fs';
 import { randomUUID } from 'node:crypto';
+import { spawn } from 'node:child_process';
 
 const args = process.argv.slice(2);
 const arg = (name) => { const i = args.indexOf(name); return i === -1 ? null : args[i + 1]; };
@@ -58,6 +59,13 @@ function turn(user) {
   const weekReset = weekly || Math.floor(Date.now() / 1000) + 5 * 86400;
   const fiveReset = Math.floor(Date.now() / 1000) + 3 * 3600;
   out({ type: 'rate_limit_event', rate_limit_info: { status: 'allowed', resetsAt: fiveReset, rateLimitType: 'five_hour', overageStatus: 'rejected', isUsingOverage: false, unifiedWindows: { five_hour: { utilization: account === 'a' ? 0.7 : 0.3, resetsAt: fiveReset, status: 'allowed' }, seven_day: { utilization: account === 'a' ? 0.42 : 0.17, resetsAt: weekReset, status: 'allowed' } } }, uuid: randomUUID(), session_id: session });
+  // Processes under the agent, for the process watcher's tests (procs-smoke.mjs): a log watcher that never ends, and a
+  // busy loop. Like a real tool's, they outlive this process when it is stopped: detached, so they are not in node's own
+  // job object (which would end them with this process, unlike the real CLI's).
+  const tailOf = /^spawn-tail (.+)$/.exec(text);
+  if (tailOf) spawn('C:/Program Files/Git/usr/bin/tail.exe', ['-f', tailOf[1]], { stdio: 'ignore', windowsHide: true, detached: true }).unref();
+  const busyFor = /^spawn-busy (\d+)$/.exec(text);
+  if (busyFor) spawn(process.execPath, ['-e', `const end = Date.now() + ${busyFor[1]} * 1000; while (Date.now() < end) {}`], { stdio: 'ignore', windowsHide: true, detached: true }).unref();
   const reply = `ok from ${account}: ${text.slice(0, 120)}`;
   out({ type: 'assistant', message: { id: `msg_${randomUUID()}`, model, role: 'assistant', content: [{ type: 'text', text: reply }], stop_reason: 'end_turn', usage: { input_tokens: 10, output_tokens: 5 } }, parent_tool_use_id: null, session_id: session, uuid: randomUUID() });
   out({ type: 'result', subtype: 'success', is_error: false, result: reply, num_turns: 1, duration_ms: 20, duration_api_ms: 10, total_cost_usd: 0.0001, usage: { input_tokens: 10, output_tokens: 5 }, modelUsage: { [model]: { contextWindow: 200000 } }, permission_denials: [], session_id: session, uuid: randomUUID() });

@@ -40,8 +40,8 @@ export const OPEN_CONFIG_EVENT = 'oasis:open-config'
 export const OPEN_HELP_EVENT = 'oasis:open-help'
 
 const INVITE_TEXT = [
-  'The Oasis is a 3D world on your own computer where your Claude Code agents live: each has a body and a desk, you walk up to one, tell it by voice what you need, and watch it work.',
-  'To get in, paste this to your Claude Code: "Clone https://github.com/Parzival-Moksha/oasis, follow its README to install and start it, then open http://localhost:4516/?profile=village in my browser."',
+  'The Oasis is a 3D world on your own computer where your Claude Code agents live: each has a body, you walk up to one, tell it by voice what you need, and watch it work.',
+  'To get in, tell your Claude Code: "install the Oasis from github.com/Parzival-Moksha/uploader and open it". It takes about five minutes.',
 ].join('\n\n')
 
 // ── Escape, and Escape out of mouse-look ──────────────────────────────────────────────────────

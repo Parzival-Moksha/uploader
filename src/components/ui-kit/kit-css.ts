@@ -15,6 +15,30 @@ export const KIT_CSS = `
 .kit-panel-body { min-height: 0; flex: 1; overflow-y: auto; padding: 4px 12px 12px; scrollbar-width: thin; }
 .kit-label { display: block; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.6; margin-bottom: 4px; }
 .kit-hint { display: block; font-size: 11px; opacity: 0.55; margin-top: 2px; line-height: 1.3; }
+.kit-chip { flex: none; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; padding: 4px 9px; font-size: 10.5px; font-weight: 700; line-height: 1.2; white-space: nowrap; transition: transform 140ms cubic-bezier(0.2, 0.9, 0.3, 1.3), filter 140ms ease-out, background 140ms ease-out, border-color 140ms ease-out, box-shadow 140ms ease-out, color 140ms ease-out; }
+.kit-chip:hover:not(:disabled) { transform: scale(1.06); }
+.kit-chip:disabled { opacity: 0.45; cursor: default; }
+/* Glass: the look these buttons had before the kit. */
+[data-kit-style="glass"].kit-chip { border-radius: 6px; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.85); }
+[data-kit-style="glass"].kit-chip:hover:not(:disabled) { background: rgba(255,255,255,0.15); }
+[data-kit-style="glass"].kit-chip[data-pressed] { border-color: rgba(255,255,255,0.5); background: rgba(255,255,255,0.2); color: #fff; }
+[data-kit-style="glass"].kit-chip[data-tone="danger"]:hover:not(:disabled) { background: rgba(251,113,133,0.2); color: #ffe4e6; }
+/* Forged: an iron plate with a bronze rim and gold capitals; pressed, the rim lights and the plate warms. */
+[data-kit-style="forged"].kit-chip { border-radius: 3px; border: 1px solid #6b4a1e; background: linear-gradient(180deg, #2b2a2e 0%, #17161a 55%, #0e0d10 100%); box-shadow: inset 0 1px 0 rgba(255,236,190,0.14), inset 0 -1px 0 rgba(0,0,0,0.6), 0 1px 2px rgba(0,0,0,0.6); color: #e9cf8f; font-family: ${SERIF}; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; text-shadow: 0 1px 0 rgba(0,0,0,0.8); }
+[data-kit-style="forged"].kit-chip:hover:not(:disabled) { border-color: #b98a3a; color: #fff3cf; filter: brightness(1.15); }
+[data-kit-style="forged"].kit-chip[data-pressed] { border-color: #ecc978; background: linear-gradient(180deg, #4a3a1c 0%, #2a1f0e 60%, #1a1309 100%); color: #fff3cf; box-shadow: inset 0 1px 0 rgba(255,236,190,0.3), 0 0 10px rgba(236,201,120,0.35); }
+[data-kit-style="forged"].kit-chip[data-tone="danger"]:hover:not(:disabled) { border-color: #b8432f; color: #ffd2c4; background: linear-gradient(180deg, #4a1e18 0%, #2a0f0b 100%); }
+/* Parchment: a small wooden tab, ink letters. */
+[data-kit-style="parchment"].kit-chip { border-radius: 3px; border: 1px solid #6e4a22; background: linear-gradient(180deg, #e8d3a4 0%, #d6bb82 100%); box-shadow: inset 0 1px 0 rgba(255,248,224,0.7), 0 1px 1px rgba(60,35,10,0.4); color: #3f270c; font-family: ${SERIF}; font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; text-shadow: none; }
+[data-kit-style="parchment"].kit-chip:hover:not(:disabled) { background: linear-gradient(180deg, #f2e1b8 0%, #e0c690 100%); }
+[data-kit-style="parchment"].kit-chip[data-pressed] { background: linear-gradient(180deg, #8a5a26 0%, #6e4418 100%); color: #fbecc8; border-color: #4a2d0c; }
+[data-kit-style="parchment"].kit-chip[data-tone="danger"]:hover:not(:disabled) { color: #7b1d14; border-color: #7b1d14; }
+[data-kit-style="parchment"].kit-chip .text-amber-300 { color: #9a3a0a !important; }
+/* Rune: a bronze-edged dark tablet, small capitals. */
+[data-kit-style="rune"].kit-chip { border-radius: 4px; border: 1px solid #b89358; background: #1b130b; box-shadow: inset 0 0 0 1px rgba(214,178,116,0.18); color: #f0d199; font-family: ${SERIF}; font-variant: small-caps; letter-spacing: 0.06em; }
+[data-kit-style="rune"].kit-chip:hover:not(:disabled) { background: #2a1d10; color: #fff0cc; }
+[data-kit-style="rune"].kit-chip[data-pressed] { background: #4a3418; color: #fff0cc; box-shadow: inset 0 0 0 1px rgba(240,209,153,0.55), 0 0 8px rgba(240,209,153,0.3); }
+[data-kit-style="rune"].kit-chip[data-tone="danger"]:hover:not(:disabled) { color: #ffb4a4; border-color: #c0553f; }
 .kit-btn, .kit-tile, .kit-tab, .kit-close, .kit-toggle { transition: transform 140ms cubic-bezier(0.2, 0.9, 0.3, 1.3), filter 140ms ease-out, background 140ms ease-out, border-color 140ms ease-out, box-shadow 140ms ease-out; }
 .kit-btn:hover:not(:disabled), .kit-tile:hover:not(:disabled), .kit-tab:hover, .kit-close:hover { transform: scale(1.06); }
 .kit-btn:active:not(:disabled), .kit-tile:active:not(:disabled) { transform: scale(0.97); }

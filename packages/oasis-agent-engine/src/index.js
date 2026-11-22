@@ -28,6 +28,7 @@ import { Accounts, CACHE_COLD_MS, CLI, accountsFilesFor, paceLine } from './acco
 import { tinyTurn } from './probe.js';
 import { LIMIT_RESUME_TEXT } from './agent.js';
 import { CHECK_EVERY_MS as NET_CHECK_EVERY_MS, Network, fileCheck, spanText } from './network.js';
+import { ProcWatch, RUNAWAY_WINDOW_MS } from './procs.js';
 import { Scheduler, DEFAULT_PROMPT, EVERY, REPEATS, appointmentLabel, describeSchedule, localDate, normalizeAppointment, normalizeSchedule, parseWhen, scheduleSettingsFileFor } from './schedule.js';
 import os from 'node:os';
 import { readOlderHistory } from './history.js';
@@ -120,6 +121,9 @@ let telegram = null; // the owner's Telegram line (telegram.js), only in the rea
 
 const hub = {
   emit(agentId, kind, payload = {}) {
+    // Its claude exited (a restart, an account switch, a kill): the Git-Bash helpers left under it are stopped (procs.js).
+    // (Guarded: both are declared further down, and an exit during start-up must not throw here.)
+    if (kind === 'exit') { try { if (!shuttingDown) void procWatch?.agentExited(agentId).catch(() => {}); } catch { /* not set up yet */ } }
     const event = { ...payload, v: 1, agentId, ts: Date.now(), kind }; // envelope fields always win
     if (kind === 'removed') {
       // The agent is gone: drop its backlog and announce it once.
@@ -363,6 +367,24 @@ function failover(agent, limit) {
     other.sendChain = other.sendChain.then(() => other.switchAccount(`${accountLabel(from)} is out of usage`)).catch((e) => hub.log(`[${other.name}] move failed: ${e.message}`));
   }
 }
+
+// ─── processes left behind or running away (procs.js; Windows) ───────────────────────────────────────
+// OASIS_PROC_WATCH=0 turns it off; OASIS_ORPHAN_MATCH=<regex> limits stopping to matching command lines (tests).
+const procWatch = process.env.OASIS_PROC_WATCH === '0' ? null : new ProcWatch({
+  agents: () => ownedAgents().filter((a) => a.proc?.pid).map((a) => ({ id: a.id, name: a.name, pid: a.proc.pid })),
+  log: (...a) => console.log(new Date().toISOString().slice(11, 19), ...a),
+  match: process.env.OASIS_ORPHAN_MATCH ? new RegExp(process.env.OASIS_ORPHAN_MATCH, 'i') : null,
+  onRunaway: (agentId, info) => {
+    const a = agents.get(agentId);
+    if (!a) return;
+    const pct = Math.round(info.cores * 100);
+    const span = RUNAWAY_WINDOW_MS >= 60_000 ? `${Math.round(RUNAWAY_WINDOW_MS / 60_000)} min` : `${Math.round(RUNAWAY_WINDOW_MS / 1000)} s`;
+    const cmd = (info.cmd || '').replace(/[\[\]]/g, '').replace(/\s+/g, ' ').trim().slice(0, 100);
+    a.emit('notice', { subtype: 'process', text: `${info.name} (pid ${info.pid}) under this agent has held ${pct}% of a core for ${span}${cmd ? `: ${cmd}` : ''}. If it is not meant to run, it can be stopped.` });
+    a.processNote = `[Oasis process: your ${info.name} (pid ${info.pid}${cmd ? `, ${cmd}` : ''}) has held about ${pct}% of a core for ${span}. If it is not meant to run, stop it (taskkill /PID ${info.pid} /F).]`;
+  },
+});
+procWatch?.start();
 
 // ─── the internet line (network.js) ───────────────────────────────────────────────────────────────
 /** Agents carried on at once when the line is back, and the pause between those groups (two dozen must not fire together). */
@@ -1102,7 +1124,7 @@ const server = http.createServer(async (req, res) => {
       }
       return sendJson(res, 200, { ok: true, ...network.view() });
     }
-    if (req.method === 'GET' && url.pathname === '/health') return sendJson(res, 200, { ok: true, agents: agents.size, clients: clients.size, restart: restartInfo(), network: network.view(), accounts: accounts.view(), pace: paceLines(), claude: resolveClaude(), ears: earsStatus(), clipWatchdog: clipWatchdogState(), liveScribe: { model: LIVE_SCRIBE_MODEL, ready: hasLiveScribe() }, places: { missions: setting('missionsDir'), grill: setting('grillFile'), questions: setting('questionsDir') } });
+    if (req.method === 'GET' && url.pathname === '/health') return sendJson(res, 200, { ok: true, agents: agents.size, clients: clients.size, restart: restartInfo(), network: network.view(), procs: procWatch?.view() || null, accounts: accounts.view(), pace: paceLines(), claude: resolveClaude(), ears: earsStatus(), clipWatchdog: clipWatchdogState(), liveScribe: { model: LIVE_SCRIBE_MODEL, ready: hasLiveScribe() }, places: { missions: setting('missionsDir'), grill: setting('grillFile'), questions: setting('questionsDir') } });
     if (req.method === 'GET' && url.pathname === '/api/agents') return sendJson(res, 200, snapshots());
     if (req.method === 'GET' && url.pathname === '/api/sessions') return sendJson(res, 200, await commands.listSessions({}));
     if (req.method === 'POST' && url.pathname === '/hook') {
@@ -1296,6 +1318,7 @@ let shuttingDown = false;
 function shutdown(sig) {
   if (shuttingDown) return;
   shuttingDown = true;
+  procWatch?.stop();
   const working = ownedAgents().filter((a) => a.turnOpenAt);
   hub.log(`${sig}: stopping ${ownedAgents().length} agent(s)${working.length ? `; mid-turn, to be resumed at the next start: ${working.map((a) => a.name).join(', ')}` : ''}`);
   // The goodbye: who is mid-turn (the roster's turnOpenAt), what waits for whom (the journal, already on disk), and

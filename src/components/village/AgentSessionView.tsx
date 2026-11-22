@@ -4,6 +4,7 @@
 // Mounted in the 2D session panel and in each desk's 3D window. Shows text, tool cards, todos,
 // subagents, turn outcomes, the context meter and permission / question / plan cards.
 
+import { KitChip } from '@/components/ui-kit'
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
 import { useOasisStore } from '../../store/oasisStore'
 import { effectiveStatus, selectHistoryCursor, type AgentLogEntry, type EngineAgentState } from '../../store/slices/agentEngineSlice'
@@ -21,6 +22,7 @@ import {
   VILLAGE_TYPE_CLASS,
 } from './village-status'
 import { openVillageImages, pressVillageView } from './village-actions'
+import { AgentPanelHeaderTabs } from './AgentPanelTabs'
 import { ParkedBanner } from './ParkedBanner'
 import { agentEngineFileUrl } from '../../lib/agent-engine-client'
 import { groupThread, threadImages, toolRunShape, type ThreadItem } from '../../lib/village/village-thread'
@@ -759,28 +761,18 @@ export function SessionWindowHeader({ agent, nearby, screen = false }: { agent: 
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
           <StatusPill status={status} label={status === 'needs-decision' ? 'needs you' : status} />
+          {/* Its pages, as in the side panel: Mindcraft (its missions for you) and Settings. */}
+          {screen && <AgentPanelHeaderTabs missions={agent.openMissions || 0} large />}
           {/* Where the E panel has its buttons (the owner, 2026-11-20): back to the side panel (E), close (F or Esc). */}
           {screen && (
-            <button
-              type="button"
-              data-screen-to-panel
-              onClick={() => pressVillageView('E')}
-              title="Back to the side panel (E)"
-              className="shrink-0 rounded-md border border-white/20 bg-white/10 px-2 py-0.5 font-mono text-[11px] font-bold text-white/80 hover:bg-white/20"
-            >
+            <KitChip data-screen-to-panel="" onClick={() => pressVillageView('E')} title="Back to the side panel (E)" className="text-[11px]">
               E panel
-            </button>
+            </KitChip>
           )}
           {screen && (
-            <button
-              type="button"
-              data-screen-close
-              onClick={() => pressVillageView('Esc')}
-              title="Close (F or Esc)"
-              className="shrink-0 rounded-md border border-white/20 bg-white/10 px-2 py-0.5 text-[12px] font-bold text-white/80 hover:bg-white/20"
-            >
+            <KitChip data-screen-close="" onClick={() => pressVillageView('Esc')} title="Close (F or Esc)" aria-label="Close" className="text-[12px]">
               ✕
-            </button>
+            </KitChip>
           )}
         </div>
       </div>

@@ -780,6 +780,11 @@ export class Agent {
       content = [...(Array.isArray(content) ? content : [{ type: 'text', text }]), { type: 'text', text: this.chromeNote }];
       this.chromeNote = null;
     }
+    // A process under it that has held a core for 20 minutes (procs.js): said once, with the next message.
+    if (!command && !resume && this.processNote) {
+      content = [...(Array.isArray(content) ? content : [{ type: 'text', text }]), { type: 'text', text: this.processNote }];
+      this.processNote = null;
+    }
     // Once: a voiced agent that has no voice of its own yet learns how to pick one.
     if (voiceNote === VOICE_NOTE && !this.voiceChoice && !this.voiceOffered) {
       this.voiceOffered = true;

@@ -69,8 +69,18 @@ export function glassStyle(look: Pick<MenuLook, 'blur' | 'transparency' | 'color
   return { backgroundColor: `rgba(${r}, ${g}, ${b}, ${alpha})`, backdropFilter: filter, WebkitBackdropFilter: filter }
 }
 
-let current: MenuLook | null = null
-const listeners = new Set<() => void>()
+/**
+ * The look lives on globalThis, not in this module: a hot reload gives later panels a fresh module, and with module
+ * state they read a fresh copy while earlier panels kept the old one (the owner, 2026-11-21: the agent panel "sometimes
+ * textured… sometimes just the vanilla glass… it switches"). And every window of the Oasis follows the latest choice
+ * at once through the 'storage' event.
+ */
+interface LookStore { current: MenuLook | null; listeners: Set<() => void>; storageHooked: boolean }
+const STORE_KEY = '__oasisMenuLook'
+const store: LookStore = ((globalThis as Record<string, unknown>)[STORE_KEY] as LookStore | undefined)
+  ?? ((globalThis as Record<string, unknown>)[STORE_KEY] = { current: null, listeners: new Set(), storageHooked: false } as LookStore)
+// A reloaded module may know a field the kept look lacks.
+if (store.current) store.current = sanitizeMenuLook(store.current)
 
 /** Kit CSS reads these from the page root, so even plain CSS can follow the look. */
 function publish(look: MenuLook) {
@@ -82,30 +92,48 @@ function publish(look: MenuLook) {
   root.style.setProperty('--kit-glass-blur', glass.backdropFilter)
 }
 
+function notify() { store.listeners.forEach(fn => fn()) }
+
+/** Another window of this origin chose a look: take it. Hooked once per page, whatever reloads. */
+function hookOtherWindows() {
+  if (store.storageHooked || typeof window === 'undefined' || typeof window.addEventListener !== 'function') return
+  store.storageHooked = true
+  window.addEventListener('storage', (event: StorageEvent | { key: string | null; newValue: string | null }) => {
+    if (event.key !== KEY || !event.newValue) return
+    let next: MenuLook
+    try { next = sanitizeMenuLook(JSON.parse(event.newValue)) } catch { return }
+    store.current = next
+    publish(next)
+    notify()
+  })
+}
+
 export function getMenuLook(): MenuLook {
-  if (current) return current
+  if (store.current) return store.current
   if (typeof window === 'undefined') return DEFAULT_MENU_LOOK
   try {
     const saved = window.localStorage.getItem(KEY)
     // The owner's Settings-only look of 2026-11-19 carries over (its blur, see-through and colour).
-    current = sanitizeMenuLook(saved ? JSON.parse(saved) : JSON.parse(window.localStorage.getItem(OLD_KEY) || '{}'))
+    store.current = sanitizeMenuLook(saved ? JSON.parse(saved) : JSON.parse(window.localStorage.getItem(OLD_KEY) || '{}'))
   } catch {
-    current = DEFAULT_MENU_LOOK
+    store.current = DEFAULT_MENU_LOOK
   }
-  publish(current)
-  return current
+  publish(store.current)
+  return store.current
 }
 
 export function setMenuLook(patch: Partial<MenuLook>): void {
-  current = sanitizeMenuLook({ ...getMenuLook(), ...patch })
-  try { window.localStorage.setItem(KEY, JSON.stringify(current)) } catch { /* private mode */ }
-  publish(current)
-  listeners.forEach(fn => fn())
+  const next = sanitizeMenuLook({ ...getMenuLook(), ...patch })
+  store.current = next
+  try { window.localStorage.setItem(KEY, JSON.stringify(next)) } catch { /* private mode */ }
+  publish(next)
+  notify()
 }
 
 export function subscribeMenuLook(fn: () => void): () => void {
-  listeners.add(fn)
-  return () => { listeners.delete(fn) }
+  hookOtherWindows()
+  store.listeners.add(fn)
+  return () => { store.listeners.delete(fn) }
 }
 
 export function useMenuLook(): MenuLook {

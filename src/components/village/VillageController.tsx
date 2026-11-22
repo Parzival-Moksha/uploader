@@ -9,7 +9,8 @@ import { useOasisStore } from '../../store/oasisStore'
 import { effectiveStatus, selectAttentionQueue } from '../../store/slices/agentEngineSlice'
 import { playVillageChime, unlockVillageAudio } from './village-sound'
 import { loadSeen, markSeen, planUnseenRestore, saveSeen } from '../../lib/village/village-seen'
-import { openMissionCounts, type MissionLike } from '../../lib/village/mission-attention'
+import { applyVillageMissionCounts, refreshVillageMissions } from './village-missions-client'
+import { setAgentPanelTab } from './AgentPanelTabs'
 import { VillageImageViewer } from './VillageImageViewer'
 import { MarkdownReader } from './MarkdownReader'
 import { VillageMissionReader } from './VillageMissionReader'
@@ -128,36 +129,25 @@ export function VillageController() {
   }, [])
 
   // The missions agents wrote for the owner (docs/questions): an agent with an open one needs him (the "?" and its
-  // number, N, the chime, walking up). Read every 30 s, and when an agent joins.
+  // number, N, the chime, walking up). Read every 30 s, and counted again when an agent joins (village-missions-client.ts).
   useEffect(() => {
-    let missions: MissionLike[] = []
-    let stopped = false
-    const apply = () => {
-      const engine = useOasisStore.getState().agentEngine
-      const agents = engine.order.map(id => engine.agents[id]).filter(Boolean).map(agent => ({ id: agent.id, name: agent.name }))
-      useOasisStore.getState().agentEngineDispatch({ type: 'missions/set', counts: openMissionCounts(missions, agents), at: Date.now() })
-    }
-    const poll = async () => {
-      try {
-        const response = await fetch('/api/village/questions', { cache: 'no-store' })
-        if (!response.ok || stopped) return
-        const data = await response.json() as { missions?: MissionLike[] }
-        missions = Array.isArray(data.missions) ? data.missions : []
-        apply()
-      } catch {
-        // No questions folder here (a hosted page): nobody waits on a mission.
-      }
-    }
-    void poll()
-    const timer = window.setInterval(() => { void poll() }, 30_000)
+    void refreshVillageMissions()
+    const timer = window.setInterval(() => { void refreshVillageMissions() }, 30_000)
     let order = useOasisStore.getState().agentEngine.order
+    let focused = useOasisStore.getState().agentEngine.focusedAgentId
     const unsubscribe = useOasisStore.subscribe(state => {
-      if (state.agentEngine.order === order) return
-      order = state.agentEngine.order
-      apply()
+      const engine = state.agentEngine
+      if (engine.order !== order) {
+        order = engine.order
+        applyVillageMissionCounts()
+      }
+      // Closed, or another agent opened (N, a click): the next panel starts on its thread. E <-> F keeps the page.
+      if (engine.focusedAgentId !== focused) {
+        if (focused) setAgentPanelTab('thread')
+        focused = engine.focusedAgentId
+      }
     })
     return () => {
-      stopped = true
       window.clearInterval(timer)
       unsubscribe()
     }

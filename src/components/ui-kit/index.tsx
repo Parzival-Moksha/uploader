@@ -85,6 +85,15 @@ export function KitButton({ variant = 'plain', className, children, ...rest }: {
   return <button type="button" {...rest} data-kit-style={kit} data-variant={variant} className={cx('kit-btn', className)}>{children}</button>
 }
 
+/**
+ * A small header button (a panel's "Settings", "dismiss", "F screen"): a word on a plate. pressed = the page it opens
+ * is shown; tone danger reddens on hover (stop, dismiss).
+ */
+export function KitChip({ pressed, tone, className, children, ...rest }: { pressed?: boolean; tone?: 'danger' } & React.ButtonHTMLAttributes<HTMLButtonElement>) {
+  const kit = useKitStyle()
+  return <button type="button" aria-pressed={pressed} {...rest} data-kit-style={kit} data-pressed={pressed ? '1' : undefined} data-tone={tone} className={cx('kit-chip', className)}>{children}</button>
+}
+
 export function KitTileButton({ picture, icon, label, sub, badge, accent, selected, className, style, ...rest }: {
   /** A painted picture (e.g. /ui/spellbook/tiles/<spell>.gpt2.webp). */
   picture?: string

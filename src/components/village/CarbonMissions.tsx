@@ -50,7 +50,7 @@ function Stat({ label, value, color }: { label: string; value: string; color?: s
 }
 
 /** A command from the mission, in a box with a copy button (the owner runs it himself). */
-function CommandBox({ text }: { text: string }) {
+export function CommandBox({ text }: { text: string }) {
   const [copied, setCopied] = useState(false)
   return (
     <div data-mindcraft="command" className="my-2 flex items-start gap-2 rounded border border-sky-300/30 bg-black/55 px-2.5 py-2">
