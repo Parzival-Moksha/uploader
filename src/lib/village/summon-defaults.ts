@@ -64,3 +64,13 @@ export function hermesModelOf(configYaml: string): string {
   }
   return ''
 }
+
+/** Where a spell's agent stands: `distance` in front of the caster, facing back at them (yaw as village-homes' yawToward). */
+export function spotInFront(position: [number, number, number], forward: [number, number, number], distance = 2.2): { x: number; z: number; yaw: number } {
+  const length = Math.hypot(forward[0], forward[2]) || 1
+  const x = position[0] + (forward[0] / length) * distance
+  const z = position[2] + (forward[2] / length) * distance
+  const dx = position[0] - x
+  const dz = position[2] - z
+  return { x, z, yaw: Math.hypot(dx, dz) < 1e-6 ? 0 : Math.atan2(dx, dz) }
+}

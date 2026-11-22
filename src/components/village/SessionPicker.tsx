@@ -18,7 +18,9 @@ import { useVillageSettings } from '../../lib/village/village-settings-client'
 import { accountChoices, shownAccounts } from '../../lib/village/village-accounts'
 import { FOLDER_SOURCE_WORD, pickDefaultFolder, type HermesProfile } from '../../lib/village/summon-defaults'
 import { VILLAGE_PICKER_LAYER, focusVillageAgent, openVillagePicker } from './village-actions'
-import { takeSummonKind, type SummonKind } from './summon-request'
+import { takeSummonRequest, type SummonKind } from './summon-request'
+import { afterSummon } from './summon-arrival'
+import { SummonAvatarPicker, randomSummonAvatar } from './SummonAvatarPicker'
 import { cwdLabel, formatAgo, formatBytes } from './village-status'
 import { FolderBrowser } from './FolderBrowser'
 import { getKeychainState, keyStates, openKeychain, refreshKeychain, subscribeKeychain } from './keychain-store'
@@ -158,6 +160,11 @@ function spawnWith(args: SpawnAgentArgs, choices: SpawnChoices): Promise<EngineA
     return agent
   })
 }
+
+/** The engine does not answer: what to do, in the words of this kind of install. */
+const ENGINE_OFFLINE = process.env.NEXT_PUBLIC_OASIS_EDITION === 'slim'
+  ? 'The agent engine is not running, so no agent can be summoned. Start the Oasis again: in Claude Code type /oasis, or open the oasis file in its folder (oasis.command on a Mac, oasis.cmd on Windows, oasis.sh on Linux).'
+  : 'The agent engine is not running, so no agent can be summoned. Start it next to the Oasis: pnpm dev:engine.'
 
 // ─── the frame ──────────────────────────────────────────────────────────────
 
@@ -317,7 +324,9 @@ function OutOfUsage() {
   )
 }
 
-function NewClaude({ folder, folderNote, onBrowse, choices, setChoices, models, onDone, onError }: {
+function NewClaude({ folder, folderNote, onBrowse, choices, setChoices, models, onDone, onError, extras }: {
+  /** The avatar and the "who it is" line (the menu keeps them, summon-arrival.ts applies them). */
+  extras?: ReactNode
   folder: { path: string; create: boolean }
   folderNote: string
   onBrowse: () => void
@@ -357,6 +366,7 @@ function NewClaude({ folder, folderNote, onBrowse, choices, setChoices, models, 
         <ModelSelect value={choices.model} models={models} onChange={model => setChoices({ model })} />
         <ModeSelect value={choices.permissionMode} modes={CLAUDE_MODES} onChange={permissionMode => setChoices({ permissionMode })} />
       </div>
+      {extras}
       <AccountField value={choices.account} onChange={account => setChoices({ account })} />
       <OutOfUsage />
       <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
@@ -367,7 +377,8 @@ function NewClaude({ folder, folderNote, onBrowse, choices, setChoices, models, 
   )
 }
 
-function NewHermes({ folder, folderNote, onBrowse, profiles, hermesHome, choices, setChoices, onDone, onError }: {
+function NewHermes({ folder, folderNote, onBrowse, profiles, hermesHome, choices, setChoices, onDone, onError, extras }: {
+  extras?: ReactNode
   folder: { path: string; create: boolean }
   folderNote: string
   onBrowse: () => void
@@ -433,6 +444,7 @@ function NewHermes({ folder, folderNote, onBrowse, profiles, hermesHome, choices
           </KitSelectField>
         <ModeSelect value={choices.permissionMode} modes={HERMES_MODES} onChange={permissionMode => setChoices({ permissionMode })} />
       </div>
+      {extras}
       {ssh && (
         <div className="grid grid-cols-2 gap-4 max-[700px]:grid-cols-1">
           <KitTextField size="large" label="ssh host" value={form.host} onChange={event => set({ host: event.target.value })} onKeyDown={stopKeys} placeholder="e.g. og" />
@@ -671,6 +683,10 @@ export function SessionPicker() {
   }, [sessions.items])
   const summonDefaults = useSummonDefaults(open)
   const [kind, setKind] = useState<SummonKind>('claude')
+  // Cast as a spell: the new agent comes to stand in front of the caster (summon-arrival.ts).
+  const [here, setHere] = useState(false)
+  const [avatar, setAvatar] = useState('')
+  const [role, setRole] = useState('')
   const [half, setHalf] = useState<'new' | 'continue'>('new')
   const [claude, setClaude] = useState<SpawnChoices>({ model: '', permissionMode: '', account: 'auto' })
   const [hermesMode, setHermesMode] = useState('')
@@ -690,7 +706,11 @@ export function SessionPicker() {
     setHalf(saved.half === 'continue' ? 'continue' : 'new')
     setClaude({ model: saved.model || '', permissionMode: saved.claudeMode || '', account: saved.account || 'auto' })
     setHermesMode(saved.hermesMode || '')
-    setKind(takeSummonKind() || (saved.kind === 'hermes' ? 'hermes' : 'claude'))
+    const request = takeSummonRequest()
+    setKind(request?.kind || (saved.kind === 'hermes' ? 'hermes' : 'claude'))
+    setHere(Boolean(request?.here))
+    setAvatar(randomSummonAvatar())
+    setRole('')
   }, [open])
 
   useEffect(() => {
@@ -731,8 +751,11 @@ export function SessionPicker() {
       ...(patch.account !== undefined ? { account: patch.account } : {}),
     })
   }
+  /** cwd is given for a new session (its folder, '' for a Hermes over ssh); a continued one has none. */
   const onDone = (agentId: string, cwd?: string) => {
     if (cwd) remember({ lastCwd: cwd })
+    const made = cwd !== undefined
+    if (made || here) afterSummon(agentId, { here, ...(made ? { avatar, role } : {}) })
     close()
     window.setTimeout(() => focusVillageAgent(agentId), 0)
   }
@@ -741,11 +764,28 @@ export function SessionPicker() {
     openKeychain(id)
   }
 
+  const extras = (
+    <>
+      <SummonAvatarPicker value={avatar} onChange={setAvatar} accent={ACCENT} />
+      <KitTextField
+        size="large"
+        label="Who it is (optional)"
+        value={role}
+        maxLength={200}
+        onChange={event => setRole(event.target.value)}
+        onKeyDown={stopKeys}
+        placeholder="e.g. Reviews my pull requests and keeps them small"
+        title="One sentence for its card: who it is to you. It reads it with every message."
+      />
+      {here && <div className="text-[12px] opacity-60" data-summon-here>It will appear in front of you, here.</div>}
+    </>
+  )
+
   return (
     <SummonFrame onClose={close} tall={half === 'continue' && kind === 'claude'}>
       {!connected ? (
         <div className="rounded-xl border border-amber-300/30 bg-amber-400/10 px-4 py-3 text-[13px] text-amber-100">
-          The agent engine is offline. Start it next to the Oasis with <code className="rounded bg-black/40 px-1">pnpm dev:engine</code>.
+          {ENGINE_OFFLINE}
         </div>
       ) : (
         <>
@@ -769,9 +809,10 @@ export function SessionPicker() {
                       setChoices={setChoices}
                       onDone={onDone}
                       onError={setError}
+                      extras={extras}
                     />
                   ) : (
-                    <NewClaude folder={folder} folderNote={folderNote} onBrowse={() => setBrowsing(true)} choices={choices} setChoices={setChoices} models={spawnModels} onDone={onDone} onError={setError} />
+                    <NewClaude folder={folder} folderNote={folderNote} onBrowse={() => setBrowsing(true)} choices={choices} setChoices={setChoices} models={spawnModels} onDone={onDone} onError={setError} extras={extras} />
                   )
                 ) : hermes ? <ContinueHermes /> : (
                   <ContinueClaude choices={choices} onDone={id => onDone(id)} onError={setError} loader={loader} />

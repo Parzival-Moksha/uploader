@@ -10,6 +10,8 @@ import {
   notifyRemoteBolt,
   notifyRespawn,
   setPvpSender,
+  notifyPlayerHit,
+  type PvpPlayerHitEvent,
   type PvpDeathEvent,
   type PvpHitAwardEvent,
   type PvpPlayerSnapshot,
@@ -361,6 +363,11 @@ export async function connectToWorldRoom(args: MultiplayerRoomConnectArgs): Prom
       if (DEBUG) console.warn('[oasis-room] respawn handler threw', err)
     }
   })
+  room.onMessage('hit', (payload: PvpPlayerHitEvent) => {
+    try { notifyPlayerHit(payload) } catch (err) {
+      if (DEBUG) console.warn('[oasis-room] hit handler threw', err)
+    }
+  })
   room.onMessage('hitAward', (payload: PvpHitAwardEvent) => {
     try { notifyHitAward(payload) } catch (err) {
       if (DEBUG) console.warn('[oasis-room] hitAward handler threw', err)
@@ -369,7 +376,15 @@ export async function connectToWorldRoom(args: MultiplayerRoomConnectArgs): Prom
 
   setPvpSender({
     localSessionId: room.sessionId,
-    pvpEnabled: args.pvpEnabled === true || (room.state as RoomStateSchema | undefined)?.pvpEnabled === true,
+    // Read live: the room's flag can arrive with a later state patch than the join.
+    get pvpEnabled() {
+      return args.pvpEnabled === true || (room.state as RoomStateSchema | undefined)?.pvpEnabled === true
+    },
+    sendShot: payload => {
+      try { room.send('shot', payload) } catch (err) {
+        if (DEBUG) console.warn('[oasis-room] sendShot failed', err)
+      }
+    },
     sendCast: payload => {
       try { room.send('cast', payload) } catch (err) {
         if (DEBUG) console.warn('[oasis-room] sendCast failed', err)

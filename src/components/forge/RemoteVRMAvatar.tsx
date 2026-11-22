@@ -29,6 +29,7 @@ import { VRMLoaderPlugin, VRM, VRMUtils } from '@pixiv/three-vrm'
 
 import { AnimationController } from '../../lib/animation-state-machine'
 import { normalizeProfileAvatarUrl } from '../../lib/profile-avatar-url'
+import { VillageCorpseDrop, useVillageCombatPose } from '../village/VillageCombatHud'
 
 // ═══════════════════════════════════════════════════════════════════════════
 // PROPS
@@ -48,6 +49,10 @@ export interface RemoteVRMAvatarProps {
   speed: number
   /** Network animation state. Custom clips are encoded as custom:<animation-id>. */
   animState: string
+  /** Party combat id (`pvp:<sessionId>`): room-decided hits flinch or knock this body down. */
+  combatId?: string
+  /** What this player said in the chat in the last few seconds: shown over the head. */
+  chatBubble?: string
 }
 
 // Animation thresholds aligned with PlayerAvatar's TPS speeds:
@@ -65,7 +70,7 @@ const CROSSFADE_SECONDS = 0.15
 // the VRM-failure path render identically.
 // ═══════════════════════════════════════════════════════════════════════════
 
-function PillBody({ color, displayName, profileAvatarUrl }: { color: string; displayName: string; profileAvatarUrl?: string }) {
+function PillBody({ color, displayName, profileAvatarUrl, bubble }: { color: string; displayName: string; profileAvatarUrl?: string; bubble?: string }) {
   return (
     <>
       <mesh castShadow position={[0, 0.88, 0]} raycast={() => null}>
@@ -84,7 +89,7 @@ function PillBody({ color, displayName, profileAvatarUrl }: { color: string; dis
         <ringGeometry args={[0.34, 0.42, 32]} />
         <meshBasicMaterial color={color} transparent opacity={0.54} />
       </mesh>
-      <NameTag displayName={displayName} profileAvatarUrl={profileAvatarUrl} />
+      <NameTag displayName={displayName} profileAvatarUrl={profileAvatarUrl} bubble={bubble} />
     </>
   )
 }
@@ -123,9 +128,30 @@ function ProfileAvatarThumb({ src, displayName }: { src: string; displayName: st
   )
 }
 
-function NameTag({ displayName, profileAvatarUrl }: { displayName: string; profileAvatarUrl?: string }) {
+/** Above this body's head, not at one height for all (a tall body had the name across its face). Measured once. */
+const tagHeights = new WeakMap<object, number>()
+function nameTagHeight(vrm: VRM): number {
+  const known = tagHeights.get(vrm)
+  if (known !== undefined) return known
+  const box = new THREE.Box3().setFromObject(vrm.scene)
+  const origin = new THREE.Vector3()
+  vrm.scene.getWorldPosition(origin)
+  const top = box.isEmpty() ? 1.7 : box.max.y - origin.y
+  const height = Math.min(3.6, Math.max(1.2, top + 0.22))
+  tagHeights.set(vrm, height)
+  return height
+}
+
+function NameTag({ displayName, profileAvatarUrl, height = 1.86, bubble }: { displayName: string; profileAvatarUrl?: string; height?: number; bubble?: string }) {
   return (
-    <Billboard position={[0, 1.86, 0]}>
+    <Billboard position={[0, height, 0]}>
+      {bubble && (
+        <Html position={[0, 0.34, 0]} center distanceFactor={9} style={{ pointerEvents: 'none' }} zIndexRange={[40, 0]}>
+          <div style={{ maxWidth: 260, width: 'max-content', padding: '6px 10px', borderRadius: 10, background: 'rgba(2,6,23,0.86)', border: '1px solid rgba(245,201,106,0.55)', color: '#fff7e0', font: '600 13px/1.35 system-ui, sans-serif', textAlign: 'center', boxShadow: '0 4px 14px rgba(0,0,0,0.45)' }}>
+            {bubble.length > 160 ? `${bubble.slice(0, 157)}…` : bubble}
+          </div>
+        </Html>
+      )}
       {profileAvatarUrl && (
         <Html
           transform
@@ -177,6 +203,8 @@ function VRMBody({
   color,
   speedRef,
   animStateRef,
+  animOnceRef,
+  bubble,
 }: {
   avatarUrl: string
   cacheKey: string
@@ -185,6 +213,8 @@ function VRMBody({
   color: string
   speedRef: React.MutableRefObject<number>
   animStateRef: React.MutableRefObject<string>
+  animOnceRef?: React.MutableRefObject<boolean>
+  bubble?: string
 }) {
   const vrmRef = useRef<VRM | null>(null)
   const animControllerRef = useRef<AnimationController | null>(null)
@@ -357,18 +387,22 @@ function VRMBody({
     const networkAnimState = animStateRef.current || 'idle'
     if (controller && networkAnimState.startsWith('custom:')) {
       const animId = networkAnimState.slice('custom:'.length)
+      // A hit's flinch or knock-down plays once and holds its last frame (party combat).
+      const loop = !animOnceRef?.current
       if (animId && lastCustomAnimRef.current !== animId) {
         lastCustomAnimRef.current = animId
         controller.preloadClip(animId).then(ok => {
           if (ok && animControllerRef.current === controller && animStateRef.current === `custom:${animId}`) {
-            controller.transitionTo('custom', animId)
+            controller.transitionTo('custom', animId, { loop })
           }
         })
       } else if (animId && controller.state !== 'custom') {
-        controller.transitionTo('custom', animId)
+        controller.transitionTo('custom', animId, { loop })
       }
       return
     }
+    // A custom clip just ended (a knock-down got up, a dance stopped): back to idle, not frozen on its last frame.
+    if (lastCustomAnimRef.current !== null && controller?.state === 'custom') controller.transitionTo('idle')
     lastCustomAnimRef.current = null
     controller?.updateFromVelocity(speedRef.current)
   })
@@ -378,7 +412,7 @@ function VRMBody({
   return (
     <>
       <primitive object={vrm.scene} />
-      <NameTag displayName={displayName} profileAvatarUrl={profileAvatarUrl} />
+      <NameTag displayName={displayName} profileAvatarUrl={profileAvatarUrl} height={nameTagHeight(vrm)} bubble={bubble} />
       {/* Foot ring stays — tints the floor under the remote player so they
           read as "another presence" even when crowded. */}
       <mesh position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]} raycast={() => null}>
@@ -423,40 +457,48 @@ class VRMErrorBoundary extends React.Component<VRMBoundaryProps, { hasError: boo
 // ═══════════════════════════════════════════════════════════════════════════
 
 export const RemoteVRMAvatar = forwardRef<THREE.Group, RemoteVRMAvatarProps>(function RemoteVRMAvatar(
-  { avatarUrl, profileAvatarUrl, cacheKey, displayName, color, speed, animState },
+  { avatarUrl, profileAvatarUrl, cacheKey, displayName, color, speed, animState, chatBubble, combatId },
   ref,
 ) {
+  // Party combat: a hit on this player (decided by the room) flinches or knocks the body down.
+  const combatPose = useVillageCombatPose(combatId || '')
+  const animOnceRef = useRef(false)
+  animOnceRef.current = Boolean(combatPose?.once)
   // Speed mirror — the body's useFrame reads from a ref so we don't re-render
   // the entire VRM subtree on every speed change.
   const speedRef = useRef(0)
   speedRef.current = speed
   const animStateRef = useRef('idle')
-  animStateRef.current = animState || 'idle'
+  animStateRef.current = combatPose ? `custom:${combatPose.animationId}` : animState || 'idle'
 
   // Empty URL -> straight to pill. No Suspense, no error boundary needed.
   if (!avatarUrl) {
     return (
       <group ref={ref}>
-        <PillBody color={color} displayName={displayName} profileAvatarUrl={profileAvatarUrl} />
+        <PillBody color={color} displayName={displayName} profileAvatarUrl={profileAvatarUrl} bubble={chatBubble} />
       </group>
     )
   }
 
-  const pillFallback = <PillBody color={color} displayName={displayName} profileAvatarUrl={profileAvatarUrl} />
+  const pillFallback = <PillBody color={color} displayName={displayName} profileAvatarUrl={profileAvatarUrl} bubble={chatBubble} />
 
   return (
     <group ref={ref}>
       <VRMErrorBoundary fallback={pillFallback} avatarUrl={avatarUrl}>
         <Suspense fallback={pillFallback}>
-          <VRMBody
-            avatarUrl={avatarUrl}
-            cacheKey={cacheKey}
-            displayName={displayName}
-            profileAvatarUrl={profileAvatarUrl}
-            color={color}
-            speedRef={speedRef}
-            animStateRef={animStateRef}
-          />
+          <VillageCorpseDrop agentId={combatId || ''}>
+            <VRMBody
+              avatarUrl={avatarUrl}
+              cacheKey={cacheKey}
+              displayName={displayName}
+              profileAvatarUrl={profileAvatarUrl}
+              color={color}
+              speedRef={speedRef}
+              animStateRef={animStateRef}
+              animOnceRef={animOnceRef}
+              bubble={chatBubble}
+            />
+          </VillageCorpseDrop>
         </Suspense>
       </VRMErrorBoundary>
     </group>

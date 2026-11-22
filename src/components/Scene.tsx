@@ -1843,13 +1843,14 @@ export default function Scene() {
 
       // ─═̷─ Agents ─═̷─
       case 'summon-claude-code':
-        // The village's summoning circle (a Claude Code agent with its own desk); outside the village, the CC window.
-        if (villageProfile) openSummonMenu('claude')
+        // The village's summon menu, the same one as the circle's; the agent appears in front of the caster
+        // (summon-arrival.ts). Outside the village, the old CC window (its fate is the owner's open question).
+        if (villageProfile) openSummonMenu('claude', { here: true })
         else placeQuickAgentWindow('anorak')
         return
       case 'summon-codex':
         // In the village: the summon menu on Codex, which says what a Codex agent still needs.
-        if (villageProfile) openSummonMenu('codex')
+        if (villageProfile) openSummonMenu('codex', { here: true })
         else placeQuickAgentWindow('codex')
         return
       case 'summon-djinn':
@@ -1860,7 +1861,7 @@ export default function Scene() {
         return
       case 'summon-hermes':
         // The village's summon menu on Hermes (the old "Connect Hermes" pairing window did nothing there).
-        if (villageProfile) openSummonMenu('hermes')
+        if (villageProfile) openSummonMenu('hermes', { here: true })
         else placeQuickAgentWindow('hermes')
         return
       case 'browser':

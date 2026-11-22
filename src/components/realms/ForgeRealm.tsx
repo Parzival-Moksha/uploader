@@ -19,6 +19,7 @@ import { useThumbnailGenerator } from '../../hooks/useThumbnailGenerator'
 import { PlayerAvatar } from '../forge/PlayerAvatar'
 import { PortalGateLayer } from '../forge/PortalGateLayer'
 import { MultiplayerPresenceLayer } from '../forge/MultiplayerPresenceLayer'
+import { PartyCombatLayer } from '../forge/PartyCombatLayer'
 import { PaintCursor } from '../forge/PaintCursor'
 import { colorForPlayerId } from '../../lib/multiplayer-color'
 import { SettingsContext } from '../scene-lib'
@@ -119,6 +120,8 @@ export function ForgeRealm() {
       <PortalGateLayer />
       {/* The village profile is single-player for now: no room connection, no remote avatars. */}
       {!villageProfile && <MultiplayerPresenceLayer />}
+      {/* Party combat: hits on players (gore, flinch, knock-down) broadcast by the room under party rules. */}
+      {!villageProfile && <PartyCombatLayer />}
 
       {/* ░▒▓ PAINT CURSOR — wand-tip raycaster + sparkler when paint mode active ▓▒░ */}
       <ForgePaintCursor />

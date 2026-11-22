@@ -17,12 +17,15 @@ import { requestPlayerAvatarTeleport } from '@/lib/player-avatar-runtime'
 interface DeadState {
   slainBy: string
   respawnAt: number  // ms wall-clock
+  /** Party rules: knocked down, not slain (no blackout, up where you fell). */
+  soft?: boolean
 }
 
 interface KillToast {
   id: number
   victimName: string
   fadingAt: number
+  soft?: boolean
 }
 
 const KILL_TOAST_DURATION_MS = 2600
@@ -35,7 +38,7 @@ export function PvPOverlay({ visible }: { visible: boolean }) {
 
   // ─═̷─ Death event ─═̷─
   useEffect(() => {
-    if (!visible) return
+    // Listened to even outside play mode: a guest in build mode can still be knocked down (party rules).
     const unsubscribe = onDeath((event: PvpDeathEvent) => {
       const localId = getLocalSessionId()
       // Two cases:
@@ -44,12 +47,13 @@ export function PvPOverlay({ visible }: { visible: boolean }) {
       if (event.victimId === localId) {
         setDead({
           slainBy: event.casterName || 'Unknown',
-          respawnAt: Date.now() + 5000,
+          respawnAt: Date.now() + (event.soft ? 6000 : 5000),
+          soft: event.soft === true,
         })
       } else if (event.casterId === localId) {
         const id = ++toastIdRef.current
         const fadingAt = Date.now() + KILL_TOAST_DURATION_MS
-        setKillToasts(prev => [...prev.slice(-3), { id, victimName: event.victimName || 'Unknown', fadingAt }])
+        setKillToasts(prev => [...prev.slice(-3), { id, victimName: event.victimName || 'Unknown', fadingAt, soft: event.soft === true }])
       }
     })
     return unsubscribe
@@ -60,11 +64,13 @@ export function PvPOverlay({ visible }: { visible: boolean }) {
   // world has a custom spawnPoint we could later thread that through — for
   // v1, origin is fine since worlds with custom spawns can override later).
   useEffect(() => {
-    if (!visible) return
+    // Listened to even outside play mode: a guest in build mode can still be knocked down (party rules).
     const unsubscribe = onRespawn(event => {
       const localId = getLocalSessionId()
       if (event.sessionId === localId) {
         setDead(null)
+        // Party rules: up where you fell.
+        if (event.soft) return
         requestPlayerAvatarTeleport({
           position: [0, 1, 0],
           yaw: 0,
@@ -79,7 +85,7 @@ export function PvPOverlay({ visible }: { visible: boolean }) {
   // The 'respawn' broadcast can race with the state diff; if the state diff
   // arrives first showing alive=true, the overlay should still clear.
   useEffect(() => {
-    if (!visible) return
+    // Listened to even outside play mode: a guest in build mode can still be knocked down (party rules).
     const unsubscribe = onPlayerState(players => {
       const localId = getLocalSessionId()
       const me = players.find(player => player.sessionId === localId)
@@ -103,15 +109,23 @@ export function PvPOverlay({ visible }: { visible: boolean }) {
     setKillToasts(prev => prev.filter(toast => toast.fadingAt > now))
   }, [now, killToasts.length])
 
-  if (!visible) return null
+  // Outside play mode only the party knock-down line shows (you can be shot while building).
+  if (!visible && !dead?.soft) return null
 
   const remainingMs = dead ? Math.max(0, dead.respawnAt - now) : 0
   const remainingSec = Math.ceil(remainingMs / 1000)
 
   return (
     <>
+      {/* Party knock-down: a line at the top, the world stays visible (you watch yourself get up). */}
+      {dead?.soft && (
+        <div className="pointer-events-none fixed left-1/2 top-16 z-[260] -translate-x-1/2 rounded-md border border-rose-300/40 bg-black/70 px-4 py-2 text-center text-[13px] font-black uppercase tracking-[0.16em] text-rose-100 shadow-[0_0_18px_rgba(248,113,113,0.35)]">
+          Knocked down by {dead.slainBy} · up in <span className="font-mono text-amber-200">{remainingSec}</span>
+        </div>
+      )}
+
       {/* Blackout overlay — fades in over 0.4s via CSS animation. */}
-      {dead && (
+      {dead && !dead.soft && (
         <div
           className="pointer-events-none fixed inset-0 z-[260] flex items-center justify-center"
           style={{
@@ -156,7 +170,7 @@ export function PvPOverlay({ visible }: { visible: boolean }) {
               className="rounded-md border border-amber-300/40 bg-black/75 px-4 py-2 text-center text-[12px] font-black uppercase tracking-[0.16em] text-amber-100 shadow-[0_0_18px_rgba(251,191,36,0.35)]"
               style={{ animation: `pvpKillToast ${KILL_TOAST_DURATION_MS}ms ease-out forwards` }}
             >
-              You slew {toast.victimName}
+              {toast.soft ? `You knocked down ${toast.victimName}` : `You slew ${toast.victimName}`}
             </div>
           ))}
         </div>

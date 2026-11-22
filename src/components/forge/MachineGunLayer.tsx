@@ -18,6 +18,7 @@ import { useOasisStore } from '@/store/oasisStore'
 import { canCastBolt, isTypingTarget } from './bolts/shared'
 import { castOrigin, collectActorTargets, worldImpactAlong } from './bolts/aim'
 import { segmentSphereEntry } from './bolts/flight'
+import { sendPvpShot } from '@/lib/pvp-bridge'
 
 const ROUND_MS = 90
 const BULLET_DAMAGE = 8
@@ -93,8 +94,8 @@ function traceShot(camera: THREE.Camera, scene: THREE.Object3D): Shot {
   let best = world ? world.distance : RANGE_M
   let targetId: string | null = world?.objectId ?? null
   let ground = Boolean(world && !world.objectId)
+  // Village agents and, in a shared world with combat on, other players (never this one).
   for (const actor of collectActorTargets(true)) {
-    if (actor.id.startsWith('pvp:')) continue
     const t = segmentSphereEntry([_origin.x, _origin.y, _origin.z], [_dir.x, _dir.y, _dir.z], best, actor.center, actor.radius)
     if (t !== null && t > 0.3 && t < best) {
       best = t
@@ -214,13 +215,17 @@ export function MachineGunLayer({ enabled }: { enabled: boolean }) {
     spark.at.copy(shot.point)
     spark.age = 0
     spark.alive = true
-    spark.blood = Boolean(shot.targetId?.startsWith(VILLAGE_TARGET_PREFIX))
+    spark.blood = Boolean(shot.targetId?.startsWith(VILLAGE_TARGET_PREFIX) || shot.targetId?.startsWith('pvp:'))
     spark.dust = shot.ground
     flashAgeRef.current = 0
     flashRef.current?.position.copy(muzzle)
     gunshot()
     if (shot.targetId?.startsWith(VILLAGE_TARGET_PREFIX)) {
       damageVillageAgent(shot.targetId.slice(VILLAGE_TARGET_PREFIX.length), BULLET_DAMAGE, Date.now(), [shot.point.x, shot.point.y, shot.point.z])
+    }
+    // Another player: the room decides the damage and shows the hit to everyone (party rules).
+    if (shot.targetId?.startsWith('pvp:')) {
+      sendPvpShot({ victimSessionId: shot.targetId.slice(4), x: shot.point.x, y: shot.point.y, z: shot.point.z })
     }
   }
 

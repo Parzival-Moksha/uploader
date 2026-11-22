@@ -107,13 +107,16 @@ export function VillageGore() {
     }
 
     const spray = (event: VillageHitEvent) => {
-      const anchor = getVillageAnchors()[event.agentId]
+      // A village agent stands at its desk; a party player has no desk: its feet are under the wound.
+      const anchor: [number, number, number] | undefined = getVillageAnchors()[event.agentId]
+        ?? (event.at ? [event.at[0], event.ground ?? event.at[1] - 1.05, event.at[2]] : undefined)
       if (!anchor) return
       const ground = anchor[1]
       const at = event.at ? new THREE.Vector3(...event.at) : new THREE.Vector3(anchor[0], anchor[1] + 1.1, anchor[2])
       // The shot's direction: from the shooter to the wound; blood leaves through the back.
       const pose = getPlayerAvatarPose()
-      if (pose) _dir.set(at.x - pose.position[0], 0, at.z - pose.position[2])
+      if (event.from) _dir.set(at.x - event.from[0], 0, at.z - event.from[2])
+      else if (pose) _dir.set(at.x - pose.position[0], 0, at.z - pose.position[2])
       else _dir.set(0, 0, 1)
       if (_dir.lengthSq() < 1e-4) _dir.set(0, 0, 1)
       _dir.normalize()

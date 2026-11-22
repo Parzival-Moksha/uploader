@@ -31,7 +31,7 @@ cd uploader
 node scripts/oasis.mjs start
 ```
 
-`node scripts/oasis.mjs status` says what is running, `node scripts/oasis.mjs stop` stops it. It works the same on Windows, macOS and Linux. (macOS and Linux: written with care, not yet run by us on a Mac.)
+Start it only this way (`pnpm dev` and `npm start` run the same script): `next dev` or `next start` alone gives a page without the engine, the database or the village, an empty world where nobody can be summoned. `node scripts/oasis.mjs status` says what is running, `node scripts/oasis.mjs stop` stops it. It works the same on Windows, macOS and Linux. (macOS and Linux: written with care, not yet run by us on a Mac.)
 
 ## What runs on your machine
 

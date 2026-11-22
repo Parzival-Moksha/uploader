@@ -18,7 +18,7 @@ import { commandTouchesDurableWorldState } from '@/lib/world-commands/types'
 import { colorForPlayerId as colorForId } from '@/lib/multiplayer-color'
 import { withProfileAvatarBust } from '@/lib/profile-avatar-url'
 import { useOasisStore } from '@/store/oasisStore'
-import { appendWorldChatMessage, setWorldChatSender, useWorldChat } from '@/lib/world-chat'
+import { appendWorldChatMessage, recentChatBySession, setWorldChatSender, useWorldChat } from '@/lib/world-chat'
 import { RemoteVRMAvatar } from './RemoteVRMAvatar'
 import {
   appendLiveStrokePoint,
@@ -237,7 +237,11 @@ function animationStateForSpeed(speed: number): string {
   return 'walk'
 }
 
-function RemotePresenceAvatar({ player }: { player: MultiplayerRoomPlayer }) {
+/** Someone a guest can talk to by walking up and pressing E: the LAN party's Djinn (scripts/party-djinn.mjs). */
+const TALKABLE_PLAYER_PREFIX = 'party-djinn'
+const TALK_RADIUS_M = 4
+
+function RemotePresenceAvatar({ player, chatBubble }: { player: MultiplayerRoomPlayer; chatBubble?: string }) {
   const groupRef = useRef<THREE.Group>(null)
   const bufferRef = useRef<RemoteSnapshot[]>([])
   // Server↔local time anchor. We compute serverNow as
@@ -415,15 +419,24 @@ function RemotePresenceAvatar({ player }: { player: MultiplayerRoomPlayer }) {
       avatarUrl={avatarUrl}
       profileAvatarUrl={player.profileAvatarUrl}
       cacheKey={player.sessionId}
+      combatId={`pvp:${player.sessionId}`}
       displayName={player.displayName}
       color={color}
       speed={speed}
       animState={player.animState}
+      chatBubble={chatBubble}
     />
   )
 }
 
 export function MultiplayerPresenceLayer() {
+  // What each player just said, over their heads for a few seconds.
+  const chatMessages = useWorldChat(state => state.messages)
+  const [chatNow, setChatNow] = useState(() => Date.now())
+  useEffect(() => {
+    const timer = window.setInterval(() => setChatNow(Date.now()), 1000)
+    return () => window.clearInterval(timer)
+  }, [])
   const activeWorldId = useOasisStore(s => s.viewingWorldId || s.activeWorldId)
   const activeWorldPvpEnabled = useOasisStore(s => {
     const id = s.viewingWorldId || s.activeWorldId
@@ -894,6 +907,12 @@ export function MultiplayerPresenceLayer() {
     const pose = getLocalPose()
     if (!pose) return
 
+    // Near the party's Djinn: the chat offers "E talk to the Djinn" (WorldChatOverlay).
+    const talkable = players.find(p => p.playerId === TALKABLE_PLAYER_PREFIX)
+    const near = Boolean(talkable
+      && (talkable.position[0] - pose.position[0]) ** 2 + (talkable.position[2] - pose.position[2]) ** 2 < TALK_RADIUS_M ** 2)
+    useWorldChat.getState().setTalkTarget(near && talkable ? { name: talkable.displayName || 'Djinn', prefix: 'djinn, ' } : null)
+
     const now = typeof performance !== 'undefined' ? performance.now() : Date.now()
     const previousPose = previousPoseRef.current
     let vx = 0
@@ -941,10 +960,11 @@ export function MultiplayerPresenceLayer() {
 
   if (!activeWorldId || players.length === 0) return null
 
+  const bubbles = recentChatBySession(chatMessages, chatNow)
   return (
     <group name="multiplayer-presence-layer">
       {players.map(player => (
-        <RemotePresenceAvatar key={player.sessionId} player={player} />
+        <RemotePresenceAvatar key={player.sessionId} player={player} chatBubble={bubbles.get(player.sessionId)} />
       ))}
     </group>
   )

@@ -13,7 +13,7 @@
 // NOT stored in world data — per-user, ephemeral, always present.
 // ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
 
-import { useRef, useEffect, useState, useContext } from 'react'
+import { useRef, useEffect, useState, useContext, useSyncExternalStore } from 'react'
 import { isDragLookOn } from '../../lib/drag-look'
 import { useFrame, useLoader } from '@react-three/fiber'
 import { useKeyboardControls } from '@react-three/drei'
@@ -50,6 +50,9 @@ import { PORTAL_REVEAL_ROLL_EVENT } from '../../lib/portal-transition-settings'
 import { QUEST_ZERO_WORLD_ID, ROOKIE_WIZARD_WORLD_ID } from '../../lib/portal-gates'
 import { sampleTerrainHeightAt } from '../../lib/forge/terrain-brush'
 import { useOasisStore } from '../../store/oasisStore'
+import { getLocalSessionId } from '../../lib/pvp-bridge'
+import { getVillageCombatVersion, getVillageVitals, isFlinching, subscribeVillageCombat } from '../../lib/village/village-combat'
+import { VillageCorpseDrop } from '../village/VillageCombatHud'
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TYPES
@@ -242,6 +245,7 @@ export function PlayerAvatar({
     }
   }, [])
   const spellAnimationActiveRef = useRef(false)
+  const combatClipRef = useRef<string | null>(null)
   const manaRechargeAnimationActiveRef = useRef(false)
   const portalRollTimeoutRef = useRef<number | null>(null)
   // Reveal-roll forward motion: avatar slides 3m in its facing direction during
@@ -702,6 +706,18 @@ export function PlayerAvatar({
         }
       }
 
+      // Party combat: knocked down by another player, you lie still until you get up (PartyCombatLayer).
+      if (localCombatPose()?.down) {
+        forward = false
+        backward = false
+        left = false
+        right = false
+        sprint = false
+        mobileMoveX = 0
+        mobileMoveZ = 0
+        mobileSprint = false
+      }
+
       // Speed modifier: shift=sprint (4x), space=walk (0.25x), default=run
       const speedMult = sprint || mobileSprint ? TPS_SPRINT_MULT : slow ? TPS_WALK_MULT : 1
       const currentSpeed = playerBaseSpeed() * speedMult
@@ -846,6 +862,21 @@ export function PlayerAvatar({
       const speed = velocityRef.current.length()
       animControllerRef.current.updateFromVelocity(speed)
 
+      // Party combat: a hit from another player flinches you, a lethal one knocks you down (once, held).
+      const combatPose = localCombatPose()
+      const combatClip = combatPose ? (combatPose.down ? COMBAT_DOWN_CLIP : COMBAT_FLINCH_CLIP) : null
+      if (combatClip !== combatClipRef.current) {
+        combatClipRef.current = combatClip
+        const controller = animControllerRef.current
+        if (combatClip) {
+          void controller.preloadClip(combatClip).then(ok => {
+            if (ok && combatClipRef.current === combatClip) animControllerRef.current?.transitionTo('custom', combatClip, { loop: false })
+          })
+        } else if (controller.state === 'custom') {
+          controller.transitionTo('idle')
+        }
+      }
+
       if (playerSpellCasting) {
         if (!spellAnimationActiveRef.current) {
           spellAnimationActiveRef.current = true
@@ -934,7 +965,32 @@ export function PlayerAvatar({
 
   return (
     <group ref={groupRef} visible={avatarPoseReady}>
-      <primitive object={vrm.scene} scale={1} />
+      <LocalCorpseDrop>
+        <primitive object={vrm.scene} scale={1} />
+      </LocalCorpseDrop>
     </group>
   )
+}
+
+// ─── party combat: this player's own flinch and knock-down (the room decides; PartyCombatLayer shows) ───
+const COMBAT_DOWN_CLIP = 'ual-death'
+const COMBAT_FLINCH_CLIP = 'ual-hit-knockback'
+
+/** This player's combat pose right now, or null (no room, no hit). */
+function localCombatPose(): { down: boolean } | null {
+  const sessionId = getLocalSessionId()
+  if (!sessionId) return null
+  const id = `pvp:${sessionId}`
+  const now = Date.now()
+  const vitals = getVillageVitals(id, now)
+  if (vitals.downAt !== null) return { down: true }
+  if (isFlinching(vitals, now)) return { down: false }
+  return null
+}
+
+/** Lays this player's own body on the ground while knocked down (the Death clip leaves the hips up). */
+function LocalCorpseDrop({ children }: { children: React.ReactNode }) {
+  useSyncExternalStore(subscribeVillageCombat, getVillageCombatVersion, () => 0)
+  const sessionId = getLocalSessionId()
+  return <VillageCorpseDrop agentId={sessionId ? `pvp:${sessionId}` : ''}>{children}</VillageCorpseDrop>
 }

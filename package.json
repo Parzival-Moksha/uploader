@@ -1,6 +1,6 @@
 {
   "name": "oasis-lite",
-  "version": "0.6.6",
+  "version": "0.6.7",
   "private": true,
   "description": "The Oasis: your Claude Code sessions as characters in a 3D village on your own machine.",
   "scripts": {
@@ -9,10 +9,11 @@
     "oasis:status": "node scripts/oasis.mjs status",
     "oasis:stop": "node scripts/oasis.mjs stop",
     "oasis:engine": "node packages/oasis-agent-engine/src/index.js",
-    "dev": "next dev -p 4516 -H 127.0.0.1",
+    "dev": "node scripts/oasis.mjs start",
+    "start": "node scripts/oasis.mjs start",
+    "build": "node scripts/oasis.mjs setup",
     "dev:engine": "node packages/oasis-agent-engine/src/index.js",
-    "build": "next build",
-    "start": "next start -p 4516 -H 127.0.0.1"
+    "next:dev": "next dev -p 4516 -H 127.0.0.1"
   },
   "dependencies": {
     "@a2ui/web_core": "0.9.2",

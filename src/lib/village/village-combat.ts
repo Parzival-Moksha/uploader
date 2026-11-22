@@ -105,6 +105,10 @@ export interface VillageHitEvent {
   lethal: boolean
   /** Damage dealt: a bullet (8) sprays less than a bolt (25). */
   amount: number
+  /** Ground height under the body, for bodies without a village desk (party players). */
+  ground?: number | null
+  /** Where the shot came from (party players: the shooter's chest); else the local player. */
+  from?: [number, number, number] | null
 }
 
 const hitListeners = new Set<(event: VillageHitEvent) => void>()
@@ -129,6 +133,31 @@ export function damageVillageAgent(
   notify()
   hitListeners.forEach(listener => listener({ agentId, at, lethal: result.lethal, amount: damage }))
   return { landed: true, lethal: result.lethal, hp: result.vitals.hp }
+}
+
+/**
+ * A hit decided elsewhere (the party room is the authority over players' HP): shown exactly like a
+ * village hit, flinch or knock-down and the gore. `id` is `pvp:<sessionId>`.
+ */
+export function showRoomHit(
+  id: string,
+  hit: { amount: number; hp: number; lethal: boolean; at: [number, number, number] | null; ground?: number | null; from?: [number, number, number] | null },
+  now = Date.now(),
+): void {
+  const current = getVillageVitals(id, now)
+  const seq = current.seq + 1
+  const hits = [...current.hits.filter(h => now - h.at < 1500), { id: seq, amount: Math.max(0, hit.amount), at: now, lethal: hit.lethal }].slice(-6)
+  vitals.set(id, { hp: Math.max(0, Math.min(VILLAGE_AGENT_MAX_HP, hit.hp)), downAt: hit.lethal ? now : null, lastHitAt: now, hits, seq })
+  scheduleWake(id, hit.lethal ? VILLAGE_DOWN_MS + 20 : VILLAGE_FLINCH_MS)
+  notify()
+  hitListeners.forEach(listener => listener({ agentId: id, at: hit.at, lethal: hit.lethal, amount: hit.amount, ground: hit.ground ?? null, from: hit.from ?? null }))
+}
+
+/** The room says this body is up again (it may be a moment before our own six seconds run out). */
+export function clearRoomDown(id: string): void {
+  if (!vitals.has(id)) return
+  vitals.delete(id)
+  notify()
 }
 
 /** Bolt targets skip knocked-out agents: shots fly through until they are back up. */

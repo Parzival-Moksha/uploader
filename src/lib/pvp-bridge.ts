@@ -29,6 +29,27 @@ export interface PvpReportHitPayload {
   boltId: string
   /** Victim's Colyseus sessionId (not playerId). */
   victimSessionId: string
+  /** Where it struck (world), for the gore; the room checks it against the victim. */
+  x?: number; y?: number; z?: number
+}
+
+/** A machine-gun round that hit a player (party rules: the room broadcasts it as a hit). */
+export interface PvpShotPayload {
+  victimSessionId: string
+  x?: number; y?: number; z?: number
+}
+
+/** A landed hit on a player, broadcast by the room to everyone under party rules (gore, flinch, knock-down). */
+export interface PvpPlayerHitEvent {
+  victimId: string
+  casterId: string
+  at: [number, number, number]
+  from: [number, number, number] | null
+  damage: number
+  hp: number
+  lethal: boolean
+  weapon: string
+  downMs: number
 }
 
 export interface PvpVitalsPayload {
@@ -70,12 +91,16 @@ export interface PvpDeathEvent {
   victimId: string
   victimName: string
   spell: string
+  /** Party rules: a knock-down, not a death (no blackout, no teleport). */
+  soft?: boolean
 }
 
 export interface PvpRespawnEvent {
   playerId: string
   sessionId: string
   displayName: string
+  /** Party rules: up where they fell. */
+  soft?: boolean
 }
 
 export interface PvpHitAwardEvent {
@@ -91,6 +116,7 @@ interface PvpSender {
   sendCast(payload: PvpCastPayload): void
   sendReportHit(payload: PvpReportHitPayload): void
   sendVitals(payload: PvpVitalsPayload): void
+  sendShot?(payload: PvpShotPayload): void
   /** Current room's local sessionId — the local player's id in the room. */
   readonly localSessionId: string
   /** Current room's pvpEnabled flag. */
@@ -102,6 +128,7 @@ type PlayerStateListener = (players: PvpPlayerSnapshot[]) => void
 type DeathListener = (event: PvpDeathEvent) => void
 type RespawnListener = (event: PvpRespawnEvent) => void
 type HitAwardListener = (event: PvpHitAwardEvent) => void
+type PlayerHitListener = (event: PvpPlayerHitEvent) => void
 
 let activeSender: PvpSender | null = null
 const remoteBoltListeners = new Set<RemoteBoltListener>()
@@ -148,6 +175,10 @@ export function sendPvpVitals(payload: PvpVitalsPayload): void {
   activeSender?.sendVitals(payload)
 }
 
+export function sendPvpShot(payload: PvpShotPayload): void {
+  activeSender?.sendShot?.(payload)
+}
+
 // ─═̷─ Incoming events (called by the room client) ─═̷─
 
 export function notifyRemoteBolt(bolt: PvpRemoteBolt): void {
@@ -173,6 +204,19 @@ export function notifyRespawn(event: PvpRespawnEvent): void {
   for (const listener of respawnListeners) {
     try { listener(event) } catch (err) { console.warn('[pvp-bridge] respawn listener threw', err) }
   }
+}
+
+const playerHitListeners = new Set<PlayerHitListener>()
+
+export function notifyPlayerHit(event: PvpPlayerHitEvent): void {
+  for (const listener of playerHitListeners) {
+    try { listener(event) } catch (err) { console.warn('[pvp-bridge] player hit listener threw', err) }
+  }
+}
+
+export function onPlayerHit(listener: PlayerHitListener): () => void {
+  playerHitListeners.add(listener)
+  return () => { playerHitListeners.delete(listener) }
 }
 
 export function notifyHitAward(event: PvpHitAwardEvent): void {

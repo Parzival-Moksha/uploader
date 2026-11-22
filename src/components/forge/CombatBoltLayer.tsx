@@ -268,7 +268,8 @@ export function CombatBoltLayer({ enabled, settings }: { enabled: boolean; setti
       return
     }
     if (targetId.startsWith('pvp:')) {
-      if (local && localBoltIdsRef.current.has(boltId)) sendPvpReportHit({ boltId, victimSessionId: targetId.slice(4) })
+      // The wound point goes along: under party rules the room shows the gore there on every screen.
+      if (local && localBoltIdsRef.current.has(boltId)) sendPvpReportHit({ boltId, victimSessionId: targetId.slice(4), x: position[0], y: position[1], z: position[2] })
       return
     }
     if (!local) return

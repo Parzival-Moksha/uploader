@@ -23,6 +23,7 @@ export function WorldChatOverlay({ visible = true }: { visible?: boolean }) {
   const open = useWorldChat(state => state.open)
   const setOpen = useWorldChat(state => state.setOpen)
   const localSessionId = useWorldChat(state => state.localSessionId)
+  const talkTarget = useWorldChat(state => state.talkTarget)
   const [draft, setDraft] = useState('')
   const [now, setNow] = useState(Date.now())
   const inputRef = useRef<HTMLInputElement | null>(null)
@@ -49,18 +50,32 @@ export function WorldChatOverlay({ visible = true }: { visible?: boolean }) {
         event.preventDefault()
         setOpen(true)
         window.setTimeout(() => inputRef.current?.focus(), 0)
+      } else if ((event.code === 'KeyE' || event.code === 'KeyT') && !open && !event.repeat && !event.metaKey && !event.ctrlKey && !event.altKey && !isTypingTarget(event.target) && useWorldChat.getState().talkTarget) {
+        // Standing next to someone you can talk to (the party Djinn): E or T opens the chat with their name typed.
+        event.preventDefault()
+        event.stopPropagation()
+        useWorldChat.getState().openWith(useWorldChat.getState().talkTarget?.prefix || '')
       } else if (event.key === 'Escape' && open) {
         event.preventDefault()
         setOpen(false)
       }
     }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
+    window.addEventListener('keydown', onKeyDown, { capture: true })
+    return () => window.removeEventListener('keydown', onKeyDown, { capture: true })
   }, [open, setOpen, visible])
 
   useEffect(() => {
     if (!open) return
-    window.setTimeout(() => inputRef.current?.focus(), 0)
+    const prefill = useWorldChat.getState().takePrefill()
+    if (prefill !== null) setDraft(prefill)
+    window.setTimeout(() => {
+      const input = inputRef.current
+      if (!input) return
+      input.focus()
+      // The cursor after the typed name, so the guest just goes on typing.
+      const end = input.value.length
+      try { input.setSelectionRange(end, end) } catch { /* not a text input */ }
+    }, 0)
   }, [open])
 
   useEffect(() => {
@@ -108,6 +123,13 @@ export function WorldChatOverlay({ visible = true }: { visible?: boolean }) {
           )
         })}
       </div>
+
+      {talkTarget && !open && (
+        <div className="pointer-events-none fixed bottom-24 left-1/2 z-[230] -translate-x-1/2 rounded-lg border border-amber-200/40 bg-black/80 px-4 py-2 font-mono text-[13px] text-amber-50 shadow-[0_0_24px_rgba(245,201,106,0.3)] backdrop-blur-md" data-talk-hint>
+          <span className="mr-2 rounded border border-amber-200/60 px-1.5 py-0.5 text-[11px] font-black">E</span>
+          talk to the {talkTarget.name}
+        </div>
+      )}
 
       {open ? (
         <form

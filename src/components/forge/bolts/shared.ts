@@ -7,6 +7,8 @@ import { useInputManager } from '@/lib/input-manager'
 import { useOasisStore } from '@/store/oasisStore'
 import { QUEST_ZERO_WORLD_ID } from '@/lib/portal-gates'
 import { useAudioManager } from '@/lib/audio-manager'
+import { getLocalSessionId } from '@/lib/pvp-bridge'
+import { getVillageVitals } from '@/lib/village/village-combat'
 
 // ─═̷─═̷─ⓘ─═̷─═̷─ CONSTANTS ─═̷─═̷─ⓘ─═̷─═̷─
 export const BOLT_DEFAULT_COOLDOWN_MS = 170
@@ -44,6 +46,9 @@ export function canCastBolt(): boolean {
   if (input.inputState === 'agent-focus' || input.inputState === 'ui-focused') return false
   if (input.inputState === 'placement' || input.inputState === 'paint') return false
   if (store.placementPending || store.paintHeldActive) return false
+  // Party combat: knocked down by another player, no casting until you are up.
+  const sessionId = getLocalSessionId()
+  if (sessionId && getVillageVitals(`pvp:${sessionId}`).downAt !== null) return false
   return true
 }
 
