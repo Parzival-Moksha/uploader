@@ -23,9 +23,16 @@ export interface WatchInput {
   relay: { running: boolean | null; seen: boolean } | null
   /** The engine answered "unknown command" since it last connected: it runs older code than this page. */
   engineOutdated?: boolean
+  /**
+   * The Oasis server answered 401 (local-token.ts: "This Oasis asks for its local key"): it runs, this browser just
+   * has not got its key (another browser, or 127.0.0.1 instead of localhost). The engine refuses it for the same reason.
+   */
+  keyMissing?: boolean
+  /** A packaged Oasis (NEXT_PUBLIC_OASIS_EDITION=slim): started with /oasis or its oasis file, not pnpm. */
+  packaged?: boolean
 }
 
-export type WarningId = 'oasis' | 'engine' | 'engine-old' | 'relay'
+export type WarningId = 'oasis' | 'engine' | 'engine-old' | 'relay' | 'key'
 
 export interface ConnectionWarningLine {
   id: WarningId
@@ -34,11 +41,21 @@ export interface ConnectionWarningLine {
   action?: 'retry-engine' | 'start-relay'
 }
 
+/** How a packaged Oasis is started (scripts/oasis.mjs start; its launcher opens the browser with the key). */
+export const START_PACKAGED = 'Start the Oasis again: in Claude Code type /oasis, or open the oasis file in its folder (oasis.command on a Mac, oasis.cmd on Windows, oasis.sh on Linux).'
+export const KEY_DETAIL = 'Open it with /oasis in Claude Code, or the oasis file in its folder: that opens your browser with the key. Another browser, or 127.0.0.1 instead of localhost, has no key.'
+
 export function connectionWarnings(input: WatchInput): ConnectionWarningLine[] {
   const out: ConnectionWarningLine[] = []
+  // Both run; this browser has no key: one line that says so, not two that say "offline".
+  if (input.keyMissing) {
+    out.push({ id: 'key', title: "This browser has not got this Oasis's key", detail: KEY_DETAIL })
+    return out
+  }
+  const start = input.packaged ? START_PACKAGED : null
   const serverDown = input.serverFailures >= SERVER_FAILS_DOWN
   if (serverDown) {
-    out.push({ id: 'oasis', title: 'Oasis server offline', detail: 'Nothing saves or loads until it is back. Run pnpm dev.' })
+    out.push({ id: 'oasis', title: 'Oasis server offline', detail: `Nothing saves or loads until it is back. ${start || 'Run pnpm dev.'}` })
   }
   const engine = input.engine
   if (engine && engine.status !== 'disabled' && engine.status !== 'open' && input.now - engine.since >= ENGINE_GRACE_MS) {
@@ -46,7 +63,7 @@ export function connectionWarnings(input: WatchInput): ConnectionWarningLine[] {
     out.push({
       id: 'engine',
       title: 'Agent engine offline',
-      detail: `Your agents can't hear you. Run pnpm dev:engine${retryIn !== null ? ` · retry in ${retryIn}s` : ''}.`,
+      detail: `Your agents can't hear you. ${start ? start.replace(/\.$/, '') : 'Run pnpm dev:engine'}${retryIn !== null ? ` · retry in ${retryIn}s` : ''}.`,
       action: 'retry-engine',
     })
   }

@@ -20,6 +20,7 @@ import { FOLDER_SOURCE_WORD, pickDefaultFolder, type HermesProfile } from '../..
 import { VILLAGE_PICKER_LAYER, focusVillageAgent, openVillagePicker } from './village-actions'
 import { takeSummonRequest, type SummonKind } from './summon-request'
 import { afterSummon } from './summon-arrival'
+import { START_PACKAGED } from '../../lib/connection-watch'
 import { SummonAvatarPicker, randomSummonAvatar } from './SummonAvatarPicker'
 import { cwdLabel, formatAgo, formatBytes } from './village-status'
 import { FolderBrowser } from './FolderBrowser'
@@ -163,7 +164,7 @@ function spawnWith(args: SpawnAgentArgs, choices: SpawnChoices): Promise<EngineA
 
 /** The engine does not answer: what to do, in the words of this kind of install. */
 const ENGINE_OFFLINE = process.env.NEXT_PUBLIC_OASIS_EDITION === 'slim'
-  ? 'The agent engine is not running, so no agent can be summoned. Start the Oasis again: in Claude Code type /oasis, or open the oasis file in its folder (oasis.command on a Mac, oasis.cmd on Windows, oasis.sh on Linux).'
+  ? `The agent engine is not running, so no agent can be summoned. ${START_PACKAGED}`
   : 'The agent engine is not running, so no agent can be summoned. Start it next to the Oasis: pnpm dev:engine.'
 
 // ─── the frame ──────────────────────────────────────────────────────────────

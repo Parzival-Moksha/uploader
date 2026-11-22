@@ -55,6 +55,8 @@ function usePoll(check: () => void | Promise<void>, everyMs: number, enabled: bo
 export function ConnectionWarning({ local }: { local: boolean }) {
   const connection = useOasisStore(s => s.agentEngine.connection)
   const [serverFailures, setServerFailures] = useState(0)
+  // The server answers 401: it runs, but this browser has not got its local key (local-token.ts).
+  const [keyMissing, setKeyMissing] = useState(false)
   const [relay, setRelay] = useState<{ running: boolean | null; seen: boolean }>({ running: null, seen: false })
   const [startingRelay, setStartingRelay] = useState(false)
   const [now, setNow] = useState(() => Date.now())
@@ -76,7 +78,8 @@ export function ConnectionWarning({ local }: { local: boolean }) {
   usePoll(async () => {
     try {
       const res = await fetchWithTimeout('/api/health', undefined, HEALTH_TIMEOUT_MS)
-      setServerFailures(res.ok ? 0 : n => n + 1)
+      setKeyMissing(res.status === 401)
+      setServerFailures(res.ok || res.status === 401 ? 0 : n => n + 1)
     } catch {
       setServerFailures(n => n + 1)
     }
@@ -120,6 +123,8 @@ export function ConnectionWarning({ local }: { local: boolean }) {
     serverFailures,
     relay: local ? relay : null,
     engineOutdated,
+    keyMissing,
+    packaged: process.env.NEXT_PUBLIC_OASIS_EDITION === 'slim',
   })
   if (!lines.length) return null
 
@@ -146,7 +151,7 @@ export function ConnectionWarning({ local }: { local: boolean }) {
   }
 
   return (
-    <div data-connection-warning className="pointer-events-none fixed left-1/2 top-3 z-[185] flex w-max max-w-[calc(100vw-24px)] -translate-x-1/2 flex-col gap-1.5" role="alert">
+    <div data-connection-warning className="pointer-events-none fixed left-1/2 top-3 z-[185] flex w-max max-w-[min(760px,calc(100vw-24px))] -translate-x-1/2 flex-col gap-1.5" role="alert">
       {lines.map(line => (
         <div
           key={line.id}
@@ -155,7 +160,7 @@ export function ConnectionWarning({ local }: { local: boolean }) {
           title={line.id === 'engine' && connection.error ? connection.error : undefined}
         >
           <span className="h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-red-500 shadow-[0_0_10px_#ef4444]" />
-          <span className="text-[12px] font-black uppercase tracking-[0.12em]">{line.title}</span>
+          <span className="shrink-0 text-[12px] font-black uppercase tracking-[0.12em] max-[700px]:shrink">{line.title}</span>
           <span className="text-[12px] text-red-100/85">{line.detail}</span>
           {button(line)}
         </div>

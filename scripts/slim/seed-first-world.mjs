@@ -10,6 +10,8 @@ const HOME = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '.
 const SEEDS = path.join(HOME, 'prisma', 'default-worlds')
 
 function databaseUrl() {
+  // A party's sandbox database (scripts/party-server.mjs) is named in the environment, not in .env.
+  if (process.env.OASIS_SEED_DATABASE_URL) return process.env.OASIS_SEED_DATABASE_URL
   let env = ''
   try { env = fs.readFileSync(path.join(HOME, '.env'), 'utf8') } catch { /* defaults below */ }
   const match = /^\s*DATABASE_URL\s*=\s*"?file:([^"\r\n]+)"?/m.exec(env)

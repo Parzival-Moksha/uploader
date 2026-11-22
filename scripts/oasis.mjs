@@ -131,6 +131,16 @@ function setup() {
     const seed = path.join(HOME, 'scripts', 'slim', 'seed-first-world.mjs')
     if (fs.existsSync(seed) && node(seed, []) !== 0) say('The first world could not be seeded; the Oasis starts with an empty one.')
   }
+  // The party's room server (World menu > Host a party) has packages of its own, from its own lockfile. A failure
+  // here leaves everything else working; hosting then says it cannot start.
+  const room = path.join(HOME, 'packages', 'oasis-room-server')
+  if (SLIM && fs.existsSync(path.join(room, 'pnpm-lock.yaml')) && !fs.existsSync(path.join(room, 'node_modules', 'tsx', 'package.json'))) {
+    say('Installing the party server packages (once, a few seconds) …')
+    const [command, ...lead] = pnpm()
+    process.env.COREPACK_ENABLE_DOWNLOAD_PROMPT = '0'
+    if (runSync(command, [...lead, 'install', '--frozen-lockfile', '--prod'], { cwd: room }) === 0) steps.push('party server')
+    else say('The party server packages could not be installed; everything else works, hosting a party does not.')
+  }
   if (SLIM && !fs.existsSync(path.join(HOME, '.next', 'BUILD_ID'))) {
     say('Building the Oasis (once, a minute or two) …')
     // The build fetches its web fonts from Google; one hiccup there fails it, so it is tried twice.

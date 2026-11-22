@@ -1,5 +1,6 @@
 'use client'
 
+import { PartyTile } from './PartyTile'
 import { useContext, useEffect, useMemo, useRef, useState, type ChangeEvent, type ReactNode } from 'react'
 import { useKitStyle } from '@/components/ui-kit'
 import { useMindcraftLook } from '@/components/village/mindcraft-look'
@@ -623,6 +624,8 @@ export function WorldMenu({ actionLogControl }: { actionLogControl?: ReactNode }
               50% { box-shadow: 0 0 24px rgba(244,114,182,0.72), inset 0 0 10px rgba(244,114,182,0.20); }
             }
           `}</style>
+          {/* Parties on this Wi-Fi: join one in a click, or host one (PartyTile.tsx). */}
+          <PartyTile />
           <div className="flex items-start gap-3 border-b border-white/10 pb-3">
             <button
               type="button"

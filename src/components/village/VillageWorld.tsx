@@ -62,6 +62,7 @@ import {
 import { summonGuide } from './summon-guide'
 import { GUIDE_INVITE_LINE } from '../../lib/village/guide'
 import { showNotice } from '../forge/GlobalNotice'
+import { START_PACKAGED } from '../../lib/connection-watch'
 import { VILLAGE_OBSERVED_COLOR, agentDisplayName, statusColor, villageAgentLook } from './village-status'
 import { VillageSubagentMinis } from './VillageSubagentMinis'
 import { VillageShow } from './VillageShow'
@@ -1003,7 +1004,9 @@ function VillagePlaza({ empty, origin }: { empty: boolean; origin: VillageOrigin
           ) : (
             <>
               <div className="text-[11px] font-black uppercase tracking-[0.2em] text-amber-200">Agent engine offline</div>
-              <div className="text-[12px] text-white/70">Start it next to the Oasis: <code className="rounded bg-white/10 px-1">pnpm dev:engine</code></div>
+              {process.env.NEXT_PUBLIC_OASIS_EDITION === 'slim'
+                ? <div className="text-[12px] text-white/70">{START_PACKAGED}</div>
+                : <div className="text-[12px] text-white/70">Start it next to the Oasis: <code className="rounded bg-white/10 px-1">pnpm dev:engine</code></div>}
             </>
           )}
         </PlazaSign>

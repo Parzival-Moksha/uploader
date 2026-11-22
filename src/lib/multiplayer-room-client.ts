@@ -155,7 +155,8 @@ function resolveRoomEndpoint(): string | null {
     // in standard `pnpm dev`), failing with `joinOrCreate failed` on every
     // reconnect tick and flooding the console.
     if (isLocal) return null
-    return `${protocol}//${host}/rooms`
+    // With the port: a LAN party serves on 4600 (hosted sits on 443, where host has none, so nothing changes there).
+    return `${protocol}//${window.location.host || host}/rooms`
   }
   return null
 }
