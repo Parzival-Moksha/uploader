@@ -1,0 +1,144 @@
+# Installs the Oasis on clean Macs (GitHub's own, free for public repositories) at every release, both ways a
+# newcomer would: the clone and start script that "install the Oasis from github.com/Parzival-Moksha/uploader"
+# leads to, and the plugin's /oasis (the full edition from the release). Each run opens the village in a headless
+# browser and keeps a screenshot. What it proves: the Oasis installs and opens on a clean Mac. What it cannot:
+# what a person's own Claude Code does with the sentence (that needs a logged-in Claude).
+name: Install on a clean Mac
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to check (for example v0.6.9)
+        required: true
+
+permissions:
+  contents: read
+
+env:
+  OASIS_NO_OPEN: '1'        # no browser tab: the check opens the village itself, headless
+  OASIS_EARS_INSTALL: '0'   # the voice helper is optional and downloads about 310 MB; not part of this check
+  OASIS_TELEGRAM: '0'
+
+jobs:
+  clone:
+    name: Clone and start script (the one sentence)
+    runs-on: macos-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Start the Oasis (install, database, build, both servers)
+        run: |
+          start=$(date +%s)
+          node scripts/oasis.mjs start
+          echo "STARTED_IN=$(( $(date +%s) - start ))" >> "$GITHUB_ENV"
+      - name: Status
+        run: node scripts/oasis.mjs status
+      - name: Prepare a headless browser
+        run: |
+          npm install --silent --prefix "$RUNNER_TEMP/look" playwright@1.58.2
+          "$RUNNER_TEMP/look/node_modules/.bin/playwright" install chromium
+      - name: Open the village and keep a screenshot
+        run: |
+          cat > "$RUNNER_TEMP/look/look.mjs" <<'JS'
+          import fs from 'node:fs'
+          import os from 'node:os'
+          import path from 'node:path'
+          import { chromium } from 'playwright'
+          const key = fs.readFileSync(path.join(process.env.OASIS_DATA_DIR || path.join(os.homedir(), '.oasis'), 'token'), 'utf8').trim()
+          const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] })
+          const page = await (await browser.newContext({ viewport: { width: 1280, height: 760 } })).newPage()
+          await page.goto(`http://localhost:4516/?profile=village&key=${key}`, { waitUntil: 'domcontentloaded', timeout: 180000 })
+          await page.waitForTimeout(40000)
+          const text = (await page.evaluate(() => document.body.innerText)).replace(/\s+/g, ' ')
+          await page.screenshot({ path: process.argv[2] })
+          await browser.close()
+          const village = /Summon a guide|THE VILLAGE IS EMPTY/i.test(text)
+          const wrong = /OFFLINE|HAS NOT GOT THIS OASIS/i.test(text)
+          console.log(`village: ${village}, warnings: ${wrong}`)
+          console.log(text.slice(0, 400))
+          if (!village || wrong) process.exit(1)
+          JS
+          cd "$RUNNER_TEMP/look" && node look.mjs "$RUNNER_TEMP/village-clone.png"
+      - name: Summary
+        if: always()
+        run: |
+          echo "### Clone and start script on $(sw_vers -productName) $(sw_vers -productVersion) ($(uname -m)), Node $(node --version)" >> "$GITHUB_STEP_SUMMARY"
+          echo "Installed, built and started in ${STARTED_IN:-?} s." >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: clone-and-start
+          path: |
+            ${{ runner.temp }}/village-clone.png
+            logs/
+          if-no-files-found: ignore
+
+  plugin:
+    name: Plugin install, full edition (/oasis)
+    runs-on: macos-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install the full Oasis from the release, as /oasis does, and start it
+        run: |
+          # The plugin runs from Claude Code's plugin folder, outside any checkout: copy it there, so the launcher
+          # downloads the release pinned in release.json instead of starting this checkout.
+          cp -R plugins/oasis "$RUNNER_TEMP/plugin"
+          start=$(date +%s)
+          node "$RUNNER_TEMP/plugin/scripts/oasis-launch.mjs" --wait
+          echo "STARTED_IN=$(( $(date +%s) - start ))" >> "$GITHUB_ENV"
+      - name: Status
+        run: node "$HOME/.oasis/app/scripts/oasis.mjs" status
+      - name: Prepare a headless browser
+        run: |
+          npm install --silent --prefix "$RUNNER_TEMP/look" playwright@1.58.2
+          "$RUNNER_TEMP/look/node_modules/.bin/playwright" install chromium
+      - name: Open the village and keep a screenshot
+        run: |
+          cat > "$RUNNER_TEMP/look/look.mjs" <<'JS'
+          import fs from 'node:fs'
+          import os from 'node:os'
+          import path from 'node:path'
+          import { chromium } from 'playwright'
+          const key = fs.readFileSync(path.join(process.env.OASIS_DATA_DIR || path.join(os.homedir(), '.oasis'), 'token'), 'utf8').trim()
+          const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] })
+          const page = await (await browser.newContext({ viewport: { width: 1280, height: 760 } })).newPage()
+          await page.goto(`http://localhost:4516/?profile=village&key=${key}`, { waitUntil: 'domcontentloaded', timeout: 180000 })
+          await page.waitForTimeout(40000)
+          const text = (await page.evaluate(() => document.body.innerText)).replace(/\s+/g, ' ')
+          await page.screenshot({ path: process.argv[2] })
+          await browser.close()
+          const village = /Summon a guide|THE VILLAGE IS EMPTY/i.test(text)
+          const wrong = /OFFLINE|HAS NOT GOT THIS OASIS/i.test(text)
+          console.log(`village: ${village}, warnings: ${wrong}`)
+          console.log(text.slice(0, 400))
+          if (!village || wrong) process.exit(1)
+          JS
+          cd "$RUNNER_TEMP/look" && node look.mjs "$RUNNER_TEMP/village-plugin.png"
+      - name: Summary
+        if: always()
+        run: |
+          echo "### Plugin install (full edition) on $(sw_vers -productName) $(sw_vers -productVersion) ($(uname -m)), Node $(node --version)" >> "$GITHUB_STEP_SUMMARY"
+          echo "Downloaded, checked, built and started in ${STARTED_IN:-?} s." >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: plugin-install
+          path: |
+            ${{ runner.temp }}/village-plugin.png
+            ~/.oasis/install.log
+            ~/.oasis/app/logs/
+          if-no-files-found: ignore
