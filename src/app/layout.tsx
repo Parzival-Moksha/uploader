@@ -1,46 +1,19 @@
 import type { Metadata } from 'next'
-import { Cinzel, Cormorant_Garamond, JetBrains_Mono, Space_Grotesk } from 'next/font/google'
 import { Providers } from '@/components/Providers'
 import './globals.css'
 import './oasis-emoji.css'
+import './oasis-ui-fonts.css'
 import { isHostedOasis } from '@/lib/oasis-profile'
 import { LocalServiceWorkerGuard } from '@/components/LocalServiceWorkerGuard'
 
 // ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
 // 04515 — Root Layout
 // ─═̷─═̷─🅰─═̷─═̷─ Fonts catalog mirrored in src/lib/fonts.ts ─═̷─═̷─🅰─═̷─═̷─
-// Each next/font call self-hosts the font and registers a CSS variable
-// on <html>. Settings.uiFont picks which variable the UI consumes —
+// The four UI fonts ship inside the Oasis (oasis-ui-fonts.css, files in
+// public/fonts/ui): no build ever needs Google Fonts. Each family has a CSS
+// variable on :root; Settings.uiFont picks which one the UI consumes —
 // see src/lib/fonts.ts for the picker side of the wiring.
 // ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
-
-const cinzel = Cinzel({
-  subsets: ['latin'],
-  weight: ['400', '500', '700'],
-  variable: '--font-cinzel',
-  display: 'swap',
-})
-
-const cormorant = Cormorant_Garamond({
-  subsets: ['latin'],
-  weight: ['400', '500', '700'],
-  variable: '--font-cormorant',
-  display: 'swap',
-})
-
-const spaceGrotesk = Space_Grotesk({
-  subsets: ['latin'],
-  weight: ['400', '500', '700'],
-  variable: '--font-space-grotesk',
-  display: 'swap',
-})
-
-const jetbrainsMono = JetBrains_Mono({
-  subsets: ['latin'],
-  weight: ['400', '500', '700'],
-  variable: '--font-jetbrains-mono',
-  display: 'swap',
-})
 
 // The manifest comes from src/app/manifest.ts (Next links it). On this computer the Oasis wears its own
 // icon (the ":4516" sunset), so its tab and its installed window are easy to find.
@@ -63,9 +36,8 @@ export default function RootLayout({
 }: {
   children: React.ReactNode
 }) {
-  const fontVars = [cinzel.variable, cormorant.variable, spaceGrotesk.variable, jetbrainsMono.variable].join(' ')
   return (
-    <html lang="en" className={fontVars}>
+    <html lang="en">
       <body>
         <LocalServiceWorkerGuard />
         <Providers>{children}</Providers>

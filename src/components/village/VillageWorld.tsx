@@ -17,6 +17,7 @@ import {
   assignVillageAvatars,
   assignVillageSeats,
   DESK_WINDOW_PX,
+  BOTTOM_LEFT_HUD_PX,
   DESK_WINDOW_TILT,
   DESK_WINDOW_WORLD,
   computeFocusPose,
@@ -320,7 +321,7 @@ function StationTag({ agentId, colorKey, avatarKey, keys }: { agentId: string; c
  * windows. "desk": the recent conversation, readable as you walk by. "screen" (F while talking to the
  * agent): the camera fills the view with it, and the whole conversation and the text box live on it.
  */
-function DeskWindow({ agentId, nearby, mode }: { agentId: string; nearby: boolean; mode: 'desk' | 'screen' }) {
+function DeskWindow({ agentId, nearby, mode, size: sizeFor }: { agentId: string; nearby: boolean; mode: 'desk' | 'screen'; size?: { width: number; height: number } }) {
   const agent = useOasisStore(s => s.agentEngine.agents[agentId])
   // The full screen (F) follows the chat look: transparency + blur for all, this agent's colour (PanelLook.tsx).
   const look = usePanelLook(agent?.sessionId || agentId)
@@ -331,7 +332,8 @@ function DeskWindow({ agentId, nearby, mode }: { agentId: string; nearby: boolea
   const textured = menuStyle !== 'glass'
   if (!agent) return null
   const color = agent.readOnly ? VILLAGE_OBSERVED_COLOR : statusColor(effectiveStatus(agent))
-  const size = DESK_WINDOW_PX[mode]
+  // The full screen's height follows the view (village-layout.ts fullScreenWindow); the desk's is fixed.
+  const size = sizeFor ?? DESK_WINDOW_PX[mode]
   const screen = mode === 'screen'
   return (
     <div
@@ -689,7 +691,7 @@ function VillageStation({ agentId, placement, avatarUrl, windowVisible, helperLa
   // The field of view is read when F opens: it is a setting changed on the camera itself, which no selector sees.
   const getThree = useThree(s => s.get)
   const screenLayout = useMemo(
-    () => (onScreen ? faceScreenLayout({ faceHeight: measureVillageFace(agentId), fov: (getThree().camera as THREE.PerspectiveCamera).fov || 50, aspect: viewSize.width / Math.max(1, viewSize.height) }) : null),
+    () => (onScreen ? faceScreenLayout({ faceHeight: measureVillageFace(agentId), fov: (getThree().camera as THREE.PerspectiveCamera).fov || 50, aspect: viewSize.width / Math.max(1, viewSize.height), minLeftShare: BOTTOM_LEFT_HUD_PX / Math.max(1, viewSize.width) }) : null),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [onScreen, agentId, avatarUrl, viewSize.width, viewSize.height],
   )
@@ -860,7 +862,7 @@ function VillageStation({ agentId, placement, avatarUrl, windowVisible, helperLa
             zIndexRange={overlayZ}
             style={{ pointerEvents: 'auto' }}
           >
-            <DeskWindow agentId={agentId} nearby={false} mode="screen" />
+            <DeskWindow agentId={agentId} nearby={false} mode="screen" size={screenLayout?.windowPx} />
           </Html>
         )}
       </group>
@@ -1047,7 +1049,7 @@ function VillageCameraRig() {
     const aspect = size.width / Math.max(1, size.height)
     const panel = getSessionPanelGeometry(size.width, size.height)
     // F: at the avatar's eye height, its face in the left quarter, its screen in the rest (faceScreenLayout).
-    const screen = onScreen ? faceScreenLayout({ faceHeight: getVillageFaceHeight(agentId), fov: perspective.fov || 50, aspect }) : null
+    const screen = onScreen ? faceScreenLayout({ faceHeight: getVillageFaceHeight(agentId), fov: perspective.fov || 50, aspect, minLeftShare: BOTTOM_LEFT_HUD_PX / Math.max(1, size.width) }) : null
     const pose = screen
       ? { position: stationLocalToWorld(station, screen.camera), target: stationLocalToWorld(station, screen.target) }
       : computeFocusPose({

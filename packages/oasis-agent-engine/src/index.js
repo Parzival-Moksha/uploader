@@ -43,7 +43,7 @@ import { startClipWatchdog, stopClipWatchdog, clipWatchdogState } from './clip-w
 import { startTelegram } from './telegram.js';
 import { AgentHours } from './agent-hours.js';
 import { tokenHeaders } from './token.js';
-import { listVoices } from './voice.js';
+import { isVoiceKey, listVoices } from './voice.js';
 import { createStage, resolveStageAgent } from './stage.js';
 import fs from 'node:fs';
 
@@ -71,6 +71,11 @@ const RESUME_ON = process.env.OASIS_RESUME !== '0';
 /** This start, for /health and the HUD's engine pill: when, how the last run ended, who was told to carry on. */
 const restart = { startedAt: Date.now(), stop: null, resumed: [], redelivered: 0, line: null };
 const PORT = Number(process.env.OASIS_PORT || 4530);
+/**
+ * The identity store's route (the page server). The real engine writes there by default; a test engine on another port
+ * only when OASIS_IDENTITY_URL says where (it must never write into the owner's store).
+ */
+const IDENTITY_URL = process.env.OASIS_IDENTITY_URL ?? (PORT === 4530 ? 'http://127.0.0.1:4516/api/village/identity' : '');
 // The clock schedules run on. A test engine (OASIS_FAKE_CLOCK=1, never on 4530) can move it with the `clock` command.
 const FAKE_CLOCK = process.env.OASIS_FAKE_CLOCK === '1' && PORT !== 4530;
 // OASIS_CLOCK_OFFSET_MS starts a test engine's clock ahead (a restart "hours later").
@@ -652,10 +657,33 @@ const commands = {
   /** The voices an agent can have (the page's list, voice.js). */
   listVoices: () => listVoices(),
   /** An agent picks its own voice (scripts/voice.mjs); `agent`: its id or name. voice: a key of the list, or null to give it up. */
-  chooseVoice({ agentId, agent, voice }) {
+  /**
+   * The agent's own voice (scripts/voice.mjs). One place holds it: the Oasis's identity store on this PC
+   * (src/lib/village/village-identity.ts `ownVoice`, through the page server), the one the page speaks from. It is
+   * written there first; if that fails, nothing changes and the agent is told so. The answer says what the page will
+   * really speak: the owner's pick in the settings menu wins over the agent's own choice (23 Nov: Anorak set Harry,
+   * voice.mjs said so, and the page went on speaking the owner's old pick, Charlie).
+   */
+  async chooseVoice({ agentId, agent, voice }) {
     const a = resolveStageAgent(agentId ?? agent, ownedAgents());
     if (!a) throw new Error(`unknown agent ${agentId ?? agent ?? ''}`);
-    return a.setVoiceChoice(voice ?? null);
+    if (voice != null && !isVoiceKey(voice)) return { ok: false, error: `unknown voice "${voice}" (run scripts/voice.mjs list)` };
+    let entry = null;
+    if (IDENTITY_URL && a.sessionId) {
+      try {
+        const res = await fetch(IDENTITY_URL, { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ agent: a.sessionId, ownVoice: voice ?? null }), signal: AbortSignal.timeout(10_000) });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(body.error || `status ${res.status}`);
+        entry = body.file?.agents?.[a.sessionId] || {};
+      } catch (e) {
+        return { ok: false, error: `nothing changed: the Oasis page server did not take it (${e.message}); try again when it runs` };
+      }
+    }
+    const r = a.setVoiceChoice(voice ?? null);
+    if (!r.ok || !entry) return r;
+    const ownerPick = entry.voicePicked && entry.voice ? entry.voice : null;
+    const speaks = ownerPick || voice || null;
+    return { ok: true, data: { ...r.data, ownerPick, speaks } };
   },
   // The Council's stage (stage.js): the moderator's calls go to the Oasis page that walks and speaks the agents.
   council(msg) { return stage.request(msg); },

@@ -850,8 +850,9 @@ export function daySummary(file: WorkFile, date: string, today: string): WorkDay
   const day = file.days[date]
   const seconds = daySeconds(day)
   const vow = file.vow
-  const target = vow ? vow.dailySeconds : null
   const inVow = Boolean(vow && date >= vow.from && date <= vow.to)
+  // A day outside the vow (after it ended, before it began) has no goal.
+  const target = vow && inVow ? vow.dailySeconds : null
   const commitment = vow && inVow ? evaluateCommitment(file, vow, today).days.find(item => item.date === date) : undefined
   const kept = target !== null && seconds >= target
   const open = !kept && date >= today
@@ -926,7 +927,9 @@ export interface WorkSnapshot {
 
 export function workSnapshot(file: WorkFile, now: number, offsetMinutes = localOffsetMinutes(now)): WorkSnapshot {
   const date = localDay(now, offsetMinutes)
-  const vow = file.vow
+  // Only a vow that covers today sets a goal: once it has ended (or before it begins) the counter shows the time
+  // with no goal, countdown or stakes, as for someone who made none. Its days keep their record in Mindcraft.
+  const vow = file.vow && date >= file.vow.from && date <= file.vow.to ? file.vow : null
   const target = vow ? vow.dailySeconds : null
   const day = file.days[date]
   const seconds = daySeconds(day)
@@ -959,7 +962,7 @@ export function workSnapshot(file: WorkFile, now: number, offsetMinutes = localO
     },
     summary,
     week,
-    vow: file.vow,
+    vow,
     commitments,
     totals: { xp: baseXp, bonusXp, penaltyXp, netXp: round1(baseXp + bonusXp - penaltyXp) },
     active: file.active,

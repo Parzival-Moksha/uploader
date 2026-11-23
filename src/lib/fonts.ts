@@ -2,8 +2,8 @@
 // FONTS — curated UI font catalog for the Oasis.
 // ─═̷─═̷─🅰─═̷─═̷─ Every chapter wants its own typography ─═̷─═̷─🅰─═̷─═̷─
 //
-// Each entry maps a stable id to a CSS variable that's loaded in
-// src/app/layout.tsx via next/font/google. Settings reference the id;
+// Each entry maps a stable id to a CSS variable defined in
+// src/app/oasis-ui-fonts.css (files in public/fonts/ui). Settings reference the id;
 // the actual font-family value resolves via `var(--font-<id>)` at render
 // time. Vibe + sample fields drive the picker preview.
 // ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░

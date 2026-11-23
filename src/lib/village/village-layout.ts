@@ -469,7 +469,15 @@ export interface FaceScreenInput {
   /** Vertical field of view in degrees. */
   fov: number
   aspect: number
+  /**
+   * The screen starts no further left than this share of the view's width: on a small window the work counter at
+   * the bottom left (about 310 px) is wider than the face's strip, and would cover the screen's corner.
+   */
+  minLeftShare?: number
 }
+
+/** The work counter's width at the bottom left (WorkVowHud) and a gap: the F screen keeps clear of it. */
+export const BOTTOM_LEFT_HUD_PX = 330
 
 export interface FaceScreenLayout {
   /** 'face': the face in the left part, the screen in the rest. 'screen': a narrow view (a phone): the screen alone, as before. */
@@ -477,8 +485,15 @@ export interface FaceScreenLayout {
   /** All station-local (local +Z is where the avatar looks). */
   camera: Vec3
   target: Vec3
-  /** Centre of the screen (the DOM window, DESK_WINDOW_WORLD in size, facing +Z). */
+  /** Centre of the screen (the DOM window, facing +Z). */
   window: Vec3
+  /**
+   * The screen's size for this view: as wide as DESK_WINDOW_WORLD (so its scale, distanceFactor, stays), and as
+   * tall as the view lets it be: its shape follows the window's, so it fills screenHeightFill of the height and the
+   * width next to the face both. A fixed shape ran out of width first on most windows (about 80% of the height).
+   */
+  windowWorld: { width: number; height: number }
+  windowPx: { width: number; height: number }
   /**
    * How far the avatar turns (radians around Y, from looking along +Z) to look into the camera: its face sits
    * to the left of where the camera looks, so without the turn it is seen from the side.
@@ -495,9 +510,10 @@ export const FACE_SCREEN = {
   /** Where the face sits across the view: 0 = the left edge, 1 = the right. The middle of its strip, so the head
    *  is whole: clear of the left edge and of the screen. */
   faceAt: 0.11,
-  /** The screen fills this much of its part of the width, and at most this much of the height. */
+  /** The screen fills this much of its part of the width, and this much of the height (the owner, 2026-11-23:
+   *  "it covers like 90-95% of the screen instead of the 80-ish it does now so it's truly F(ull)"). */
   screenFill: 0.985,
-  screenHeightFill: 0.92,
+  screenHeightFill: 0.93,
   /** Narrower than this (width / height) there is no room for both: the screen alone. */
   minAspect: 1.3,
 } as const
@@ -508,14 +524,37 @@ export const FACE_SCREEN = {
  * readable while it talks), and the screen with the thread fills the rest, further back so it never covers
  * the face. Works wherever the agent stands: everything is relative to the avatar.
  */
+/** The full screen's height for a view where it gets `widthShare` of the width and `heightShare` of the height. */
+export function fullScreenWindow(aspect: number, widthShare: number, heightShare: number): { world: { width: number; height: number }; px: { width: number; height: number } } {
+  const width = DESK_WINDOW_WORLD.width
+  // Its shape is the room's shape: (widthShare * aspect) wide for heightShare high. Not flatter than 2.4:1, not
+  // taller than 1:1.3 (a phone held upright gets a tall screen, not a tower).
+  const shape = Math.min(2.4, Math.max(1 / 1.3, (widthShare * Math.max(0.2, aspect)) / Math.max(0.1, heightShare)))
+  const height = Math.round((width / shape) * 1000) / 1000
+  const px = DESK_WINDOW_PX.screen.width
+  return { world: { width, height }, px: { width: px, height: Math.round(px * (height / width)) } }
+}
+
 export function faceScreenLayout(input: FaceScreenInput): FaceScreenLayout {
   const aspect = Math.max(0.2, input.aspect || 1)
   const tanV = Math.tan(((input.fov || 50) * Math.PI) / 360)
   const tanH = tanV * aspect
   const [ax, , az] = STATION.avatar
   if (aspect < FACE_SCREEN.minAspect) {
-    const pose = computeScreenPose({ center: STATION.window, rotationY: 0, fov: input.fov, aspect })
-    return { kind: 'screen', camera: pose.position, target: pose.target, window: STATION.window, faceTurn: 0 }
+    // The screen alone: all the width (SCREEN_FILL) and screenHeightFill of the height.
+    const size = fullScreenWindow(aspect, SCREEN_FILL, FACE_SCREEN.screenHeightFill)
+    const fill = SCREEN_FILL
+    const distance = Math.max(size.world.height / 2 / tanV / FACE_SCREEN.screenHeightFill, size.world.width / 2 / tanH / fill)
+    const [wx, wy, wz] = STATION.window
+    return {
+      kind: 'screen',
+      camera: [wx, wy, wz + distance],
+      target: [wx, wy, wz],
+      window: STATION.window,
+      faceTurn: 0,
+      windowWorld: size.world,
+      windowPx: size.px,
+    }
   }
   const h = Number.isFinite(input.faceHeight) && input.faceHeight > 0.3 ? input.faceHeight : 1.5
   // The face: close enough that a head's width is the left part of the view.
@@ -523,18 +562,21 @@ export function faceScreenLayout(input: FaceScreenInput): FaceScreenLayout {
   // Its centre sits at faceAt across the view: NDC x = 2 * faceAt - 1 (negative: left of the middle).
   const cameraX = ax + (1 - 2 * FACE_SCREEN.faceAt) * faceDistance * tanH
   const cameraZ = az + faceDistance
-  // The screen: as far back as it takes to fit the rest of the width (and the height).
-  const share = 1 - FACE_SCREEN.faceShare
+  // The screen: as far back as it takes to fit the rest of the width (and the height), its height following the view.
+  // On a small window it also keeps clear of the work counter at the bottom left (minLeftShare).
+  const leftShare = Math.min(0.5, Math.max(FACE_SCREEN.faceShare, input.minLeftShare ?? 0))
+  const share = 1 - leftShare
+  const size = fullScreenWindow(aspect, share * FACE_SCREEN.screenFill, FACE_SCREEN.screenHeightFill)
   // (It is a flat overlay drawn over the 3D picture, so it need not be behind the avatar: only where it lands in
   // the view counts. Keeping it behind the avatar capped its width at 72% under the page's 75° field of view.)
   const screenDistance = Math.max(
-    DESK_WINDOW_WORLD.width / (2 * tanH * share * FACE_SCREEN.screenFill),
-    DESK_WINDOW_WORLD.height / (2 * tanV * FACE_SCREEN.screenHeightFill),
+    size.world.width / (2 * tanH * share * FACE_SCREEN.screenFill),
+    size.world.height / (2 * tanV * FACE_SCREEN.screenHeightFill),
     0.6,
   )
   // Against the right edge of the view (a small margin), so all the room it does not need is next to the face.
   const widthShare = DESK_WINDOW_WORLD.width / (2 * screenDistance * tanH)
-  const centreAt = Math.max(FACE_SCREEN.faceShare + widthShare / 2, 1 - 0.008 - widthShare / 2)
+  const centreAt = Math.max(leftShare + widthShare / 2, 1 - 0.008 - widthShare / 2)
   const windowX = cameraX + (2 * centreAt - 1) * screenDistance * tanH
   return {
     kind: 'face',
@@ -542,6 +584,8 @@ export function faceScreenLayout(input: FaceScreenInput): FaceScreenLayout {
     target: [cameraX, h, cameraZ - 1],
     window: [windowX, h, cameraZ - screenDistance],
     faceTurn: Math.atan2(cameraX - ax, cameraZ - az),
+    windowWorld: size.world,
+    windowPx: size.px,
   }
 }
 

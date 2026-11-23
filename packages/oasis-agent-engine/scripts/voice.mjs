@@ -31,7 +31,12 @@ try {
     if (!agent) throw new Error('who are you? OASIS_AGENT_ID is not set: pass --agent <name or id>');
     if (action === 'set' && !key) throw new Error('which voice? node voice.mjs set <key> (see: node voice.mjs list)');
     const result = await cmd({ cmd: 'chooseVoice', agent, voice: action === 'set' ? key : null });
-    console.log(result.voiceChoice ? `Your voice is now "${result.voiceChoice}". It is used from your next spoken line on (unless the owner picked another for you).` : 'Choice cleared: you speak with the voice you were dealt.');
+    if (result.ownerPick && result.ownerPick !== result.voiceChoice) {
+      // The owner's pick in the settings menu wins: say so plainly instead of a success that does not happen.
+      console.log(`Saved as your own choice${result.voiceChoice ? ` ("${result.voiceChoice}")` : ' (cleared)'}, but the owner picked "${result.ownerPick}" for you in your settings menu, and his pick wins: you keep speaking "${result.ownerPick}". He can change it there (Voice), or clear his pick ("your pick · clear") so yours counts.`);
+    } else {
+      console.log(result.voiceChoice ? `Your voice is now "${result.voiceChoice}". It is used from your next spoken line on.` : 'Choice cleared: you speak with the voice you were dealt.');
+    }
   } else {
     console.log('usage: node voice.mjs list | set <key> | clear   [--agent <name or id>]');
     process.exitCode = action ? 1 : 0;

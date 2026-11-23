@@ -1,6 +1,6 @@
 {
   "name": "oasis-village",
-  "version": "0.6.8",
+  "version": "0.6.9",
   "description": "Installs and opens the Oasis: a 3D village on your own machine where your Claude Code sessions are characters you can walk up to and talk to. /oasis-village:oasis fetches it from GitHub and starts it.",
   "author": {
     "name": "Parzival-Moksha"

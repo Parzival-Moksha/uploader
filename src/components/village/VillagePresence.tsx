@@ -21,7 +21,7 @@ import { getLiveObjectTransform } from '../../lib/live-object-transforms'
 import { getAgentVoiceSettings } from './village-companion'
 import { getVillageAvatar, getVillageDesk, getVillagePlaza } from './village-actions'
 import { agentDisplayName } from './village-status'
-import { isVillageIdentityOffline, isVillageIdentityReady } from '../../lib/village/village-identity-client'
+import { getVillageIdentity, isVillageIdentityOffline, isVillageIdentityReady, queueVillageIdentity } from '../../lib/village/village-identity-client'
 
 const EVERY_MS = 4000
 
@@ -108,6 +108,15 @@ export function VillagePresence() {
       if (!isVillageIdentityReady() || isVillageIdentityOffline()) return
       // A new connection (the engine restarted, or the socket dropped): it may know nothing, tell it all again.
       if (connection.connectedAt !== sentFor) last = ''
+      // An agent's own voice chosen before 23 Nov lives only in the engine (voiceChoice): into the store once, never over
+      // a value there (the store is the one place now; the engine's chooseVoice writes it).
+      const stored = getVillageIdentity()?.agents || {}
+      const engine = useOasisStore.getState().agentEngine
+      const moves = engine.order
+        .map(id => engine.agents[id])
+        .filter(agent => agent?.sessionId && agent.voiceChoice && !stored[agent.sessionId]?.ownVoice)
+        .map(agent => ({ agent: agent!.sessionId as string, ifAbsent: { ownVoice: agent!.voiceChoice as string } }))
+      if (moves.length) queueVillageIdentity(moves)
       let agents: EnginePresence[]
       try { agents = buildPresence() } catch { return }
       if (!agents.length) return

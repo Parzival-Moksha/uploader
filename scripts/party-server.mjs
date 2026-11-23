@@ -25,8 +25,10 @@ import dgram from 'node:dgram'
 import { spawnSync } from 'node:child_process'
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
-const APP = path.resolve(process.env.PARTY_APP || 'C:/oasis-party/app')
-const DATA_DIR = path.resolve(process.env.PARTY_DATA_DIR || path.join(path.dirname(APP), 'home'))
+// The installed Oasis to serve: by default the one this launcher belongs to.
+const APP = path.resolve(process.env.PARTY_APP || REPO)
+// The party's own data (guests, budget, its folder and database): the same place the World menu uses.
+const DATA_DIR = path.resolve(process.env.PARTY_DATA_DIR || path.join(process.env.OASIS_DATA_DIR || path.join(os.homedir(), '.oasis'), 'party'))
 // 4680: any user may open it (80 needs root on macOS and Linux; 4600 is a packaged copy's page). Tonight's first party ran on 80.
 const PUBLIC_PORT = Number(process.env.PARTY_PORT || 4680)
 const HOST_NAME = (process.env.PARTY_HOST_NAME || os.userInfo().username || 'Someone').replace(/[<>\u0000-\u001f]/g, '').slice(0, 40)

@@ -354,13 +354,17 @@ function saveVoicePrefs(next: VoicePrefs, announce: boolean): void {
   voicePrefsListeners.forEach(listener => listener())
 }
 
+let lastOwnVoices = ''
 // Another tab or window changed a voice, a follow or a come-to-me (or the store just loaded): read them again.
 subscribeVillageIdentity(() => {
   const file = storeFile()
   if (!file) return
   const voices = parseVoicePrefs(JSON.stringify(voicesFromIdentity(file)))
-  if (JSON.stringify(voices) !== JSON.stringify(voicePrefs)) {
+  // The agents' own choices (ownVoice) count too: a `voice.mjs set` must reach the page without anything else changing.
+  const owns = JSON.stringify(Object.entries(file.agents).filter(([, a]) => a.ownVoice).map(([k, a]) => [k, a.ownVoice]))
+  if (JSON.stringify(voices) !== JSON.stringify(voicePrefs) || owns !== lastOwnVoices) {
     voicePrefs = voices
+    lastOwnVoices = owns
     voicePrefsVersion += 1
     voicePrefsListeners.forEach(listener => listener())
   }
@@ -388,9 +392,19 @@ export interface AgentVoiceSettings {
  * `voiceChoice`), then the one it was dealt. An agent without any is dealt a random one here, once, and keeps
  * it; Anorak has his own.
  */
+/**
+ * The agent's own choice of voice: the one in the store on this PC (village-identity.ts `ownVoice`, written by the
+ * engine's chooseVoice), else what the engine's snapshot says (an engine or store from before 23 Nov). One place,
+ * so `voice.mjs set` and what the page speaks can no longer disagree.
+ */
+function ownVoiceOf(key: string, fromEngine?: string | null): string | null {
+  const stored = storeFile()?.agents[key]?.ownVoice
+  return stored || fromEngine || null
+}
+
 export function getAgentVoiceSettings(key: string, name: string | null | undefined, own?: string | null): AgentVoiceSettings {
   const prefs = loadVoicePrefs()
-  let voice = voiceOf(prefs, key, name, own)
+  let voice = voiceOf(prefs, key, name, ownVoiceOf(key, own))
   if (!voice) {
     voice = dealVoice(prefs)
     // Quietly: this can run while a component reads it, and nothing on screen changes by it.
@@ -405,7 +419,7 @@ export function setAgentVoice(key: string, voice: string): void {
 
 /** Who decided this agent's voice: the owner (settings menu), the agent itself, or nobody (dealt, or Anorak's own). */
 export function agentVoiceChosenBy(key: string, own?: string | null): 'owner' | 'agent' | 'nobody' {
-  return voiceChosenBy(loadVoicePrefs(), key, own)
+  return voiceChosenBy(loadVoicePrefs(), key, ownVoiceOf(key, own))
 }
 
 /** Take the owner's pick back: the agent's own choice (or the dealt voice) counts again. */

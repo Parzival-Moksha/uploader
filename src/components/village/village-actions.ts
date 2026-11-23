@@ -16,7 +16,7 @@ import { getCameraSnapshot } from '../../lib/camera-bridge'
 import { getPlayerAvatarPose, markThirdPersonCameraRestored, requestPlayerAvatarTeleport } from '../../lib/player-avatar-runtime'
 import { showNotice } from '../forge/GlobalNotice'
 import { findNearestStation, stationLocalToWorld, type Vec3 } from '../../lib/village/village-layout'
-import { villageKeyAction, VILLAGE_VIEW_NONE, nextVillageView, villageViewKey, type VillageView, type VillageViewKey } from '../../lib/village/village-keys'
+import { villageKeyAction, VILLAGE_VIEW_NONE, nextVillageView, villageViewKey, type VillageView, type VillageViewKey, villageViewTargetOf } from '../../lib/village/village-keys'
 import { awayAgentWinsPrompt } from '../../lib/village/village-follow'
 import { getVillageSoundDebug } from './village-sound'
 
@@ -340,13 +340,14 @@ export function currentVillageView(): VillageView {
   return { kind: shared.screen === focused ? 'screen' : 'panel', agentId: focused }
 }
 
-/** The agent E and F open from nothing open: the selected one (a click on it), else the nearest. */
+/** The agent E and F open from nothing open: the nearest (within talking range), else the selected one. */
 export function villageViewTarget(): string | null {
   const engine = useOasisStore.getState().agentEngine
   const selected = getSelectedVillageAgent()
-  if (selected && engine.agents[selected]) return selected
-  return engine.nearbyAgentId
+  return villageViewTargetOf(engine.nearbyAgentId, selected && engine.agents[selected] ? selected : null)
 }
+
+let lastNoTargetHint = 0
 
 /** Go to `next` (nextVillageView decided it). False when nothing changed. */
 export function applyVillageView(next: VillageView): boolean {
@@ -727,6 +728,7 @@ export function handleVillageKeyDown(event: KeyboardEvent): boolean {
     }
   }
   const target = villageViewTarget()
+  const selectedNow = getSelectedVillageAgent()
   const action = villageKeyAction({
     code: event.code,
     ctrl: event.ctrlKey,
@@ -737,14 +739,14 @@ export function handleVillageKeyDown(event: KeyboardEvent): boolean {
     typing: isTypingTarget(event.target),
     focusedAgentId: village.focusedAgentId,
     nearbyAgentId: village.nearbyAgentId,
-    targetAgentId: target,
+    targetAgentId: selectedNow && village.agents[selectedNow] ? selectedNow : null,
     worldKeysFree: input.can().enterFocuses || input.inputState === 'agent-focus' || inSessionView,
     inPlaza: places.inPlaza,
     agentCount: village.order.length,
   })
   // E next to a helper (a subagent mini) opens its work in the parent's panel; it wins over the parent.
   const mini = places.nearbyMini
-  if (mini && event.code === 'KeyE' && !village.focusedAgentId && (action === 'view' || (action === null && !event.ctrlKey && !event.metaKey && !event.altKey
+  if (mini && event.code === 'KeyE' && !village.focusedAgentId && (action === 'view' || action === 'no-target' || (action === null && !event.ctrlKey && !event.metaKey && !event.altKey
     && !event.repeat && !isTypingTarget(event.target) && (input.can().enterFocuses || input.inputState === 'agent-focus' || inSessionView)))) {
     focusVillageSubagent(mini.agentId, mini.key)
     return true
@@ -765,6 +767,14 @@ export function handleVillageKeyDown(event: KeyboardEvent): boolean {
     case 'picker':
       openVillagePicker(true)
       return true
+    case 'no-target':
+      // Nobody near and nobody selected: nothing opens. The key stays the world's (E is "down" when flying); walking,
+      // one quiet line now and then says how.
+      if (input.inputState !== 'noclip' && Date.now() - lastNoTargetHint > 8000) {
+        lastNoTargetHint = Date.now()
+        showNotice(`Walk up to an agent first: ${event.code === 'KeyF' ? 'F' : 'E'} opens the one whose T / E / F keys show.`, 'info')
+      }
+      return false
     case 'next': {
       // On a stage (the Council's world) only the agents who are there have a place: N goes round them alone.
       const stage = isStageWorldName(worldNameNow())

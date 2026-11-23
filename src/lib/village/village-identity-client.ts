@@ -163,6 +163,8 @@ export function resetVillageIdentityForTests(next: IdentityFile | null = null): 
   version += 1
   pendingOps = []
   pendingSettings = {}
+  // As a real change does: the modules derive their values again.
+  listeners.forEach(listener => { try { listener() } catch { /* a test's own problem */ } })
 }
 
 export { EMPTY_IDENTITY }

@@ -25,7 +25,10 @@ export interface IdentityAgent {
   seenAt?: number
   /** A VILLAGE_VOICES key. */
   voice?: string
+  /** The owner chose `voice` (settings menu): it wins over the agent's own choice. */
   voicePicked?: boolean
+  /** The agent's own choice (scripts/voice.mjs, the engine's chooseVoice writes it here): used unless the owner picked. */
+  ownVoice?: string
   speed?: number
   /** Name-tag / panel colour, #rrggbb. */
   accent?: string
@@ -81,7 +84,7 @@ export function isIdentityKey(value: unknown): value is string {
   return typeof value === 'string' && KEY.test(value)
 }
 
-const FIELDS = ['seat', 'skin', 'skinPicked', 'seenAt', 'voice', 'voicePicked', 'speed', 'accent', 'come', 'follow', 'homeWorld', 'followWorlds'] as const
+const FIELDS = ['seat', 'skin', 'skinPicked', 'seenAt', 'voice', 'voicePicked', 'ownVoice', 'speed', 'accent', 'come', 'follow', 'homeWorld', 'followWorlds'] as const
 type FieldName = typeof FIELDS[number]
 const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v)
 
@@ -92,7 +95,7 @@ export function cleanField(name: FieldName, value: unknown): unknown {
     case 'seat': return finite(value) && value >= 0 && value < 1000 ? Math.round(value) : undefined
     case 'skin': return typeof value === 'string' && value.length > 0 && value.length <= 400 && /^(\/|https?:\/\/)/.test(value) ? value : undefined
     case 'seenAt': return finite(value) && value > 0 ? Math.round(value) : undefined
-    case 'voice': return typeof value === 'string' && /^[\w-]{1,40}$/.test(value) ? value : undefined
+    case 'voice': case 'ownVoice': return typeof value === 'string' && /^[\w-]{1,40}$/.test(value) ? value : undefined
     case 'speed': return finite(value) && value >= 0.3 && value <= 4 ? Math.round(value * 100) / 100 : undefined
     case 'accent': return typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value) ? value.toLowerCase() : undefined
     case 'homeWorld': return typeof value === 'string' && value.length > 0 && value.length <= 200 ? value : undefined

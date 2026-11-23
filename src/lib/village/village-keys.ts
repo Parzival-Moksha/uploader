@@ -8,8 +8,12 @@
 //   E panel open    nothing open          F view, same agent     nothing open
 //   F view open     E panel, same agent   nothing open           nothing open
 //
-// "The agent" from nothing open: the one selected (clicked), else the nearest. The panel's "F screen" button and the
-// full screen's "E panel" and close buttons press the same keys (village-actions.ts pressVillageView).
+// "The agent" from nothing open: the nearest one, within talking range, whoever is selected (the T / E / F hints
+// stand over it, so the keys do what the hints point at; the owner, 2026-11-23). Only with nobody in range does the
+// selected one count (N, or a click in the Agents menu, then E, from across the world); with neither, nothing opens
+// and a one-line hint says to walk up to someone. In the summoning circle with nobody near, E opens the picker.
+// The panel's "F screen" button and the full screen's "E panel" and close buttons press the same keys
+// (village-actions.ts pressVillageView).
 // Other keys: T next to an agent opens it with the mic on, and toggles the mic with one open; Enter sends what is in
 // the box; N jumps to the next agent that needs you; E in the summoning circle opens the picker. Keys typed into a
 // text box are text (Ctrl+Space excepted: it dictates). Esc never stops the mic: dictation goes on after leaving
@@ -34,6 +38,11 @@ export function nextVillageView(view: VillageView, key: VillageViewKey, target: 
   return agentId ? { kind, agentId } : VILLAGE_VIEW_NONE
 }
 
+/** The agent E and F open from nothing open: the nearest (within talking range), else the selected one. */
+export function villageViewTargetOf(nearbyAgentId: string | null, selectedAgentId: string | null): string | null {
+  return nearbyAgentId ?? selectedAgentId
+}
+
 export function villageViewKey(code: string): VillageViewKey | null {
   return code === 'KeyE' ? 'E' : code === 'KeyF' ? 'F' : code === 'Escape' ? 'Esc' : null
 }
@@ -45,6 +54,8 @@ export type VillageKeyAction =
   | 'send'
   | 'talk'
   | 'picker'
+  /** E or F with nobody near and nobody selected: nothing opens; the page says to walk up to someone. */
+  | 'no-target'
   | 'next'
 
 export interface VillageKeyContext {
@@ -58,7 +69,7 @@ export interface VillageKeyContext {
   typing: boolean
   focusedAgentId: string | null
   nearbyAgentId: string | null
-  /** The agent E and F open from nothing open: the selected one, else the nearest. */
+  /** The selected agent (a click on it, N, the Agents menu): E and F open it when nobody is near. */
   targetAgentId?: string | null
   /** The world's keys are free for the village (walking around, or already in the session view). */
   worldKeysFree: boolean
@@ -80,8 +91,10 @@ export function villageKeyAction(c: VillageKeyContext): VillageKeyAction | null 
   if (c.code === 'KeyT') return c.nearbyAgentId && c.nearbyAgentId !== c.focusedAgentId ? 'talk' : null
   if (c.code === 'KeyE' || c.code === 'KeyF') {
     if (c.focusedAgentId) return null
-    if (c.targetAgentId ?? c.nearbyAgentId) return 'view'
-    return c.code === 'KeyE' && c.inPlaza ? 'picker' : null
+    if (c.nearbyAgentId) return 'view'
+    if (c.code === 'KeyE' && c.inPlaza) return 'picker'
+    if (c.targetAgentId) return 'view'
+    return 'no-target'
   }
   if (c.code === 'KeyN' && !c.shift) return c.agentCount > 0 ? 'next' : null
   return null

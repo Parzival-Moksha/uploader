@@ -32,6 +32,7 @@ The CC0 avatars state that licence inside the file (VRM metadata); the cut check
 | `public/fonts/gentilis_` | 1 | SIL International, Gentilis (as a three.js typeface file) | SIL Open Font License 1.1 |
 | `public/fonts/helvetiker_` | 2 | Magenta Ltd, MgOpen Moderna as "helvetiker" (three.js typeface files) | MgOpen licence (free to use, copy and distribute) |
 | `public/fonts/inter-` | 1 | Rasmus Andersson, Inter | SIL Open Font License 1.1 |
+| `public/fonts/ui/` | 17 | Google Fonts subsets of Cinzel, Cormorant Garamond, Space Grotesk and JetBrains Mono (their project authors) | SIL Open Font License 1.1 (OFL.txt beside the files) |
 | `public/ground/` | 5 | Poly Haven (polyhaven.com) | CC0 1.0 |
 | `public/ground/sbs2/` | 1 | Screaming Brain Studios, Tiny Texture Pack 2 | CC0 1.0 |
 | `public/icons/` | 6 | the Oasis | Made for the Oasis; MIT with the code |
