@@ -1,15 +1,15 @@
 {
   "repo": "Parzival-Moksha/uploader",
-  "version": "0.6.9",
+  "version": "0.6.10",
   "editions": {
     "full": {
-      "asset": "oasis-0.6.9.tar.gz",
-      "sha256": "3d544f4594be0c5e49be507e8063ab7825ac510f08853b77a26e2d3f1540625e",
+      "asset": "oasis-0.6.10.tar.gz",
+      "sha256": "e49ab8397b806b01031e56cab3bb40ac1ced75aea66f462189b2533c0c82ec3b",
       "megabytes": 567
     },
     "lite": {
-      "asset": "oasis-lite-0.6.9.tar.gz",
-      "sha256": "106df46bb28de8a9bf4534ac985346ec7d6258c95560db8528349649df84d5a3",
+      "asset": "oasis-lite-0.6.10.tar.gz",
+      "sha256": "87d57bb2bf94e3cbfca0340d1e072085112651790a2d740d12ff0ebb81d8d93c",
       "megabytes": 31
     }
   }

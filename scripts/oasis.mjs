@@ -100,6 +100,17 @@ function readEnvFile() {
   try { return fs.readFileSync(path.join(HOME, '.env'), 'utf8') } catch { return '' }
 }
 
+/**
+ * Room for the build. Node gives itself about a quarter of the machine's memory by default, and the build needs
+ * more than 2 GB: on a Mac with 7 or 8 GB (GitHub's own Macs, a base MacBook Air) it ran out of memory twice and
+ * stopped. 60% of the memory, at most 4 GB (what builds it on bigger machines), unless the caller set a size.
+ */
+export function buildNodeOptions(current = process.env.NODE_OPTIONS || '', totalBytes = os.totalmem()) {
+  if (/--max-old-space-size/.test(current)) return current
+  const mb = Math.min(4096, Math.max(2048, Math.floor((totalBytes / 1048576) * 0.6)))
+  return `${current} --max-old-space-size=${mb}`.trim()
+}
+
 /** First run: packages, the .env file, the database, and (slim) the build. Each step is skipped once done. */
 function setup() {
   const steps = []
@@ -144,7 +155,7 @@ function setup() {
   if (SLIM && !fs.existsSync(path.join(HOME, '.next', 'BUILD_ID'))) {
     say('Building the Oasis (once, a minute or two) …')
     // The build fetches its web fonts from Google; one hiccup there fails it, so it is tried twice.
-    const build = () => node(bin('next', 'dist', 'bin', 'next'), ['build'], { env: { ...process.env, ...webEnv() } })
+    const build = () => node(bin('next', 'dist', 'bin', 'next'), ['build'], { env: { ...process.env, ...webEnv(), NODE_OPTIONS: buildNodeOptions() } })
     if (build() !== 0) {
       say('The build failed; trying once more …')
       if (build() !== 0) return fail('The build failed twice. It needs the internet once (for its fonts); check the connection and start the Oasis again.')
