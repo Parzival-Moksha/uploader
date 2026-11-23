@@ -164,6 +164,9 @@ const hub = {
   /** Claude accounts (accounts.js). The token only ever goes into a child's environment (accountEnv). */
   chooseAccount: (agent) => accounts.choose(accountAsk(agent)) || accountComingBackFirst(),
   accountEnv: (id) => accounts.envFor(id),
+  /** An account's own Claude folder (a full login), for which plugins it has (worldtools.js). */
+  accountConfigDir: (id) => accounts.configDirOf(id),
+  isFullLogin: (id) => accounts.isFullLogin(id),
   accountLabel: (id) => accountLabel(id),
   noteAccount: (id, account) => accounts.noteAccount(id, account),
   recordRateLimit: (id, info) => accounts.record(id, info),
@@ -496,7 +499,7 @@ function checkOutAccounts({ asked = false } = {}) {
   if (!due.length) return Promise.resolve([]);
   checking = Promise.all(due.map(async (a) => {
     lastCheck.set(a.id, now());
-    const r = await tinyTurn(a.token);
+    const r = await tinyTurn(a.env || a.token);
     const label = accountLabel(a.id);
     if (r.ok && !r.refused) {
       if (r.usage) accounts.record(a.id, r.usage);
@@ -536,7 +539,7 @@ function freshenAccounts({ force = false } = {}) {
   if (!due.length) return Promise.resolve([]);
   freshening = Promise.all(due.map(async (a) => {
     freshTried.set(a.id, t);
-    const r = await tinyTurn(a.token);
+    const r = await tinyTurn(a.env || a.token);
     if (r.usage) accounts.record(a.id, r.usage);
     if (r.ok && r.refused && r.usage?.resetsAt) accounts.exhaust(a.id, { resetsAt: r.usage.resetsAt, window: r.usage.rateLimitType, kind: r.kind });
     if (!r.usage) hub.log(`accounts: could not read ${accountLabel(a.id)}'s usage (${r.reason || 'no rate_limit_event'})`);

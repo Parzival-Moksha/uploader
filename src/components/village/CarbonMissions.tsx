@@ -16,6 +16,8 @@ import { setDraftText } from '../../lib/voice/village-dictation'
 import { useOasisStore } from '../../store/oasisStore'
 import { focusVillageAgent } from './village-actions'
 import { useMindcraftLook } from './mindcraft-look'
+import { startOwnRun } from './work-vow-client'
+import { MinutesStepper } from './OwnMissionPanel'
 
 const SORTS: Array<{ id: CarbonSort; label: string }> = [
   { id: 'priority', label: 'priority' },
@@ -231,7 +233,7 @@ function MissionView({ mission, onBack, onAnswered }: { mission: CarbonMission; 
         <Stat label="urgency" value={String(mission.urgency ?? '—')} />
         <Stat label="impact" value={String(mission.impact ?? '—')} />
         <Stat label="ease" value={String(mission.ease ?? '—')} />
-        <Stat label="state" value={mission.state} />
+        <Stat label="state" value={mission.state === 'parked' ? `later${mission.backOn ? `, back ${mission.backOn}` : ''}` : mission.state} />
       </div>
       {mission.blocks && <div className="text-white/75"><span className="text-[11px] uppercase tracking-[0.14em] text-white/50">waits on it </span>{mission.blocks}</div>}
       <div className="mc-card min-h-[120px] flex-1 overflow-y-auto px-3 py-2 leading-relaxed text-white/90">
@@ -245,7 +247,32 @@ function MissionView({ mission, onBack, onAnswered }: { mission: CarbonMission; 
           <div className="mt-2 rounded border border-emerald-300/30 bg-emerald-400/5 px-2 py-1"><span className="text-[11px] uppercase tracking-[0.14em] text-emerald-200/80">your answer{mission.answered ? `, ${dayShort(mission.answered)}` : ''}{mission.took !== null ? `, ${mission.took} min` : ''} </span>{mission.answer}</div>
         )}
       </div>
+      {mission.by.trim().toLowerCase() === 'owner' && mission.state !== 'answered' && <StartOwn mission={mission} onStarted={onAnswered} />}
       <CarbonAnswerBox mission={mission} onDone={onAnswered} />
+    </div>
+  )
+}
+
+/** His own mission, saved for later: start it from here (its minutes; the clock runs bottom left). */
+function StartOwn({ mission, onStarted }: { mission: CarbonMission; onStarted: () => void }) {
+  const [minutes, setMinutes] = useState(String(mission.minutes ?? 60))
+  const [busy, setBusy] = useState(false)
+  const [note, setNote] = useState('')
+  const start = async (openEnded: boolean) => {
+    if (busy) return
+    setBusy(true)
+    const answer = await startOwnRun({ file: mission.file, minutes: openEnded ? null : Math.max(1, Math.round(Number(minutes) || 60)), notify: 'Anorak' })
+    setBusy(false)
+    setNote(answer.error ? answer.error : 'Running: its clock is bottom left; click it for notes, pause and end.')
+    if (!answer.error) onStarted()
+  }
+  return (
+    <div data-mindcraft="start-own" className="flex flex-wrap items-center gap-2" onKeyDown={keepKeys}>
+      <span className="text-white/70">Your own mission.</span>
+      <MinutesStepper value={minutes} onChange={setMinutes} />
+      <button type="button" disabled={busy} onClick={() => { void start(false) }} className="mc-btn" style={INLINE_BTN} data-tone="go">▶ Start</button>
+      <button type="button" disabled={busy} onClick={() => { void start(true) }} className="mc-btn" style={INLINE_BTN}>open-ended</button>
+      {note && <span className="text-[13px] text-emerald-200/90">{note}</span>}
     </div>
   )
 }
@@ -300,7 +327,7 @@ export function CarbonMissions({ initialFile = null }: { initialFile?: string | 
             show
             <select value={filter} onChange={event => setFilter(event.target.value as Filter)} onKeyDown={keepKeys}>
               <option value="open">open</option>
-              <option value="parked">parked</option>
+              <option value="parked">later</option>
               <option value="answered">answered</option>
               <option value="all">all</option>
             </select>
@@ -308,7 +335,7 @@ export function CarbonMissions({ initialFile = null }: { initialFile?: string | 
         </div>
       </div>
       {shown.length === 0 ? (
-        <div className="py-6 text-center text-white/50">{missions.length ? `Nothing ${filter}.` : 'When your agents need a decision from you, it shows up here.'}</div>
+        <div className="py-6 text-center text-white/50">{missions.length ? `Nothing ${filter === 'parked' ? 'for later' : filter}.` : 'When your agents need a decision from you, it shows up here.'}</div>
       ) : (
         <div className="mc-card flex min-h-0 flex-col overflow-y-auto">
           <div className={`${header} sticky top-0 z-10 border-b border-white/10 bg-black/60 px-3 py-1.5 text-[11px] uppercase tracking-[0.12em] text-white/50`}>
@@ -325,7 +352,7 @@ export function CarbonMissions({ initialFile = null }: { initialFile?: string | 
             >
               <span className="min-w-0">
                 <span className="block break-words leading-snug text-white">{m.kind === 'task' ? '☐ ' : ''}{m.title}</span>
-                <span className="block break-words text-[12.5px] leading-snug text-white/50">{m.by || 'someone'}{m.blocks ? ` · waits: ${m.blocks}` : ''}{m.state !== 'open' ? ` · ${m.state}` : ''}{m.sinking ? ' · waiting for more detail' : ''}</span>
+                <span className="block break-words text-[12.5px] leading-snug text-white/50">{m.by || 'someone'}{m.blocks ? ` · waits: ${m.blocks}` : ''}{m.state === 'parked' ? ` · later${m.backOn ? `, back ${m.backOn}` : ''}` : m.state !== 'open' ? ` · ${m.state}` : ''}{m.sinking ? ' · waiting for more detail' : ''}</span>
               </span>
               <span className="text-right font-bold tabular-nums" style={{ color: priorityColor(m.priority) }}>{m.priority === null ? '—' : m.priority.toFixed(2)}</span>
               <span className="text-right tabular-nums text-white/80">{m.minutes === null ? '—' : `~${m.minutes}`}</span>

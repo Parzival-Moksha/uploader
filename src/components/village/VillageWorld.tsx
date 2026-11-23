@@ -684,6 +684,8 @@ function VillageStation({ agentId, placement, avatarUrl, windowVisible, helperLa
   const name = useOasisStore(s => s.agentEngine.agents[agentId]?.name || agentId)
   const focused = useOasisStore(s => s.agentEngine.focusedAgentId === agentId)
   const nearby = useOasisStore(s => s.agentEngine.nearbyAgentId === agentId)
+  // Film mode (Settings > Agents): no T / E / F keys over the agents while a take is recorded.
+  const filmMode = useContext(SettingsContext).settings.villageFilmMode === true
   const onScreen = useSyncExternalStore(subscribeVillageScreen, () => getVillageScreen() === agentId, () => false)
   // F: the camera sits at this avatar's eye height with its face in the left quarter of the view; its screen
   // takes the rest, further back (village-layout.ts faceScreenLayout). Measured from its skeleton when F opens.
@@ -847,7 +849,7 @@ function VillageStation({ agentId, placement, avatarUrl, windowVisible, helperLa
         {/* Not in the F view: there its face fills the left of the picture, and the sign would sit on it. */}
         {/* Its name, status and marker; and while the owner is near it (not in its panel), its T / E / F keys. Not on a
             stage (the Council): the circle is filmed, and the keys would float over whoever stands next to him. */}
-        {!(focused && onScreen) && !leavingNow && <StationTag agentId={agentId} colorKey={followKey} avatarKey={avatarUrl} keys={nearby && !focused && !bare} />}
+        {!(focused && onScreen) && !leavingNow && <StationTag agentId={agentId} colorKey={followKey} avatarKey={avatarUrl} keys={nearby && !focused && !bare && !filmMode} />}
         {!(focused && onScreen) && extras && (
           <Html position={EXTRAS_AT} center distanceFactor={9} zIndexRange={overlayZ} style={{ pointerEvents: 'none' }}>
             <StationExtras agentId={agentId} />

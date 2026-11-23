@@ -13,6 +13,7 @@ import { ToolCallCard, renderMarkdown } from '../../lib/anorak-renderers'
 import { TOOL_ICONS_MAP } from '../../lib/anorak-engine'
 import {
   VILLAGE_STATUS_COLOR,
+  cwdLabel,
   formatCost,
   formatTokens,
   modelLabel,
@@ -63,6 +64,34 @@ export function ContextMeter({ agent, compact = false }: { agent: EngineAgentSta
       </span>
     </div>
   )
+}
+
+/** The model, the mode and the thinking it runs with, in a few words (changed on its Settings page). */
+export function AgentSetupWords({ agent }: { agent: EngineAgentState }) {
+  const mode = agent.permissionMode || agent.effectivePermissionMode
+  const thinking = agent.runtime === 'hermes' ? null : agent.effort || (agent.resolvedEffort ? `${agent.resolvedEffort} (default)` : null)
+  const words = [modelLabel(agent), mode ? `mode ${mode}` : null, thinking ? `thinking ${thinking}` : null].filter(Boolean)
+  return (
+    <span data-agent-setup className="min-w-0 truncate text-[10px] text-white/70" title="Model, permission mode and thinking: change them on its Settings page">
+      {words.join(' · ')}
+    </span>
+  )
+}
+
+/** A turn's reason in plain words; null when there is nothing to say (it simply finished). */
+function turnReasonWords(reason: string | null): string | null {
+  if (!reason || reason === 'end_turn' || reason === 'question-text') return null
+  const words: Record<string, string> = {
+    'permission-denied': 'a command was refused',
+    permission: 'waiting for a permission',
+    question: 'asked you a question',
+    plan: 'waiting for its plan to be approved',
+    interrupted: 'stopped',
+    max_turns: 'step limit reached',
+    max_tokens: 'reply cut at its length limit',
+    tool_use: 'stopped mid-step',
+  }
+  return words[reason] ?? null
 }
 
 export function StatusPill({ status, label }: { status: string; label?: string }) {
@@ -462,18 +491,26 @@ const LogEntryView = memo(function LogEntryView({ entry, compact }: { entry: Age
       )
     case 'turn': {
       const color = entry.outcome === 'error' ? VILLAGE_STATUS_COLOR.error : entry.outcome === 'needs-decision' ? VILLAGE_STATUS_COLOR['needs-decision'] : VILLAGE_STATUS_COLOR.waiting
+      // Time, steps, the tokens it wrote, and the context after it (the owner, 2026-11-23: "the checkpoint so I can
+      // scroll back and see where the context stood"). The dollar figure is what the turn would cost at API prices;
+      // he pays a subscription, so it is only on hover, in those words.
       const bits = [
-        entry.costUsd ? formatCost(entry.costUsd) : null,
         entry.durationMs !== null ? `${(entry.durationMs / 1000).toFixed(1)}s` : null,
         entry.numTurns ? `${entry.numTurns} step${entry.numTurns === 1 ? '' : 's'}` : null,
-        entry.contextTokens !== null ? `ctx ${formatTokens(entry.contextTokens)}${entry.contextWindow ? `/${formatTokens(entry.contextWindow)}` : ''}` : null,
+        typeof entry.outputTokens === 'number' ? `${formatTokens(entry.outputTokens)} tokens written` : null,
+        entry.contextTokens !== null ? `context ${formatTokens(entry.contextTokens)}${entry.contextWindow ? ` / ${formatTokens(entry.contextWindow)}` : ''}` : null,
       ].filter(Boolean)
+      const why = turnReasonWords(entry.reason)
+      const label = entry.outcome === 'error' ? 'error' : entry.outcome === 'needs-decision' && entry.reason !== 'question-text' && entry.reason !== 'permission-denied' ? 'needs you' : 'done'
       return (
-        <div className={`flex flex-wrap items-center gap-x-2 gap-y-0.5 border-t pt-1 text-[10.5px] ${dim}`} style={{ borderColor: `${color}55` }}>
-          <span className="font-black uppercase tracking-[0.12em]" style={{ color }}>
-            {entry.outcome === 'done-waiting' ? 'turn done' : entry.outcome === 'needs-decision' ? 'needs you' : entry.outcome}
-          </span>
-          {entry.reason && entry.reason !== 'end_turn' && <span className="text-white/70">{entry.reason}</span>}
+        <div
+          data-turn-line
+          className={`flex flex-wrap items-center gap-x-2 gap-y-0.5 border-t pt-1 text-[10.5px] ${dim}`}
+          style={{ borderColor: `${color}55` }}
+          title={entry.costUsd ? `At API prices this turn would cost ${formatCost(entry.costUsd)}; your subscription covers it.` : undefined}
+        >
+          <span className="font-black uppercase tracking-[0.12em]" style={{ color }}>{label}</span>
+          {why && <span className="text-white/70">{why}</span>}
           {bits.length > 0 && <span className="text-white/65">{bits.join(' · ')}</span>}
         </div>
       )
@@ -710,7 +747,14 @@ export function AgentSessionView({ agentId, variant, header }: AgentSessionViewP
       {subagent && <SubagentHeader agent={agent} subagent={subagent} />}
       {compact && decisions[0] && <DecisionCard agentId={agent.id} decision={decisions[0]} compact />}
       <div className="flex shrink-0 flex-col gap-1.5">
-        {!compact && <ContextMeter agent={agent} />}
+        {/* The context, and on the same line the model, the mode and the thinking, as words (the owner, 2026-11-23:
+            "Not the selector... just state it. Because we also state which repo we are working in"). */}
+        {!compact && (
+          <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-0.5">
+            <ContextMeter agent={agent} />
+            <AgentSetupWords agent={agent} />
+          </div>
+        )}
         <TodoList agent={agent} compact={compact} />
         <SubagentList agent={agent} compact={compact} />
       </div>
@@ -777,8 +821,10 @@ export function SessionWindowHeader({ agent, nearby, screen = false }: { agent: 
         </div>
       </div>
       <div className="flex items-center justify-between gap-2 text-[10px] text-white/70">
-        <span className="truncate">{agent.readOnly ? `${agent.kind} · read-only` : modelLabel(agent)}{agent.statusReason ? ` · ${agent.statusReason}` : ''}</span>
-        {nearby ? <span className="shrink-0 rounded bg-white/15 px-1.5 py-0.5 font-mono font-bold text-white">T talk</span> : <ContextMeter agent={agent} compact />}
+        {/* On the full screen: the repo, as in the side panel (the model, mode, thinking and context are on the line
+            under the header). At the desk: the model and the context, small. */}
+        <span className="truncate">{agent.readOnly ? `${agent.kind} · read-only` : screen ? cwdLabel(agent.cwd) || 'unknown folder' : modelLabel(agent)}</span>
+        {nearby ? <span className="shrink-0 rounded bg-white/15 px-1.5 py-0.5 font-mono font-bold text-white">T talk</span> : screen ? null : <ContextMeter agent={agent} compact />}
       </div>
     </div>
   )

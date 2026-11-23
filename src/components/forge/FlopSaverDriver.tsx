@@ -2,12 +2,11 @@
 
 // ░▒▓ FLOP SAVER DRIVER — feeds the watcher every frame and applies what the canvas itself owns ▓▒░
 // The level decides (src/lib/flop-saver.ts); effects read it through useGraphicsPrefs /
-// useFlopCaps. Two caps belong to the canvas and are applied here: the pixel ratio (resolution)
-// and the camera's far plane (draw distance).
+// useFlopCaps. The pixel ratio (resolution) belongs to the canvas and is applied here; the draw
+// distance cap is applied with the view distance setting by CameraRange (SceneWarmup.tsx).
 
 import { useEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
-import type { PerspectiveCamera } from 'three'
 
 import { useSavedGraphicsPrefs } from '../../lib/use-graphics-prefs'
 import { useFlopCaps } from '../../lib/use-flop-caps'
@@ -18,7 +17,6 @@ export function FlopSaverDriver() {
   const caps = useFlopCaps()
   const setDpr = useThree(s => s.setDpr)
   const initialDpr = useThree(s => s.viewport.initialDpr)
-  const camera = useThree(s => s.camera)
   const watcher = useMemo(() => new FlopWatcher(), [])
   const last = useRef<number | null>(null)
   /** Dev: a level forced for measurements (null: the mode decides). */
@@ -44,21 +42,6 @@ export function FlopSaverDriver() {
   useEffect(() => {
     setDpr(initialDpr * caps.resolution)
   }, [caps.resolution, initialDpr, setDpr])
-
-  // Draw distance: the far plane, put back when the cap lifts.
-  const homeFar = useRef<number | null>(null)
-  useEffect(() => {
-    const cam = camera as PerspectiveCamera
-    if (!('far' in cam)) return
-    if (caps.drawDistance !== null) {
-      if (homeFar.current === null) homeFar.current = cam.far
-      cam.far = Math.min(homeFar.current, caps.drawDistance)
-    } else if (homeFar.current !== null) {
-      cam.far = homeFar.current
-      homeFar.current = null
-    } else return
-    cam.updateProjectionMatrix()
-  }, [caps.drawDistance, camera])
 
   useEffect(() => {
     if (process.env.NODE_ENV === 'production') return

@@ -20,13 +20,13 @@ import {
   mapSetId,
   mapTrainee,
   openAcademyReader,
-  selectAcademyTrainee,
   setAcademyMapSet,
   subscribeAcademy,
   useAcademyEnabled,
 } from './academy-store'
 import { closeCharacter, getCharacterState, openCharacter, setCharacterTab, subscribeCharacter } from './character-store'
 import { showNotice } from '../forge/GlobalNotice'
+import { AcademyNextStep, AcademyTraineeSelect } from './AcademyGuide'
 import { VILLAGE_FONT_BODY, VILLAGE_TYPE_CLASS } from './village-status'
 
 const BUTTON = 'rounded-md border border-white/15 bg-white/5 px-2 py-1 text-[11px] font-bold text-white/85 transition hover:bg-white/15'
@@ -146,6 +146,7 @@ export function SkillMapBoard() {
       <div ref={frame} className="absolute inset-0" />
 
       <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-3 p-4">
+        <div className="flex min-w-0 flex-col items-start gap-2">
         <div className="pointer-events-auto flex flex-wrap items-center gap-2 rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 shadow-[0_10px_30px_rgba(0,0,0,0.4)]">
           {sets.length > 1 && (
             <div className="flex overflow-hidden rounded-md border border-white/15" role="radiogroup" aria-label="Skill set">
@@ -167,16 +168,12 @@ export function SkillMapBoard() {
           )}
           <label className="flex items-center gap-1 rounded-md border border-white/10 bg-white/5 px-2 py-1 text-[11.5px]">
             <span className="text-[9.5px] uppercase tracking-[0.14em] text-white/50">trainee</span>
-            <select
-              data-academy-map-trainee
-              value={trainee?.key || ''}
-              onChange={event => selectAcademyTrainee(event.target.value || null)}
-              onKeyDown={event => { if (event.key !== 'Escape') event.stopPropagation() }}
-              className="max-w-[170px] rounded border border-white/15 bg-black/50 px-1 py-0.5 text-[11.5px] text-white outline-none"
-            >
-              {!trainee && <option value="">nobody yet</option>}
-              {trainees.map(item => <option key={item.key} value={item.key}>{item.name}{item.training ? '' : ' (not training)'}</option>)}
-            </select>
+            <AcademyTraineeSelect
+              data="map"
+              trainee={trainee}
+              trainees={trainees}
+              className="max-w-[210px] rounded border border-white/15 bg-black/50 px-1 py-0.5 text-[11.5px] text-white outline-none"
+            />
           </label>
           {trainee && content && (
             <span className="flex items-baseline gap-1.5 rounded-md border border-white/10 bg-white/5 px-2 py-1 text-[11.5px]" title="Level: verified XP plus half of the claimed XP">
@@ -185,6 +182,8 @@ export function SkillMapBoard() {
               <span className="text-white/45">· {done} of {content.skills.length}</span>
             </span>
           )}
+        </div>
+        {content && <AcademyNextStep trainee={trainee} skills={content.skills} fromMap />}
         </div>
         <div className="pointer-events-auto flex items-center gap-1 rounded-xl border border-white/10 bg-slate-950/70 px-2 py-2">
           <button type="button" data-academy-map-keychain className={BUTTON} onClick={() => setCharacterTab('keys')} title="Which keys you hold: a key you hold lights its gem here">Keys</button>

@@ -45,6 +45,7 @@ export type SoundEvent =
   | 'tilePaint'     // Ground tile painted
   | 'error'         // Error occurred
   | 'footstep'      // Avatar footstep (TPS mode)
+  | 'missionEnd'    // Mindcraft: the owner's own mission ran out of time (2026-11-23: "a chime or a bell, something that captures my attention")
 
 // ═══════════════════════════════════════════════════════════════════════════
 // SOUND OPTIONS — available sounds per event
@@ -160,6 +161,7 @@ export const SOUND_OPTIONS: Record<SoundEvent, SoundOption[]> = {
   agentUnfocus: [{ id: 'close1', label: 'Door Close', path: `${RPG}/doorClose_1.ogg` }, { id: 'close2', label: 'Door Close 2', path: `${RPG}/doorClose_2.ogg` }],
   tilePaint:    [{ id: 'cloth1', label: 'Cloth 1', path: `${RPG}/cloth1.ogg` }, { id: 'cloth2', label: 'Cloth 2', path: `${RPG}/cloth2.ogg` }, { id: 'cloth3', label: 'Cloth 3', path: `${RPG}/cloth3.ogg` }],
   error:        [{ id: 'pot1', label: 'Metal Pot 1', path: `${RPG}/metalPot1.ogg` }, { id: 'pot2', label: 'Metal Pot 2', path: `${RPG}/metalPot2.ogg` }],
+  missionEnd:   [{ id: 'bell', label: 'Bell', path: `${IMPACT}/impactBell_heavy_000.ogg` }, { id: 'bell2', label: 'Bell 2', path: `${IMPACT}/impactBell_heavy_002.ogg` }, { id: 'bong', label: 'Bong', path: `${INTERFACE}/bong_001.ogg` }, { id: 'glass', label: 'Glass chime', path: `${INTERFACE}/glass_001.ogg` }, { id: 'confirm', label: 'Confirmation', path: `${INTERFACE}/confirmation_004.ogg` }, { id: 'silent', label: 'Silent', path: '' }],
   footstep:     [{ id: 'step0', label: 'Step 0', path: `${RPG}/footstep00.ogg` }, { id: 'step1', label: 'Step 1', path: `${RPG}/footstep01.ogg` }, { id: 'step2', label: 'Step 2', path: `${RPG}/footstep02.ogg` }, { id: 'step3', label: 'Step 3', path: `${RPG}/footstep03.ogg` }, { id: 'step4', label: 'Step 4', path: `${RPG}/footstep04.ogg` }],
 }
 
@@ -197,6 +199,7 @@ const DEFAULT_SELECTIONS: Record<SoundEvent, string> = {
   tilePaint: 'cloth1',
   error: 'pot1',
   footstep: 'step0',
+  missionEnd: 'bell',
 }
 
 function createDefaultAudioSettings() {
@@ -412,7 +415,7 @@ export const useAudioManager = create<AudioManagerState>((set, get) => {
       const optionId = selections[event]
       const options = SOUND_OPTIONS[event]
       const option = options.find(o => o.id === optionId) || options[0]
-      if (!option) return
+      if (!option || !option.path) return // "Silent"
       const effectiveVolume = volume * getSoundVolumeMultiplier(event)
 
       // If this sound file is known-broken, use oscillator fallback immediately
@@ -487,7 +490,7 @@ export const useAudioManager = create<AudioManagerState>((set, get) => {
     preview: (event, optionId) => {
       const options = SOUND_OPTIONS[event]
       const option = options.find(o => o.id === optionId)
-      if (!option) return
+      if (!option || !option.path) return
       if (brokenPaths.has(option.path)) { playFallbackBeep(get().volume); return }
       const audio = getAudio(option.path)
       audio.volume = get().volume

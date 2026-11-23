@@ -112,6 +112,8 @@ export type AgentLogEntry =
       contextTokens: number | null
       contextWindow: number | null
       model: string | null
+      /** The tokens it wrote in this turn (the engine's usage.output). */
+      outputTokens?: number | null
       result?: string
       observed?: boolean
     })
@@ -914,6 +916,7 @@ function foldAgentEventInner(agent: EngineAgentState, event: EngineEvent, ctx: F
         contextTokens: summary.contextTokens,
         contextWindow: summary.contextWindow,
         model: summary.model,
+        outputTokens: typeof summary.usage?.output === 'number' ? summary.usage.output : null,
         result: summary.result,
         observed: Boolean(e.observed),
         history,

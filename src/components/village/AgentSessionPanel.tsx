@@ -250,10 +250,10 @@ export function AgentSessionPanel() {
               label={`${statusLabel({ status: shownStatus, unseen: agent.unseen, parked: agent.parked, offline: agent.offline })}${agent.bridged ? ' · desktop app' : agent.readOnly ? ' · read-only' : ''}`}
             />
           </div>
-          <div className="mt-0.5 truncate text-[10.5px] text-white/70" title={`${agent.cwd || ''}\nsession ${agent.sessionId || '?'}`}>
-            {cwdLabel(agent.cwd) || 'unknown folder'} · {agent.sessionId ? agent.sessionId.slice(0, 8) : 'new session'}
-            {agent.statusReason ? ` · ${agent.statusReason}` : ''}
-            {agent.usage.sessionCostUsd > 0 ? ` · ${formatCost(agent.usage.sessionCostUsd)} here` : ''}
+          {/* The repo it works in. Its session id is on the Settings page (with Copy); the engine's status word and the
+              session's API-price total went (the owner, 2026-11-23: "it feels like bloat"; "$12 since when?"). */}
+          <div className="mt-0.5 truncate text-[10.5px] text-white/70" title={agent.cwd || ''}>
+            {cwdLabel(agent.cwd) || 'unknown folder'}
           </div>
         </div>
         <div className="ml-auto flex shrink-0 items-center gap-1">
@@ -306,6 +306,21 @@ export function AgentSessionPanel() {
  * The agent's settings page (its panel's Settings tab, in the side panel and on the full screen): model and mode on
  * top, then thinking, account and its switches, Follow across worlds, and the thread's text size.
  */
+/** Its session id, whole, to copy (it left the header: "7d97fabf. Is it the commit hash or something?"). */
+function SessionIdLine({ sessionId }: { sessionId: string | null }) {
+  const [copied, setCopied] = useState(false)
+  if (!sessionId) return null
+  return (
+    <div data-agent-session-id className="flex items-center gap-2 text-[10.5px] text-white/60">
+      <span className="shrink-0">Session</span>
+      <code className="min-w-0 truncate font-mono text-white/80" title="Its Claude Code session id: what resume and the desktop app call it">{sessionId}</code>
+      <KitChip onClick={() => { void navigator.clipboard?.writeText(sessionId).then(() => { setCopied(true); window.setTimeout(() => setCopied(false), 1500) }).catch(() => {}) }}>
+        {copied ? 'Copied' : 'Copy'}
+      </KitChip>
+    </div>
+  )
+}
+
 /**
  * Follow me and Follow across worlds, at the top of every agent's Settings (2026-11-22: on the Hacker's he could not
  * find them; they were deep in the Walking section, under its name, character, schedule and voice).
@@ -380,6 +395,7 @@ export function AgentControls({ agent }: { agent: EngineAgentState }) {
         </>
       )}
       <ThreadFontSlider />
+      <SessionIdLine sessionId={agent.sessionId} />
       <div className="kit-hint">{agent.runtime === 'hermes' ? `Hermes${agent.remoteHost ? ` on ${agent.remoteHost}` : ''} · ` : ''}{modelLabel(agent)}</div>
       {/* What the gear rolled down before (name, character, schedule, voice, walking, home, avatar, colour, all chats). */}
       <AgentSettingsSections agent={agent} />

@@ -32,6 +32,8 @@ export interface OasisSettings {
   villageAcademy: boolean
   /** Village: the Academy's skill tree standing in the world (the skill map overlay is the main way in). */
   villageAcademyTree: boolean
+  /** Village: film mode, for recording: the Academy's tree stands in the world, no T / E / F keys float over agents. */
+  villageFilmMode: boolean
   // ─═̷─═̷─⚡ FPS COUNTER ─═̷─═̷─⚡
   fpsCounterEnabled: boolean
   fpsCounterFontSize: number  // 10-24px

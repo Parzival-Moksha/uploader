@@ -4,13 +4,15 @@
 // Plain DOM, bottom left, always there in the village. It re-renders when the shown second changes
 // (work-vow-client ticks once a second), never per frame. A click opens the detail.
 
-import { useEffect, useLayoutEffect, useState, useSyncExternalStore } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { useMindcraftLook } from './mindcraft-look'
 import { formatClock, WORK_VALOR, type WorkDayView, type WorkSnapshot, timeToGo } from '../../lib/village/work-vow'
 import { GAME_HUD_TEXT } from '../forge/GameKeycap'
 import { useOasisStore } from '../../store/oasisStore'
 import { getMissionState, subscribeMissions } from './village-mission-store'
 import { MindcraftWindow, clearBand, openMindcraft, overlayObstacles } from './MindcraftView'
+import { LastRun, NewMission, RunningMission, runningClock, TimeUpBar } from './OwnMissionPanel'
+import { useLiveWork } from './useLiveWork'
 import { getWorkVowState, setWorkFocus, setWorkMission, startWorkVow, subscribeWorkVow } from './work-vow-client'
 
 
@@ -105,7 +107,7 @@ function WhereTimeWent({ snapshot }: { snapshot: WorkSnapshot }) {
   )
 }
 
-function Detail({ snapshot, liveSeconds, onClose }: { snapshot: WorkSnapshot; liveSeconds: number; onClose: () => void }) {
+function Detail({ snapshot, liveSeconds, liveAgents, onClose }: { snapshot: WorkSnapshot; liveSeconds: number; liveAgents: number; onClose: () => void }) {
   const row = 'flex items-baseline justify-between gap-3'
   // What the commitment did to a day: the bonus of a hit, the cost of a miss.
   const stake = (date: string, status: string) => {
@@ -133,7 +135,7 @@ function Detail({ snapshot, liveSeconds, onClose }: { snapshot: WorkSnapshot; li
     <div
       data-ui-panel="village-work-vow"
       style={{ left }}
-      className="mc-scope mc-popup oasis-frame fixed bottom-[92px] z-[9300] max-h-[calc(100vh-110px)] w-[350px] overflow-y-auto p-3 text-white shadow-[0_24px_70px_rgba(0,0,0,0.55)] backdrop-blur-xl max-[700px]:bottom-auto max-[700px]:top-[120px]"
+      className="mc-scope mc-popup oasis-frame fixed bottom-[92px] z-[9300] max-h-[calc(100vh-110px)] w-[350px] overflow-y-auto overflow-x-hidden p-3 text-white shadow-[0_24px_70px_rgba(0,0,0,0.55)] backdrop-blur-xl max-[700px]:bottom-auto max-[700px]:top-[120px]"
     >
       <div className="mb-2 flex items-start justify-between">
         <div>
@@ -145,17 +147,24 @@ function Detail({ snapshot, liveSeconds, onClose }: { snapshot: WorkSnapshot; li
         <button type="button" onClick={onClose} className="mc-close shrink-0">✕</button>
       </div>
       <div className={row}><span className="text-white/60">Today</span><span className="font-bold">{formatClock(liveSeconds)} · {snapshot.today.xp} XP</span></div>
-      <button type="button" onClick={() => { onClose(); openMindcraft() }} className="mc-btn mt-2" data-tone="go">
+      {/* His own mission: running (clock, notes, end), or the one that just ended and a new one. */}
+      {snapshot.active?.run ? <RunningMission snapshot={snapshot} /> : (
+        <>
+          <LastRun snapshot={snapshot} />
+          <NewMission />
+        </>
+      )}
+      <button type="button" onClick={() => { onClose(); openMindcraft() }} className="mc-btn mt-2">
         Mindcraft
       </button>
       {snapshot.agentHours && (
         <div className="mt-2 rounded-md border border-violet-300/20 bg-violet-400/5 px-2 py-1.5 text-[11.5px] leading-snug text-white/80">
-          <div><b className="text-violet-200">Agents today {formatClock(snapshot.agentHours.today)}</b> · yesterday {formatClock(snapshot.agentHours.yesterday)}{snapshot.agentHours.best ? ` · best ${formatClock(snapshot.agentHours.best.seconds)} (${snapshot.agentHours.best.date.slice(5)})` : ''}</div>
+          <div><b className="text-violet-200">Agents today {formatClock(liveAgents)}</b> · yesterday {formatClock(snapshot.agentHours.yesterday)}{snapshot.agentHours.best ? ` · best ${formatClock(snapshot.agentHours.best.seconds)} (${snapshot.agentHours.best.date.slice(5)})` : ''}</div>
           <div className="text-white/55">{snapshot.agentHours.next ? `${snapshot.agentHours.mark ? `${snapshot.agentHours.mark} now; ` : ''}${snapshot.agentHours.next.label} at ${snapshot.agentHours.next.hours} h a day` : 'uploaded'} (24 h alive · 72 h superalive · 168 h uploaded). Time inside the agents&rsquo; turns, helpers included; not time waiting.</div>
         </div>
       )}
       <WhereTimeWent snapshot={snapshot} />
-      {snapshot.active && (
+      {snapshot.active && !snapshot.active.run && (
         <button type="button" onClick={() => { void setWorkMission(null) }} className="mc-btn mt-2" data-tone="stop">
           ■ stop working on “{snapshot.active.title}”
         </button>
@@ -195,7 +204,7 @@ function Detail({ snapshot, liveSeconds, onClose }: { snapshot: WorkSnapshot; li
         </>
       )}
       <div className="mc-foot mt-3 pt-2 leading-snug">
-        {snapshot.rule} Time counts while this tab is visible and you did something in the last 3 minutes. To count a mission, open its panel and press “work on this”.
+        {snapshot.rule} Time counts while this tab is visible and you did something in the last 3 minutes. Your own mission: “New mission” above (a timer; it counts outside the Oasis tab too). An agent’s mission: open its panel and press “work on this”.
       </div>
     </div>
   )
@@ -206,6 +215,20 @@ export function WorkVowHud() {
   const [open, setOpen] = useState(false)
   useMindcraftLook() // textures and typefaces: mindcraft-look.tsx (the look is Hipster's, the content is ours)
   useEffect(() => startWorkVow(), [])
+  const live = useLiveWork()
+  // The time's-up bar stands just above the counter, whatever its height.
+  const counterRef = useRef<HTMLButtonElement>(null)
+  const [counterTop, setCounterTop] = useState(70)
+  useLayoutEffect(() => {
+    const el = counterRef.current
+    if (!el) return
+    const measure = () => setCounterTop(Math.round(window.innerHeight - el.getBoundingClientRect().top + 8))
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(el)
+    window.addEventListener('resize', measure)
+    return () => { observer.disconnect(); window.removeEventListener('resize', measure) }
+  })
   // What is open decides where the seconds go: an agent, a mission card, or just the Oasis.
   const agentFocus = useOasisStore(s => {
     const agent = s.agentEngine.focusedAgentId ? s.agentEngine.agents[s.agentEngine.focusedAgentId] : null
@@ -230,11 +253,16 @@ export function WorkVowHud() {
   // No vow (a new Oasis): no goal, no countdown; just the time.
   const target = snapshot.targetSeconds
   const done = target !== null && liveSeconds >= target
-  const color = done ? GREEN : AMBER
+  // His own mission running: the counter is its clock (a countdown with a ring; open-ended counts up, no ring).
+  const run = runningClock(snapshot, Date.now())
+  const color = run ? (run.paused ? 'rgba(255,255,255,0.55)' : run.over ? GREEN : AMBER) : done ? GREEN : AMBER
+  // The ring only goes round on a countdown: his mission's, or the day's goal while a vow runs (the owner,
+  // 2026-11-23: "no circle if we're just counting up").
+  const ringShare = run ? run.share : target ? liveSeconds / target : null
   const openMission = missionFocus ? getMissionState().missions.find(mission => mission.file === missionFocus) : null
   // What is being counted right now, and what a minute of it is worth.
   const free = snapshot.settings?.freeValor ?? WORK_VALOR.free
-  const [what, rate]: [string, number] = snapshot.active
+  const [what, rate]: [string, number] = snapshot.active && !snapshot.active.run?.pausedAt
     ? [snapshot.active.title, WORK_VALOR.mission]
     : state.inMindcraft
       ? ['in Mindcraft', WORK_VALOR.mindcraft]
@@ -258,22 +286,28 @@ export function WorkVowHud() {
 
   return (
     <>
+      <TimeUpBar snapshot={snapshot} bottom={counterTop} />
       <button
+        ref={counterRef}
         type="button"
         data-ui-panel="village-work-vow"
         onClick={() => setOpen(value => !value)}
         title="Your work vow: click for the detail"
         data-done={done ? '1' : '0'}
         className="mc-hud fixed bottom-3 left-3 z-[170] flex items-center gap-2.5 rounded-xl border bg-slate-950/80 py-1.5 pl-2 pr-3 text-left text-white shadow-[0_10px_30px_rgba(0,0,0,0.45)] backdrop-blur-md transition hover:bg-slate-900/90 max-[700px]:bottom-auto max-[700px]:left-2 max-[700px]:top-[64px]"
-        style={{ borderColor: `${color}66`, boxShadow: done ? `0 0 22px ${GREEN}44` : undefined }}
+        style={{ borderColor: run?.over && !run.paused ? GREEN : `${color}66`, boxShadow: run?.over && !run.paused ? `0 0 26px ${GREEN}aa` : done ? `0 0 22px ${GREEN}44` : undefined }}
       >
         <span className="relative flex items-center justify-center">
-          <Ring share={target ? liveSeconds / target : 0} color={color} />
-          <span className="absolute text-[11px] font-black" style={{ color }}>{done ? '✓' : state.running ? '▶' : '❙❙'}</span>
+          {ringShare !== null ? <Ring share={ringShare} color={color} /> : <span className="block h-[38px] w-[22px]" />}
+          <span className="absolute text-[11px] font-black" style={{ color }}>{run ? (run.paused ? '❙❙' : run.over ? '✓' : '▶') : done ? '✓' : state.running ? '▶' : '❙❙'}</span>
         </span>
         <span className="flex min-w-0 flex-col gap-0.5">
           <span className="flex items-baseline gap-1.5">
-            <span className="mc-clock text-[17px] font-bold leading-none tabular-nums" style={{ color: done ? GREEN : '#f1dca8' }}>{formatClock(liveSeconds)}</span>
+            <span className="mc-clock text-[17px] font-bold leading-none tabular-nums" data-work-clock={run ? 'mission' : 'day'} style={{ color: run ? color : done ? GREEN : '#f1dca8' }}>{formatClock(run ? run.seconds : liveSeconds)}</span>
+            {run && (
+              <span className="max-w-[220px] truncate text-[12px] font-bold text-white" title={run.title}>{run.title}</span>
+            )}
+            {run && <span className="whitespace-nowrap text-[11px] text-white/60">· today {formatClock(liveSeconds)}</span>}
             {/* What is left, in words (the owner: "okay, 27 minutes away from the three hours"). */}
             {target !== null && (
               <span className="whitespace-nowrap text-[11px] font-bold" style={{ color: done ? GREEN : '#fde68a' }} title={`The goal is ${formatClock(target)} a day`}>
@@ -287,7 +321,7 @@ export function WorkVowHud() {
                 style={{ color: snapshot.agentHours.mark ? '#c084fc' : 'rgba(216,180,254,0.85)' }}
                 title={`Agent hours: time inside the agents' turns, helpers included, not time waiting. Yesterday ${formatClock(snapshot.agentHours.yesterday)}. 24 h: alive · 72 h: superalive · 168 h: uploaded.`}
               >
-                · agents {formatClock(snapshot.agentHours.today)}{snapshot.agentHours.mark ? ` · ${snapshot.agentHours.mark}` : ''}
+                · agents {formatClock(live.agents)}{snapshot.agentHours.mark ? ` · ${snapshot.agentHours.mark}` : ''}
               </span>
             )}
           </span>
@@ -298,7 +332,7 @@ export function WorkVowHud() {
           </span>
         </span>
       </button>
-      {open && <Detail snapshot={snapshot} liveSeconds={liveSeconds} onClose={() => setOpen(false)} />}
+      {open && <Detail snapshot={snapshot} liveSeconds={liveSeconds} liveAgents={live.agents} onClose={() => setOpen(false)} />}
       <MindcraftWindow />
     </>
   )

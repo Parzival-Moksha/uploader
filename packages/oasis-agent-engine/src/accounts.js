@@ -4,7 +4,11 @@
 // The accounts file, outside git (data/claude-accounts.local.json; scripts/add-account.mjs writes it):
 //   { "accounts": [ { "id": "yahoo", "label": "Yahoo (Max)", "token": "<claude setup-token>", "priority": 2,
 //                     "email": "…", "plan": "Claude Max" } ] }
-// plus the CLI's own login, the account with no token (id "cli"). When the CLI login's email is one of the token
+// or, instead of a token, "configDir": a Claude folder of its own where that account is fully logged in (`claude` with
+// CLAUDE_CONFIG_DIR=<folder>, then /login): a full login, which is what Claude in Chrome needs (a token session has no
+// Chrome tools; 20 Nov). Its sessions' history is shared with the main folder: <configDir>/projects is a link to the
+// main projects folder (made by the engine when the folder has none), so an agent can move between accounts and resume.
+// Plus the CLI's own login, the account with no token (id "cli"). When the CLI login's email is one of the token
 // accounts, they are one account (one quota) and only the token account is offered.
 // The token never leaves this module except into a child's environment (CLAUDE_CODE_OAUTH_TOKEN, which the CLI
 // keeps out of the agent's own shell). Snapshots, logs, the WebSocket and the page only ever see id, label, email.
@@ -26,6 +30,7 @@
 // state file), for /health and the builders' pace. Pure enough to unit-test with a fake clock
 // (src/lib/__tests__/agent-engine-accounts.test.ts).
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 
 export const CLI = 'cli';
@@ -66,9 +71,10 @@ export function parseAccounts(data) {
   for (const a of Array.isArray(data?.accounts) ? data.accounts : []) {
     const id = clean(a?.id, 40).toLowerCase().replace(/[^a-z0-9_-]+/g, '-');
     const token = typeof a?.token === 'string' ? a.token.trim() : '';
-    if (!id || id === CLI || seen.has(id) || !token) continue;
+    const configDir = typeof a?.configDir === 'string' && path.isAbsolute(a.configDir.trim()) ? a.configDir.trim() : '';
+    if (!id || id === CLI || seen.has(id) || (!token && !configDir)) continue;
     seen.add(id);
-    out.push({ id, label: clean(a.label) || id, token, priority: Number.isFinite(Number(a.priority)) ? Number(a.priority) : 100, email: clean(a.email, 200) || null, plan: clean(a.plan, 60) || null });
+    out.push({ id, label: clean(a.label) || id, token: token || null, configDir: configDir || null, priority: Number.isFinite(Number(a.priority)) ? Number(a.priority) : 100, email: clean(a.email, 200) || null, plan: clean(a.plan, 60) || null });
   }
   return out;
 }
@@ -282,7 +288,7 @@ export class Accounts {
     return this.all()
       .filter((a) => !(a.id === CLI && aliased) && this.isExhausted(a.id, now))
       .filter((a) => this.sameQuota(a.id).every((x) => this.state[x]?.kind !== 'model_requires_usage_credits'))
-      .map((a) => ({ id: a.id, token: a.token }));
+      .map((a) => ({ id: a.id, token: a.token, env: this.envFor(a.id) }));
   }
 
   /** When this account's figures were last read (the newest window's reading, ms), or null. */
@@ -294,7 +300,7 @@ export class Accounts {
 
   /** Accounts that take turns but whose figures are older than `maxAgeMs` (or were never read): [{ id, token }]. */
   staleAccounts(maxAgeMs, now = this.now()) {
-    return this.available(now).filter((a) => now - (this.readAt(a.id) || 0) >= maxAgeMs).map((a) => ({ id: a.id, token: a.token }));
+    return this.available(now).filter((a) => now - (this.readAt(a.id) || 0) >= maxAgeMs).map((a) => ({ id: a.id, token: a.token, env: this.envFor(a.id) }));
   }
 
   /** The accounts that may take a turn now (an alias offered once). */
@@ -330,8 +336,13 @@ export class Accounts {
     const resolve = (id) => (id && id !== 'auto' ? ok.find((a) => a.id === id || (id === CLI && a.id === this.aliasOf(CLI))) : null);
     const pinned = resolve(pin);
     if (pinned) return { id: pinned.id, label: pinned.label };
-    // Chrome tools only exist on the full login: the CLI login itself, never its token (even when it is one quota with one).
+    // Chrome tools only exist on a full login: the CLI login itself (never its token, even when it is one quota with
+    // one), else an account with a Claude folder of its own.
     if (chrome && !this.isExhausted(CLI, now)) return { id: CLI, label: this.get(CLI).label };
+    if (chrome) {
+      const full = ok.filter((a) => a.configDir).sort((a, b) => a.priority - b.priority)[0];
+      if (full) return { id: full.id, label: full.label };
+    }
     const byDefault = resolve(this.villageDefault);
     if (byDefault) return { id: byDefault.id, label: byDefault.label };
     const canon = (id) => (id === CLI && this.aliasOf(CLI) ? this.aliasOf(CLI) : id);
@@ -349,10 +360,24 @@ export class Accounts {
     return { id: best.id, label: best.label };
   }
 
-  /** The environment a `claude` on this account needs (null drops the variable: the CLI login). Engine-only. */
+  /**
+   * The environment a `claude` on this account needs (null drops the variable: the CLI login). Engine-only. An account
+   * with a Claude folder of its own runs as that full login (its folder, no token).
+   */
   envFor(id) {
     const a = this.tokens.find((x) => x.id === id);
+    if (a?.configDir) { linkProjects(a.configDir, this.log); return { CLAUDE_CONFIG_DIR: a.configDir, CLAUDE_CODE_OAUTH_TOKEN: null }; }
     return a ? { CLAUDE_CODE_OAUTH_TOKEN: a.token } : { CLAUDE_CODE_OAUTH_TOKEN: null };
+  }
+
+  /** An account's own Claude folder (a full login), or null. */
+  configDirOf(id) {
+    return this.tokens.find((x) => x.id === id)?.configDir || null;
+  }
+
+  /** The CLI login, or an account with a Claude folder of its own: Chrome tools exist there. */
+  isFullLogin(id) {
+    return id === CLI || Boolean(this.configDirOf(id));
   }
 
   setVillageDefault(id) {
@@ -378,6 +403,7 @@ export class Accounts {
         windows: this.state[a.id]?.windows || {},
         pace: a.id === CLI && aliased ? null : this.pace(a.id, now),
         readAt: this.readAt(a.id),
+        fullLogin: this.isFullLogin(a.id),
       })),
     };
   }
@@ -403,6 +429,39 @@ export function paceLine(label, p, now = Date.now()) {
   const early = p.resetsAt - p.dryAt;
   const ahead = early >= 86_400_000 ? `${Math.round(early / 86_400_000)} days` : `${Math.max(1, Math.round(early / 3_600_000))} h`;
   return `${head}; at the last 6 h's rate ${rate}: dry ${day(p.dryAt)}, ${ahead} before its reset (${reset})`;
+}
+
+/** The main Claude folder's projects (where every session's history lives). */
+export function mainProjectsDir(env = process.env) {
+  return path.join(env.OASIS_MAIN_CLAUDE_DIR || path.join(os.homedir(), '.claude'), 'projects');
+}
+
+const linked = new Set();
+/**
+ * <configDir>/projects -> the main projects folder (a junction on Windows), so a session started on one account can be
+ * resumed on another. Made only where the folder has none; a real folder there is left as it is (logged once: that
+ * account then cannot resume sessions begun elsewhere).
+ */
+export function linkProjects(configDir, log = () => {}, target = mainProjectsDir()) {
+  if (linked.has(configDir)) return true;
+  const link = path.join(configDir, 'projects');
+  try {
+    const st = fs.lstatSync(link);
+    if (st.isSymbolicLink()) { linked.add(configDir); return true; }
+    log(`accounts: ${link} is a folder of its own: sessions begun on another account cannot resume there`);
+    linked.add(configDir);
+    return false;
+  } catch { /* not there: make it */ }
+  try {
+    fs.mkdirSync(target, { recursive: true });
+    fs.symlinkSync(target, link, process.platform === 'win32' ? 'junction' : 'dir');
+    log(`accounts: ${link} now shares the session history of ${target}`);
+    linked.add(configDir);
+    return true;
+  } catch (e) {
+    log(`accounts: could not link ${link} to ${target} (${e.message})`);
+    return false;
+  }
 }
 
 /** Next to the roster: data/agent-engine.local.json -> data/claude-accounts.local.json and its state file. */

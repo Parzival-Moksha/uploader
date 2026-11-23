@@ -261,7 +261,7 @@ function Banner({ trainee, content, position }: { trainee: AcademyTraineeView | 
       ctx.fillText('NO TRAINEE YET', 60, height * 0.52)
       ctx.fillStyle = '#94a3b8'
       ctx.font = `500 ${Math.round(height * 0.13)}px ${FONT_DISPLAY}`
-      ctx.fillText('Open an agent and switch Train on', 60, height * 0.82)
+      ctx.fillText('Press K, Skills: pick one of your agents', 60, height * 0.82)
       texture.needsUpdate = true
       invalidate()
       return
@@ -558,7 +558,7 @@ function PickedRing({ nodes }: { nodes: TreeNode[] }) {
 export function VillageAcademyTree({ origin }: { origin: VillageOrigin }) {
   // Off unless asked for (Config → Agents → Skill tree in the world): the skill map is the main way in.
   const { settings } = useContext(SettingsContext)
-  const enabled = useAcademyEnabled() && settings.villageAcademyTree === true
+  const enabled = useAcademyEnabled() && (settings.villageAcademyTree === true || settings.villageFilmMode === true)
   const content = useSyncExternalStore(subscribeAcademy, () => getAcademyState().content, () => null)
   const trainee = useSyncExternalStore(subscribeAcademy, () => selectedTrainee(), () => null)
   const terrainHeights = useOasisStore(s => s.terrainHeights)

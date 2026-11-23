@@ -90,6 +90,7 @@ import { VillageScreenBackdrop } from './village/VillageScreenBackdrop'
 import { ConnectionWarning } from './forge/ConnectionWarning'
 import { getVillageScreen, openVillagePicker, subscribeVillageScreen } from './village/village-actions'
 import { openSummonMenu } from './village/summon-request'
+import { useAcademyEnabled } from './village/academy-store'
 import { installTestHarness } from '@/lib/test-harness'
 import { HOSTED_USER_LOCKED_SPELL_IDS, isHostedUserLockedSpell, type SpellId } from '@/lib/spellbook'
 import { useWorldEvents } from '@/hooks/useWorldEvents'
@@ -116,6 +117,7 @@ import { PerfHeartbeat } from './forge/PerfHeartbeat'
 import { SunShadows } from './forge/SunShadows'
 import { RenderHygiene } from './forge/RenderHygiene'
 import { FlopSaverDriver } from './forge/FlopSaverDriver'
+import { CameraRange, SceneWarmup } from './forge/SceneWarmup'
 import { AwayModeDriver, AwayOverlay, useAwayState } from './forge/AwayMode'
 import { CameraBlackbox } from './forge/CameraBlackbox'
 import { useFlopCaps } from '@/lib/use-flop-caps'
@@ -612,6 +614,8 @@ function DesktopKeyHints({ village = false, fpsFontSize = null }: { village?: bo
   const villageAgents = useOasisStore(s => s.agentEngine.order.length > 0)
   const hasSlides = useOasisStore(s => s.placedCatalogAssets.some(asset => Boolean(asset.imageUrl || asset.videoUrl)))
   const flopLevel = useFlopCaps().level
+  // The Academy's way in: K opens the Character menu (level, skills, keys).
+  const academy = useAcademyEnabled()
   if (mobileOasis) return null
   if (agentScreenOpen && fpsFontSize === null) return null
   const keys = !agentScreenOpen
@@ -667,6 +671,7 @@ function DesktopKeyHints({ village = false, fpsFontSize = null }: { village?: bo
         ? hint('N', 'Next Agent', { dim: !villageAgents })
         : hint('N', 'Focus Agent', { dim: !hasAgentWindows })}
       {hint('PgDn', 'Next Pic', { dim: !hasSlides })}
+      {village && academy && hint('K', 'Character', { accent: '#fbbf24' })}
       </>}
     </div>
   )
@@ -2153,6 +2158,10 @@ export default function Scene() {
         <RenderHygiene />
         {/* Flop saver: effects off by tiers while the frame rate stays under 30 (Settings → Graphics) */}
         <FlopSaverDriver />
+        {/* Shaders, textures and geometry readied between frames, so turning around never meets them first */}
+        <SceneWarmup />
+        {/* Near plane by height (no flicker from high up), far plane = Settings → Graphics → View distance */}
+        <CameraRange />
         {/* Away mode: the world stops drawing while the owner is away (Settings → Graphics → Rest when away, F8) */}
         <AwayModeDriver />
         {/* Last: the camera black box records where every frame left the camera (saved on a spin). */}

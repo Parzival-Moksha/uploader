@@ -112,7 +112,9 @@ export function formatAgo(ms: number, now = Date.now()): string {
 export function formatTokens(value: number | null | undefined): string {
   if (value === null || value === undefined) return '?'
   if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(value % 1_000_000 ? 1 : 0)}M`
-  if (value >= 1000) return `${Math.round(value / 1000)}k`
+  // Under ten thousand one decimal (a turn's 1.8k tokens written), whole thousands above (a context's 124k).
+  if (value >= 10_000) return `${Math.round(value / 1000)}k`
+  if (value >= 1000) return `${(value / 1000).toFixed(1).replace(/\.0$/, '')}k`
   return String(value)
 }
 

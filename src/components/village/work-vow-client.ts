@@ -6,7 +6,9 @@
 
 import { onEngineEvent } from '../../lib/agent-engine-client'
 import { activeMsBetween, isAutomationClient, ownTurnMs, WORK_BEAT_MS, type AgentWorkReport, type WorkSnapshot } from '../../lib/village/work-vow'
+import { runClock, type RunResult } from '../../lib/village/own-mission'
 import { useOasisStore } from '../../store/oasisStore'
+import { useAudioManager } from '../../lib/audio-manager'
 
 export interface WorkVowState {
   /** The server's last answer (null until the first one). */
@@ -256,6 +258,7 @@ function tick(): void {
   lastTickAt = now
   G.seq = seq
   G.pendingMs = pendingMs
+  endRunIfDue(now)
   // No book yet (the first read failed, the server was compiling): keep asking, every 5 s, until there is one.
   if (!state.snapshot && now - lastReadAt >= 5000) void refreshWorkVow()
   const due = now - lastBeatAt >= WORK_BEAT_MS
@@ -295,6 +298,118 @@ export async function setWorkMission(file: string | null): Promise<boolean> {
   const answer = await post({ mission: file })
   if (answer?.snapshot) set({ snapshot: answer.snapshot })
   return Boolean(answer?.snapshot)
+}
+
+// ─── his own missions (Mindcraft's small panel) ─────────────────────────────
+
+export type OwnRunAnswer = { ok?: boolean; snapshot?: WorkSnapshot; error?: string; file?: string; notes?: string[]; ended?: RunResult }
+
+async function runPost(run: object): Promise<OwnRunAnswer> {
+  if (!maySend()) return { error: 'a test browser writes nothing' }
+  try {
+    // The end tells an agent and rewrites the board before answering: give it time.
+    const response = await fetch('/api/village/work', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ run }), signal: AbortSignal.timeout(40_000) })
+    const data = await response.json().catch(() => ({})) as OwnRunAnswer
+    if (data.snapshot) set({ snapshot: data.snapshot })
+    return response.ok ? data : { error: data.error || `HTTP ${response.status}` }
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : String(error) }
+  }
+}
+
+/** Start his own mission: a new one by title, or one from his list by file. minutes null: open-ended. */
+export async function startOwnRun(input: { title?: string; file?: string; minutes: number | null; notify: string | null }): Promise<OwnRunAnswer> {
+  await beat() // the seconds so far are booked under what was counted before
+  return runPost({ start: input })
+}
+
+export function saveOwnRun(input: { title: string; minutes: number | null; ease: number; impact: number; urgency: number }): Promise<OwnRunAnswer> {
+  return runPost({ save: input })
+}
+
+export function noteOwnRun(note: string): Promise<OwnRunAnswer> {
+  return runPost({ note })
+}
+
+export async function pauseOwnRun(paused: boolean): Promise<OwnRunAnswer> {
+  await beat()
+  return runPost({ pause: paused })
+}
+
+export function notifyOwnRun(agent: string | null): Promise<OwnRunAnswer> {
+  return runPost({ notify: agent })
+}
+
+/** A note still in the box when the mission ends goes in first (the owner, 2026-11-23: "save it"). */
+let runDraft = ''
+export function setRunDraft(text: string): void {
+  runDraft = text
+}
+async function flushRunDraft(): Promise<void> {
+  const text = runDraft.trim()
+  if (!text) return
+  runDraft = ''
+  const saved = await runPost({ note: text })
+  if (saved.error) runDraft = text
+}
+
+/** End the running own mission (only the run that started at `startedAt`). */
+export async function endOwnRun(startedAt: number): Promise<OwnRunAnswer> {
+  await beat()
+  await flushRunDraft()
+  return runPost({ end: true, startedAt })
+}
+
+/** More time on the running timed mission: +5 or +15 minutes, from now if its time is up. */
+export function extendOwnRun(minutes: number): Promise<OwnRunAnswer> {
+  dueAskedAt = 0
+  return runPost({ extend: Math.round(minutes * 60) })
+}
+
+/** Time is up and nobody answered (+5, +15, done): after this long it ends by itself, kept, at the moment it ran out. */
+export const RUN_ANSWER_GRACE_MS = 10 * 60_000
+
+let dueAskedAt = 0
+
+/** This page's clock says the time is up: the book ends it only if its own clock agrees (this page may be stale). */
+async function endOwnRunIfDue(startedAt: number): Promise<void> {
+  dueAskedAt = Date.now()
+  await beat()
+  await flushRunDraft()
+  const answer = await runPost({ end: 'due', startedAt })
+  // Declined (paused or resumed elsewhere: the fresh book came back) or failed: ask again later, not every second.
+  if (answer.error || !answer.ended) dueAskedAt = Date.now()
+}
+
+export async function readOwnRunNotes(): Promise<string[]> {
+  try {
+    const response = await fetch('/api/village/work?run=1', { cache: 'no-store' })
+    return response.ok ? ((await response.json()) as { notes?: string[] }).notes || [] : []
+  } catch {
+    return []
+  }
+}
+
+/** A timed own mission whose time is up ends by itself (kept), from whichever page sees it first. */
+function endRunIfDue(now: number): void {
+  const active = state.snapshot?.active
+  const run = active?.run
+  if (!active || !run || run.plannedSeconds === null || run.pausedAt !== null || !maySend()) return
+  if (!runClock(active.startedAt, run, now).over) return
+  chimeOnce(`${active.startedAt}:${run.plannedSeconds}`)
+  // He gets time to answer (+5, +15, done) before it ends by itself.
+  const ranOutAt = active.startedAt + run.pausedMs + run.plannedSeconds * 1000
+  if (now - ranOutAt >= RUN_ANSWER_GRACE_MS && now - dueAskedAt >= 30_000) void endOwnRunIfDue(active.startedAt)
+}
+
+/** The bell when a mission's time is up: once per run and length, in one tab only (tabs share localStorage). */
+function chimeOnce(key: string): void {
+  try {
+    const stored = 'oasis-mission-chime'
+    if (localStorage.getItem(stored) === key) return
+    localStorage.setItem(stored, key)
+  } catch { /* no storage: the bell may ring in each tab */ }
+  try { useAudioManager.getState().play('missionEnd') } catch { /* no sound */ }
 }
 
 /** Hidden: report what is left and let go, so another Oasis tab can count at once. Back in front: say so. */

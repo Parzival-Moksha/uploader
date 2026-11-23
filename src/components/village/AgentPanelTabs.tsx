@@ -52,13 +52,15 @@ export function AgentPanelHeaderTabs({ missions, large = false }: { missions: nu
   const big = large ? 'text-[11px]' : undefined
   return (
     <>
-      {(missions > 0 || active === 'mindcraft') && (
+      {/* Always there (the owner, 2026-11-23: "the Mindcraft button disappeared... I think it's important"); the
+          number when missions wait. */}
+      {(
         <KitChip
           data-panel-tab="mindcraft"
           data-active={active === 'mindcraft' ? '1' : '0'}
           pressed={active === 'mindcraft'}
           onClick={() => toggleAgentPanelTab('mindcraft')}
-          title={active === 'mindcraft' ? 'Back to the thread' : 'What it asks you: its missions, answerable here'}
+          title={active === 'mindcraft' ? 'Back to the thread' : missions > 0 ? 'What it asks you: its missions, answerable here' : 'Its missions for you: none open now'}
           className={big}
         >
           Mindcraft{missions > 0 ? <span className="text-amber-300">?{missions}</span> : null}

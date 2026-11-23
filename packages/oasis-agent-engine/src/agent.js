@@ -198,7 +198,8 @@ export class Agent {
   }
 
   // ------------------------------------------------------------------ process
-  buildArgs() {
+  /** configDir: the chosen account's own Claude folder (a full login, accounts.js), or null for the default one. */
+  buildArgs(configDir = null) {
     const args = [
       '-p', '--input-format', 'stream-json', '--output-format', 'stream-json', '--verbose',
       '--include-partial-messages', '--replay-user-messages', '--forward-subagent-text',
@@ -207,7 +208,7 @@ export class Agent {
     if (this.model) args.push('--model', this.model);
     if (this.permissionMode) args.push('--permission-mode', this.permissionMode);
     if (this.effort) args.push('--effort', this.effort);
-    if (this.worldTools) args.push(...worldToolsArgs({ cwd: this.cwd }));
+    if (this.worldTools) args.push(...worldToolsArgs({ cwd: this.cwd, configDir }));
     if (this.chrome) args.push(...chromeArgs());
     if (this.sessionId) {
       // --resume finds a session by id even from another cwd (verified), so look in every project dir.
@@ -233,7 +234,9 @@ export class Agent {
       this.emit('error', { message: `cwd does not exist: ${this.cwd}` });
       return;
     }
-    const args = this.buildArgs();
+    // Its Claude account first (accounts.js): an account with a Claude folder of its own decides which plugins it has.
+    const account = this.hub.chooseAccount ? this.hub.chooseAccount(this) : null;
+    const args = this.buildArgs(account && this.hub.accountConfigDir ? this.hub.accountConfigDir(account.id) : null);
     if (args.includes('--resume') && !this.historyShown) this.replayHistory();
     this.fork = false; // only fork on the first start
     // Note: with 5.x models TodoWrite is not offered in -p mode (CLAUDE_CODE_ENABLE_TODO_TOOLS=1 did not
@@ -243,7 +246,7 @@ export class Agent {
     // OASIS_AGENT_ID / OASIS_ENGINE_URL: who it is in the village and where the engine listens (scripts/voice.mjs reads them).
     // Its Claude account (accounts.js): the token goes into this child's environment only (the CLI keeps it out of the
     // agent's own shell); the CLI login drops any inherited one. Every account out: the one that comes back first.
-    const account = this.hub.chooseAccount ? this.hub.chooseAccount(this) : null;
+    // An account with a full login of its own runs with CLAUDE_CONFIG_DIR instead of a token.
     this.accountId = account?.id || null;
     this.noteChrome(account);
     const env = { CLAUDE_CODE_ATTACHMENTS_BY_PATH: '1', OASIS_AGENT_ID: this.id, ...(this.hub.url ? { OASIS_ENGINE_URL: this.hub.url } : {}), ...(account && this.hub.accountEnv ? this.hub.accountEnv(account.id) : {}) };
@@ -619,7 +622,9 @@ export class Agent {
    * agent and the owner are told once, and again when it is back on the full login, instead of the tools just vanishing.
    */
   noteChrome(account) {
-    const off = Boolean(this.chrome && account && account.id !== CLI);
+    // Off only on a token account: a full login (the CLI's own, or an account's own Claude folder) has Chrome tools.
+    const full = account && (account.id === CLI || this.hub.isFullLogin?.(account.id));
+    const off = Boolean(this.chrome && account && !full);
     if (off && this.chromeOffOn !== account.id) {
       this.chromeOffOn = account.id;
       const label = this.hub.accountLabel ? this.hub.accountLabel(account.id) : account.id;

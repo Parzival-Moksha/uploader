@@ -12,6 +12,7 @@ import { setGraphicsPref, type FlopSaverMode, type GroundSharpness, type ShadowM
 import { useSavedGraphicsPrefs } from '@/lib/use-graphics-prefs'
 import { useFlopCaps } from '@/lib/use-flop-caps'
 import { restNow } from '@/lib/away-mode'
+import type { ViewDistance } from '@/lib/forge/camera-range'
 import { KitButton, KitSelectField, KitToggle } from '@/components/ui-kit'
 
 function Choice<T extends string | number>({ label, hint, value, options, name, onChange }: {
@@ -47,6 +48,10 @@ function Choice<T extends string | number>({ label, hint, value, options, name, 
   )
 }
 
+const VIEW_DISTANCE_OPTIONS: Array<{ value: ViewDistance; label: string }> = [
+  { value: 250, label: '250 m' }, { value: 500, label: '500 m' }, { value: 1000, label: '1 km' }, { value: 2000, label: '2 km' },
+]
+const VIEW_DISTANCE_HINT = 'How far the world is drawn; beyond it things are not drawn at all. Farther costs frame time only in worlds that reach that far.'
 const SHARPNESS_OPTIONS: Array<{ value: GroundSharpness; label: string }> = [
   { value: 1, label: 'Standard' }, { value: 2, label: '2x' }, { value: 4, label: '4x' },
 ]
@@ -207,6 +212,14 @@ export function GraphicsTab({ menuOpacity, onMenuOpacityChange }: SharedTabProps
           display={`${settings.fov}°`}
           accent="accent-green-500"
           onChange={v => updateSetting('fov', Math.round(v))}
+        />
+        <Choice
+          label="View distance"
+          name="viewDistance"
+          value={graphics.viewDistance}
+          options={VIEW_DISTANCE_OPTIONS}
+          hint={`${VIEW_DISTANCE_HINT}${flop.level >= 5 ? ' The flop saver holds it at 150 m now.' : ''}`}
+          onChange={value => setGraphicsPref('viewDistance', value)}
         />
         <Toggle label="Helper Grid" active={settings.showGrid} onChange={() => updateSetting('showGrid', !settings.showGrid)} />
         <Toggle label="Show Orbit Pivot" active={settings.showOrbitTarget} onChange={() => updateSetting('showOrbitTarget', !settings.showOrbitTarget)} />

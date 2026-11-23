@@ -1,6 +1,6 @@
 {
   "name": "oasis-lite",
-  "version": "0.6.10",
+  "version": "0.6.11",
   "private": true,
   "description": "The Oasis: your Claude Code sessions as characters in a 3D village on your own machine.",
   "scripts": {

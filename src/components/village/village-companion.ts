@@ -17,6 +17,7 @@
 // nothing can queue ramps on a suspended context the way the listener once did.
 
 import { speakInBrowser, stopBrowserSpeech } from '../../lib/village/browser-speech'
+import { getVoiceOutQuality } from './voice-out-setting'
 import { detectSpokenLanguage } from '../../lib/village/spoken-language'
 import * as THREE from 'three'
 import { getAudioListener } from '../CameraController'
@@ -188,6 +189,9 @@ export function warmVillageSpeech(text: string, settings: AgentVoiceSettings): v
   const listener = getAudioListener()
   const clean = cleanSpoken(text, SPOKEN_MAX_CHARS)
   if (!clean || councilOnly || listener?.context.state !== 'running' || !isVillageVoiceOn() || document.visibilityState !== 'visible') return
+  // Made ahead only on best (slow to make): a fast clip is ready in about 0.3 s, and one made for an agent he walks
+  // past without opening would be bought for nothing.
+  if (getVoiceOutQuality() === 'fast') return
   fetchClip(clean, settings.voice, speechSpeedPlan(settings.speed).modelSpeed).catch(() => {})
 }
 
@@ -688,7 +692,8 @@ export function stopVillageSpeech(): void {
 const NO_KEY = 'ELEVENLABS_API_KEY not configured'
 let noServerVoice = false
 
-const clipKey = (text: string, voice: string, modelSpeed: number) => `${voice}\n${modelSpeed}\n${text}`
+// The quality (Settings > Sound > Voice out) is part of the clip: best and fast are two clips of the same line.
+const clipKey = (text: string, voice: string, modelSpeed: number) => `${getVoiceOutQuality()}\n${voice}\n${modelSpeed}\n${text}`
 
 function fetchClip(text: string, voice: string, modelSpeed: number): Promise<Clip> {
   if (noServerVoice) return Promise.reject(new Error(NO_KEY))
@@ -698,7 +703,7 @@ function fetchClip(text: string, voice: string, modelSpeed: number): Promise<Cli
     job = fetch('/api/village/speak', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text, voice, speed: modelSpeed }),
+      body: JSON.stringify({ text, voice, speed: modelSpeed, quality: getVoiceOutQuality() }),
     }).then(async response => {
       const data = await response.json().catch(() => ({})) as Partial<Clip> & { error?: string }
       if (!response.ok || !data.id || !data.url) throw new Error(data.error || `speech failed (${response.status})`)

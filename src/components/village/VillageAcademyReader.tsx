@@ -3,10 +3,11 @@
 // ░▒▓ VILLAGE ACADEMY READER — "E open" at a node of the skill tree, and the node's sheet ▓▒░
 // Plain DOM over the canvas (mounted by VillageHud), in the mission reader's look: what the skill is,
 // the prompt with a Copy button, the proof, the keys with cost and link, XP and minutes, and two
-// buttons: "I did it" (claim) and "Ask Anorak to check" (he looks and marks it through /api/academy).
+// buttons: "I did it" (claim) and "Ask Anorak to check" (he looks and marks it through /api/academy; with
+// no Anorak another of your agents checks, and with no other agent the player says "I saw the proof").
 // It also keeps the academy's data fresh and tells the tree which trainee you last picked.
 
-import { useEffect, useMemo, useState, useSyncExternalStore, type KeyboardEvent as ReactKeyboardEvent } from 'react'
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import { useOasisStore } from '../../store/oasisStore'
 import { useInputManager, useUILayer } from '../../lib/input-manager'
 import { getAgentEngineClient } from '../../lib/agent-engine-client'
@@ -16,6 +17,7 @@ import {
   academyKeyAction,
   academyLaneColor,
   nodeLook,
+  pickAcademyChecker,
   type AcademyContent,
   type AcademyNodeLook,
   type AcademySkill,
@@ -42,15 +44,11 @@ import {
 import { KeyPrompt, PromptBanner } from './VillageHud'
 import { getCharacterState, subscribeCharacter } from './character-store'
 import { getKeychainState, openKeychain, refreshKeychain, subscribeKeychain } from './keychain-store'
-import { VILLAGE_FONT_BODY, VILLAGE_FONT_DISPLAY, VILLAGE_TYPE_CLASS, canTalkTo } from './village-status'
+import { VILLAGE_FONT_BODY, VILLAGE_FONT_DISPLAY, VILLAGE_TYPE_CLASS, agentDisplayName, canTalkTo } from './village-status'
+import { AcademyTraineeSelect } from './AcademyGuide'
 
 const LOOK_WORD: Record<AcademyNodeLook, string> = { locked: 'locked', available: 'ready', claimed: 'claimed', verified: 'verified' }
 const KIND_WORD = { subscription: 'subscription', api: 'API key', account: 'account', hardware: 'hardware' } as const
-
-function keepKeys(event: ReactKeyboardEvent) {
-  // Typing never reaches the world; Esc is the reader's.
-  if (event.key !== 'Escape') event.stopPropagation()
-}
 
 async function copyText(text: string): Promise<boolean> {
   try {
@@ -111,37 +109,51 @@ export function AcademySheet({ skill, content, trainee, trainees }: { skill: Aca
   const keys = skill.keys.map(id => content.keys.find(key => key.id === id) || { id, name: id, short: id, kind: 'account' as const, cost: '', link: '' })
   const needs = skill.needs.map(id => content.skills.find(item => item.id === id)).filter((item): item is AcademySkill => Boolean(item))
 
-  const mark = async (state: 'none' | 'claimed', by = 'owner'): Promise<boolean> => {
+  const mark = async (state: 'none' | 'claimed' | 'verified', by = 'owner', proof?: string): Promise<boolean> => {
     if (!trainee) return false
     setBusy(true)
-    const result = await postAcademy({ trainee: trainee.key, skill: skill.id, state, by })
+    const result = await postAcademy({ trainee: trainee.key, skill: skill.id, state, by, ...(proof ? { proof } : {}) })
     setBusy(false)
     if (!result.ok) showNotice(`Academy: ${result.error}`, 'error')
     return result.ok
   }
 
-  const askAnorak = async () => {
-    if (!trainee) return
-    const engine = useOasisStore.getState().agentEngine
-    const agents = engine.order.map(id => engine.agents[id]).filter(Boolean)
-    const anorak = agents.filter(agent => /anorak/i.test(agent.name) && canTalkTo(agent) && academyKeyOf(agent) !== trainee.key).sort((a, b) => Number(b.owned) - Number(a.owned))[0]
-    if (!anorak) {
-      showNotice('No Anorak in the village to ask. Summon one (an agent named Anorak) first.', 'error')
-      return
-    }
-    // Asking for a check is a claim: the node goes half lit while he looks.
+  // Who checks: Anorak if there is one, else another of your agents; nobody (a newcomer with one
+  // agent): the player looks at the proof and says so.
+  const engineAgents = useOasisStore(s => s.agentEngine.agents)
+  const engineOrder = useOasisStore(s => s.agentEngine.order)
+  const checker = useMemo(() => {
+    if (!trainee) return null
+    const candidates = engineOrder.map(id => engineAgents[id]).filter(Boolean).map(agent => ({
+      id: agent.id,
+      name: agentDisplayName(agent),
+      owned: agent.owned,
+      reachable: canTalkTo(agent) && agent.alive !== false,
+      key: academyKeyOf(agent),
+    }))
+    return pickAcademyChecker(candidates, trainee.key)
+  }, [engineAgents, engineOrder, trainee])
+
+  const askChecker = async () => {
+    if (!trainee || !checker) return
+    // Asking for a check is a claim: the node goes half lit while it looks.
     if (look !== 'claimed' && look !== 'verified' && !(await mark('claimed'))) return
-    const body = agents.find(agent => academyKeyOf(agent) === trainee.key)
-    const text = academyCheckMessage({ name: trainee.name, key: trainee.key, cwd: body?.cwd || null, skill, origin: window.location.origin })
+    const body = engineOrder.map(id => engineAgents[id]).find(agent => agent && academyKeyOf(agent) === trainee.key)
+    const text = academyCheckMessage({ name: trainee.name, key: trainee.key, cwd: body?.cwd || null, skill, origin: window.location.origin, by: checker.name })
     setBusy(true)
     try {
-      await getAgentEngineClient().send(anorak.id, text)
-      showNotice(`Asked ${anorak.name} to check "${skill.name}" for ${trainee.name}.`, 'info')
+      await getAgentEngineClient().send(checker.id, text)
+      showNotice(`Asked ${checker.name} to check "${skill.name}" for ${trainee.name}.`, 'info')
     } catch (error) {
-      showNotice(`Could not reach ${anorak.name}: ${error instanceof Error ? error.message : String(error)}`, 'error')
+      showNotice(`Could not reach ${checker.name}: ${error instanceof Error ? error.message : String(error)}`, 'error')
     } finally {
       setBusy(false)
     }
+  }
+
+  const sawIt = async () => {
+    if (!trainee) return
+    if (await mark('verified', 'you', `You saw the proof: ${skill.proof}`)) showNotice(`${skill.name}: verified for ${trainee.name}, +${skill.xp} XP.`, 'info')
   }
 
   return (
@@ -161,16 +173,12 @@ export function AcademySheet({ skill, content, trainee, trainees }: { skill: Aca
       <div className="flex shrink-0 flex-wrap items-center gap-1.5 text-[11.5px]">
         <label className="flex min-w-0 items-center gap-1 rounded-md border border-white/10 bg-white/5 px-2 py-0.5">
           <span className="text-[9.5px] uppercase tracking-[0.14em] text-white/50">trainee</span>
-          <select
-            data-academy-trainee
-            value={trainee?.key || ''}
-            onChange={event => selectAcademyTrainee(event.target.value || null)}
-            onKeyDown={keepKeys}
-            className="max-w-[170px] rounded border border-white/15 bg-black/50 px-1 py-0.5 text-[11.5px] text-white outline-none focus:border-sky-300/70"
-          >
-            {!trainee && <option value="">nobody yet</option>}
-            {trainees.map(item => <option key={item.key} value={item.key}>{item.name}{item.training ? '' : ' (not training)'}</option>)}
-          </select>
+          <AcademyTraineeSelect
+            data="sheet"
+            trainee={trainee}
+            trainees={trainees}
+            className="max-w-[190px] rounded border border-white/15 bg-black/50 px-1 py-0.5 text-[11.5px] text-white outline-none focus:border-sky-300/70"
+          />
         </label>
         {trainee && (
           <span className="flex items-baseline gap-1.5 rounded-md border border-white/10 bg-white/5 px-2 py-0.5" title="Level: verified XP plus half of the claimed XP">
@@ -272,16 +280,29 @@ export function AcademySheet({ skill, content, trainee, trainees }: { skill: Aca
         >
           I did it
         </button>
-        <button
-          type="button"
-          data-academy-check
-          disabled={busy || !trainee || look === 'verified'}
-          onClick={() => { void askAnorak() }}
-          className={`${button} border-emerald-300/45 bg-emerald-400/20 px-3 py-2 text-[12px] text-emerald-50`}
-          title="Anorak looks at the proof (the world, the disk, the trainee's session) and marks it verified, or says why not"
-        >
-          Ask Anorak to check
-        </button>
+        {checker || !trainee ? (
+          <button
+            type="button"
+            data-academy-check
+            disabled={busy || !trainee || look === 'verified'}
+            onClick={() => { void askChecker() }}
+            className={`${button} border-emerald-300/45 bg-emerald-400/20 px-3 py-2 text-[12px] text-emerald-50`}
+            title={checker ? `${checker.name} looks at the proof (the world, the disk, the trainee's session) and marks it verified, or says why not` : 'Pick a trainee first'}
+          >
+            Ask {checker?.name || 'Anorak'} to check
+          </button>
+        ) : (
+          <button
+            type="button"
+            data-academy-saw
+            disabled={busy || look === 'verified'}
+            onClick={() => { void sawIt() }}
+            className={`${button} border-emerald-300/45 bg-emerald-400/20 px-3 py-2 text-[12px] text-emerald-50`}
+            title="No other agent to check it: you looked at the proof yourself. Summon a second agent (Anorak) to have it checked."
+          >
+            I saw the proof
+          </button>
+        )}
         {(look === 'claimed' || look === 'verified') && (
           <button type="button" data-academy-reset disabled={busy} onClick={() => { void mark('none') }} className={`${button} ml-auto`} title="Back to not done (for another take)">
             reset
@@ -289,8 +310,7 @@ export function AcademySheet({ skill, content, trainee, trainees }: { skill: Aca
         )}
       </div>
       <div className="shrink-0 text-[10px] text-white/40">
-        {trainee ? `Progress of ${trainee.name}, kept in data/academy.local.json.` : 'No trainee: open an agent\'s panel and switch Train on.'}
-        {content.source === 'sample' ? ' Showing the three sample skills.' : ''}
+        {trainee ? `Progress of ${trainee.name}, kept on this computer.` : 'No trainee yet: pick one of your agents under Trainee, above.'}
       </div>
     </div>
   )

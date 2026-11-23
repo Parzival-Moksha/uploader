@@ -1,0 +1,337 @@
+'use client'
+
+// ░▒▓ OWN MISSION PANEL — his own missions, in Mindcraft's small panel (bottom left) ▓▒░
+// The owner, 2026-11-23: "I wanna do one hour academy. I wanna do one hour of work with Conrad." New mission: a title,
+// a length in minutes (timed by default, open-ended if he says so), Start, or Save for later (with ease, impact,
+// urgency, into his list). Running: the countdown, notes (typed or said), pause, end, and who gets his notes.
+// Ended: kept or not, its minutes and XP, who was told. Logic: lib/village/own-mission.ts; book: work-vow-server.ts.
+
+import { useCallback, useEffect, useState } from 'react'
+import { easeFromMinutes, OWN_MISSION_AGENT, runClock, stepMinutes } from '../../lib/village/own-mission'
+import { formatClock, type WorkSnapshot } from '../../lib/village/work-vow'
+import { useOasisStore } from '../../store/oasisStore'
+import { endOwnRun, extendOwnRun, noteOwnRun, notifyOwnRun, pauseOwnRun, readOwnRunNotes, RUN_ANSWER_GRACE_MS, saveOwnRun, setRunDraft, startOwnRun } from './work-vow-client'
+
+const GREEN = '#34d399'
+const AMBER = '#fbbf24'
+const RED = '#f87171'
+
+/** In a row, each button as wide as its words (the kit's .mc-btn is a full-width block). */
+const INLINE_BTN = { display: 'inline-block', width: 'auto', minWidth: 72, padding: '9px 14px 8px' } as const
+
+/** Keys typed here stay here (WASD must not walk the avatar); Esc still closes. */
+function keepKeys(event: React.KeyboardEvent) {
+  if (event.key !== 'Escape') event.stopPropagation()
+}
+
+/** The village's agents by name; the default for his notes is Anorak. */
+function useAgentNames(): string[] {
+  const joined = useOasisStore(s => s.agentEngine.order.map(id => s.agentEngine.agents[id]?.name || '').filter(Boolean).join('\u0001'))
+  return joined ? joined.split('\u0001') : []
+}
+
+function defaultAgent(names: string[]): string {
+  return names.find(name => /^anorak/i.test(name)) || OWN_MISSION_AGENT
+}
+
+/**
+ * Who hears how it went (the owner, 2026-11-23: "send my notes to Anorakdev: what is that?"): when it ends, the agent picked
+ * here gets the whole mission: title, planned and real time, kept or not, every note. A mission an agent gave him reports to
+ * that agent when he answers it in Carbon; one he made himself reports to the agent chosen here, Anorak by default.
+ */
+function NotifySwitch({ on, agent, onChange }: { on: boolean; agent: string; onChange: (on: boolean, agent: string) => void }) {
+  const names = useAgentNames()
+  const options = names.includes(agent) ? names : [agent, ...names]
+  return (
+    <label className="flex flex-wrap items-center gap-1.5 text-[12px] leading-snug text-white/80" title="When it ends, this agent gets a message with the mission's title, the time planned and the real time, kept or not, and every note you logged.">
+      <input type="checkbox" checked={on} onChange={event => onChange(event.target.checked, agent)} />
+      <span>when it ends, tell</span>
+      <select value={agent} disabled={!on} onChange={event => onChange(on, event.target.value)} className="mc-field px-1 py-0.5 text-[12px] text-white outline-none">
+        {options.map(name => <option key={name} value={name}>{name}</option>)}
+      </select>
+      <span className="basis-full pl-5 text-[11px] text-white/50">the whole mission: its title, the time planned and the real time, kept or not, and every note</span>
+    </label>
+  )
+}
+
+/** The mission running now: its clock, notes, pause, end. */
+export function RunningMission({ snapshot }: { snapshot: WorkSnapshot }) {
+  const active = snapshot.active
+  const run = active?.run
+  const [notes, setNotes] = useState<string[]>([])
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  // One mic: the one inside the box (voice typing on any text field); a second one beside it did the same (2026-11-23).
+  const [draft, setDraft] = useState('')
+  const names = useAgentNames()
+  const startedAt = active?.startedAt || 0
+  useEffect(() => { setRunDraft(draft) }, [draft])
+  useEffect(() => {
+    let live = true
+    void readOwnRunNotes().then(list => { if (live) setNotes(list) })
+    return () => { live = false }
+  }, [startedAt])
+  const addNote = useCallback(async () => {
+    const text = draft.trim()
+    if (!text || busy) return
+    setBusy(true)
+    setError('')
+    const answer = await noteOwnRun(text)
+    setBusy(false)
+    if (answer.error) return setError(answer.error)
+    setNotes(answer.notes || [])
+    setDraft('')
+  }, [busy, draft])
+  if (!active || !run) return null
+  const clock = runClock(active.startedAt, run, Date.now())
+  const paused = run.pausedAt !== null
+  const act = async (job: () => Promise<{ error?: string }>) => {
+    if (busy) return
+    setBusy(true)
+    setError('')
+    const answer = await job()
+    setBusy(false)
+    if (answer.error) setError(answer.error)
+  }
+  return (
+    <div data-own-mission="running" className="mc-card mt-2 p-2" onKeyDown={keepKeys}>
+      <div className="mc-label">Your mission{paused ? ' · paused' : ''}</div>
+      <div className="flex items-baseline justify-between gap-2">
+        <div className="mc-strong min-w-0 break-words text-[15px]">{active.title}</div>
+        <div className="mc-clock shrink-0 text-[20px] font-bold tabular-nums" style={{ color: paused ? 'rgba(255,255,255,0.5)' : clock.over ? GREEN : AMBER }}>{formatClock(clock.seconds)}</div>
+      </div>
+      <div className="text-[11.5px] text-white/60">
+        {run.plannedSeconds === null ? 'open-ended: counting up' : `${Math.round(run.plannedSeconds / 60)} min, counting down`} · counts as work on this mission, whichever agent you talk to
+      </div>
+      {notes.length > 0 && (
+        <ul data-own-mission="notes" className="mt-1.5 max-h-[140px] list-none overflow-y-auto pl-0 text-[12.5px] leading-snug text-white/85">
+          {notes.map((note, index) => <li key={index} className="border-b border-white/5 py-0.5">{note}</li>)}
+        </ul>
+      )}
+      <div className="mt-1.5 flex items-end gap-1.5">
+        <textarea
+          data-own-mission="note"
+          value={draft}
+          rows={2}
+          onChange={event => setDraft(event.target.value)}
+          onKeyDown={event => {
+            if (event.key === 'Enter' && !event.shiftKey) {
+              event.preventDefault()
+              void addNote()
+            }
+          }}
+          placeholder="A note: say or type it (Enter logs it)"
+          className="mc-field min-w-0 flex-1 resize-none px-2 py-1 text-[13px] text-white outline-none placeholder:text-white/35"
+        />
+        <button type="button" data-own-mission="log" disabled={busy || !draft.trim()} onClick={() => { void addNote() }} className="mc-btn shrink-0" style={{ ...INLINE_BTN, minWidth: 76, padding: '13px 16px 12px', fontSize: 13 }} data-tone="go" title="Log this note (Enter does the same)">Log</button>
+      </div>
+      <div className="mt-1.5">
+        <NotifySwitch on={run.notify !== null} agent={run.notify || defaultAgent(names)} onChange={(on, agent) => { void notifyOwnRun(on ? agent : null) }} />
+      </div>
+      {clock.over && <TimeUpButtons startedAt={active.startedAt} />}
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        <button type="button" disabled={busy} onClick={() => { void act(() => pauseOwnRun(!paused)) }} className="mc-btn" style={INLINE_BTN}>{paused ? '▶ go on' : '❙❙ pause'}</button>
+        <button type="button" data-own-mission="end" disabled={busy} onClick={() => { void act(() => endOwnRun(active.startedAt)) }} className="mc-btn" style={INLINE_BTN} data-tone="stop" title={run.plannedSeconds !== null && !clock.over ? 'Ending before the time is up: not kept' : 'End it'}>■ end{run.plannedSeconds !== null && !clock.over ? ' now' : ''}</button>
+      </div>
+      {error && <div className="mt-1 text-[12px] text-rose-300">{error}</div>}
+    </div>
+  )
+}
+
+/** Time is up: more time, or done, right there (the old Mindcraft's "+5, +15"). */
+export function TimeUpButtons({ startedAt, compact = false }: { startedAt: number; compact?: boolean }) {
+  const [busy, setBusy] = useState(false)
+  const go = async (job: () => Promise<unknown>) => {
+    if (busy) return
+    setBusy(true)
+    await job()
+    setBusy(false)
+  }
+  const style = compact ? { ...INLINE_BTN, minWidth: 0, padding: '6px 11px 5px' } : INLINE_BTN
+  return (
+    <div data-own-mission="time-up" className={`flex flex-wrap items-center gap-1.5 ${compact ? '' : 'mt-2'}`}>
+      <button type="button" disabled={busy} onClick={() => { void go(() => extendOwnRun(5)) }} className="mc-btn" style={style}>+5 min</button>
+      <button type="button" disabled={busy} onClick={() => { void go(() => extendOwnRun(15)) }} className="mc-btn" style={style}>+15 min</button>
+      <button type="button" disabled={busy} onClick={() => { void go(() => endOwnRun(startedAt)) }} className="mc-btn" style={style} data-tone="go">✓ done</button>
+    </div>
+  )
+}
+
+/** The bar over the counter when the time is up: what ran out, +5, +15, done; it ends by itself after ten minutes. */
+export function TimeUpBar({ snapshot, bottom }: { snapshot: WorkSnapshot; bottom: number }) {
+  const active = snapshot.active
+  const run = active?.run
+  if (!active || !run || run.plannedSeconds === null || run.pausedAt !== null) return null
+  const now = Date.now()
+  if (!runClock(active.startedAt, run, now).over) return null
+  const ranOutAt = active.startedAt + run.pausedMs + run.plannedSeconds * 1000
+  const left = Math.max(0, Math.ceil((ranOutAt + RUN_ANSWER_GRACE_MS - now) / 60_000))
+  return (
+    <div
+      data-own-mission="time-up-bar"
+      className="mc-scope fixed left-3 z-[171] flex max-w-[calc(100vw-24px)] flex-wrap items-center gap-2 rounded-xl border-2 bg-slate-950/90 px-3 py-2 text-white shadow-[0_0_28px_rgba(52,211,153,0.55)] backdrop-blur-md"
+      style={{ bottom, borderColor: GREEN, animation: 'oasis-time-up 1.2s ease-in-out infinite' }}
+    >
+      <style>{'@keyframes oasis-time-up { 0%, 100% { box-shadow: 0 0 10px rgba(52,211,153,0.35) } 50% { box-shadow: 0 0 34px rgba(52,211,153,0.95) } }'}</style>
+      <span className="text-[15px] font-bold" style={{ color: GREEN }}>⏰ Time&rsquo;s up</span>
+      <span className="max-w-[260px] truncate text-[14px] font-bold">{active.title}</span>
+      <TimeUpButtons startedAt={active.startedAt} compact />
+      <span className="text-[11px] text-white/55">ends by itself, kept, in {left} min</span>
+    </div>
+  )
+}
+
+/** The one that just ended: kept or not, minutes, XP, who was told. */
+export function LastRun({ snapshot }: { snapshot: WorkSnapshot }) {
+  const last = snapshot.lastRun
+  if (!last || snapshot.active?.run) return null
+  const color = last.plannedSeconds === null || last.kept ? GREEN : RED
+  return (
+    <div data-own-mission="ended" className="mt-2 rounded-md border px-2 py-1.5 text-[12.5px] leading-snug" style={{ borderColor: `${color}55`, background: `${color}10` }}>
+      <div><b style={{ color }}>{last.title}</b>: {last.line}</div>
+      <div className="text-white/60">
+        {last.away >= 60 ? `${formatClock(last.counted)} in the Oasis, ${formatClock(last.away)} outside it (in Mindcraft, Today: you can take that back). ` : ''}
+        {last.told ? `Your notes went to ${last.told}.` : 'Nobody was sent your notes.'}
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Minutes with a left and a right arrow (the owner, 2026-11-23: the browser's "two miniature little arrows" are too
+ * small): ◀ fewer, ▶ more, the number typed in between.
+ */
+export function MinutesStepper({ value, onChange, disabled = false, label = 'min' }: { value: string; onChange: (value: string) => void; disabled?: boolean; label?: string }) {
+  const n = Number(value) || 0
+  const arrow = { width: 30, height: 28, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, lineHeight: 1 } as const
+  return (
+    <span data-own-mission="minutes-stepper" className={`inline-flex items-center gap-1 ${disabled ? 'opacity-40' : ''}`}>
+      <button type="button" disabled={disabled} onClick={() => onChange(String(stepMinutes(n, -1)))} className="mc-field font-bold text-amber-100 hover:brightness-150" style={arrow} title="Fewer minutes" aria-label="Fewer minutes"><svg width="10" height="12" viewBox="0 0 10 12" aria-hidden="true"><path d="M9 1 2 6l7 5z" fill="currentColor" /></svg></button>
+      <input
+        data-own-mission="minutes"
+        inputMode="numeric"
+        value={value}
+        disabled={disabled}
+        onChange={event => onChange(event.target.value.replace(/[^0-9]/g, '').slice(0, 4))}
+        className="mc-field w-[52px] px-1 py-1 text-center text-[15px] font-bold tabular-nums text-white outline-none"
+      />
+      <button type="button" disabled={disabled} onClick={() => onChange(String(stepMinutes(n, 1)))} className="mc-field font-bold text-amber-100 hover:brightness-150" style={arrow} title="More minutes" aria-label="More minutes"><svg width="10" height="12" viewBox="0 0 10 12" aria-hidden="true"><path d="M1 1l7 5-7 5z" fill="currentColor" /></svg></button>
+      <span className="text-[12.5px] text-white/75">{label}</span>
+    </span>
+  )
+}
+
+const SCORE_HELP = {
+  ease: '5: under 2 minutes · 4: up to 5 · 3: up to 15 · 2: up to an hour · 1: more',
+  impact: '5: several agents or a release wait on it · 3: one next step · 1: taste, nothing waits',
+  urgency: '5: today · 3: this week · 1: any time',
+}
+
+/** "New mission": a title, minutes (or open-ended), Start, or Save for later with scores. */
+export function NewMission({ onStarted }: { onStarted?: () => void }) {
+  const [open, setOpen] = useState(false)
+  const [title, setTitle] = useState('')
+  const [minutes, setMinutes] = useState('60')
+  const [openEnded, setOpenEnded] = useState(false)
+  const names = useAgentNames()
+  const [notify, setNotify] = useState<{ on: boolean; agent: string }>({ on: true, agent: '' })
+  const agent = notify.agent || defaultAgent(names)
+  const [later, setLater] = useState(false)
+  const [scores, setScores] = useState<{ ease: number | null; impact: number; urgency: number }>({ ease: null, impact: 3, urgency: 3 })
+  const [busy, setBusy] = useState(false)
+  const [note, setNote] = useState('')
+  const [error, setError] = useState('')
+  const length = openEnded ? null : Math.max(1, Math.min(24 * 60, Math.round(Number(minutes) || 0))) || null
+  const ease = scores.ease ?? easeFromMinutes(length)
+
+  if (!open) {
+    return (
+      <div className="mt-2">
+        <button type="button" data-own-mission="new" onClick={() => { setOpen(true); setNote('') }} className="mc-btn" data-tone="go">＋ New mission</button>
+        {note && <div className="mt-1 text-[12px] text-emerald-200/90">{note}</div>}
+      </div>
+    )
+  }
+  const reset = () => {
+    setTitle('')
+    setLater(false)
+    setScores({ ease: null, impact: 3, urgency: 3 })
+    setOpen(false)
+  }
+  const start = async () => {
+    if (!title.trim() || busy) return
+    setBusy(true)
+    setError('')
+    const answer = await startOwnRun({ title: title.trim(), minutes: length, notify: notify.on ? agent : null })
+    setBusy(false)
+    if (answer.error) return setError(answer.error)
+    reset()
+    onStarted?.()
+  }
+  const save = async () => {
+    if (!title.trim() || busy) return
+    setBusy(true)
+    setError('')
+    const answer = await saveOwnRun({ title: title.trim(), minutes: length, ease, impact: scores.impact, urgency: scores.urgency })
+    setBusy(false)
+    if (answer.error) return setError(answer.error)
+    reset()
+    setNote(`Saved to your list (Mindcraft, Carbon): “${title.trim()}”.`)
+  }
+  const scoreSelect = (key: 'ease' | 'impact' | 'urgency', value: number) => (
+    <label className="flex items-center gap-1 text-[12px] text-white/75" title={SCORE_HELP[key]}>
+      {key}
+      <select value={value} onChange={event => setScores(s => ({ ...s, [key]: Number(event.target.value) }))} className="mc-field px-1 py-0.5 text-[12px] text-white outline-none">
+        {[5, 4, 3, 2, 1].map(n => <option key={n} value={n}>{n}</option>)}
+      </select>
+    </label>
+  )
+  return (
+    <div data-own-mission="form" className="mc-card mt-2 p-2" onKeyDown={keepKeys}>
+      <div className="mc-label">New mission</div>
+      <input
+        data-own-mission="title"
+        value={title}
+        autoFocus
+        maxLength={140}
+        onChange={event => setTitle(event.target.value)}
+        onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); void (later ? save() : start()) } }}
+        placeholder="What: Academy, an hour with Conrad…"
+        className="mc-field mt-1 w-full px-2 py-1 text-[14px] text-white outline-none placeholder:text-white/35"
+      />
+      <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[12.5px] text-white/80">
+        <MinutesStepper value={minutes} onChange={setMinutes} disabled={openEnded} />
+        <label className="flex items-center gap-1" title="No set length: it counts up until you end it">
+          <input type="checkbox" checked={openEnded} onChange={event => setOpenEnded(event.target.checked)} />
+          open-ended
+        </label>
+      </div>
+      <div className="mt-1.5">
+        <NotifySwitch on={notify.on} agent={agent} onChange={(on, name) => setNotify({ on, agent: name })} />
+      </div>
+      {later && (
+        <div className="mt-1.5 flex flex-wrap gap-2">
+          {scoreSelect('ease', ease)}
+          {scoreSelect('impact', scores.impact)}
+          {scoreSelect('urgency', scores.urgency)}
+        </div>
+      )}
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        {!later && <button type="button" data-own-mission="start" disabled={busy || !title.trim()} onClick={() => { void start() }} className="mc-btn" style={INLINE_BTN} data-tone="go">▶ Start</button>}
+        <button type="button" data-own-mission="later" disabled={busy || (later && !title.trim())} onClick={() => { if (later) void save(); else setLater(true) }} className="mc-btn" style={INLINE_BTN}>{later ? 'Save to my list' : 'Save for later'}</button>
+        <button type="button" disabled={busy} onClick={() => (later ? setLater(false) : reset())} className="mc-btn" style={INLINE_BTN}>{later ? 'back' : 'cancel'}</button>
+      </div>
+      {error && <div className="mt-1 text-[12px] text-rose-300">{error}</div>}
+    </div>
+  )
+}
+
+/** The counter's line while a mission runs: its name and its clock. Null when none runs. */
+export function runningClock(snapshot: WorkSnapshot | null, now: number): { title: string; seconds: number; share: number | null; over: boolean; paused: boolean } | null {
+  const active = snapshot?.active
+  if (!active?.run) return null
+  const clock = runClock(active.startedAt, active.run, now)
+  return { title: active.title, ...clock, paused: active.run.pausedAt !== null }
+}
+
+export { AMBER as RUN_AMBER, GREEN as RUN_GREEN }

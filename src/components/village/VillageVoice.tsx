@@ -46,6 +46,8 @@ function unheard(agent: EngineAgentState): { text: string; ts: number } | null {
 /** The owner opened this agent (or a reply came in while it is open): say its unheard line, once. */
 function sayUnheard(agent: EngineAgentState): boolean {
   if (!isVillageVoiceOn() || isCouncilOn()) return false
+  // A tab nobody looks at: nothing is bought or said; the line waits for the next time he opens this agent.
+  if (document.visibilityState !== 'visible') return false
   const pending = unheard(agent)
   if (!pending) return false
   markVillageReplyHeard(keyOf(agent), pending.ts)

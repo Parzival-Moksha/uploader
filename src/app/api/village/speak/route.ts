@@ -1,7 +1,8 @@
 // /api/village/speak — a village agent's spoken line (the <spoken> tag of its reply) as an ElevenLabs clip.
 //   POST { text, voice?, speed?, language? }  -> { id, url, text, alignment, modelSpeed, cached }   (text capped at 400 characters;
 //        cached by text; speed: ElevenLabs' voice speed, 0.7 to 1.2; language: an ISO 639-1 code, else the line is
-//        looked at: a language the default model can't say goes to one that can, spoken-language.ts)
+//        looked at: a language the default model can't say goes to one that can, spoken-language.ts; quality:
+//        'best' or 'fast' (Settings > Sound > Voice out, voice-out.ts; fast by default: half the credits))
 //   GET  ?id=<clip id>     -> the mp3
 // Local requests only: each new line costs ElevenLabs credits on the owner's key.
 
@@ -17,14 +18,14 @@ export const runtime = 'nodejs'
 export async function POST(request: NextRequest) {
   const denied = guardAgentRoute(request)
   if (denied) return denied
-  let body: { text?: unknown; voice?: unknown; speed?: unknown; language?: unknown }
+  let body: { text?: unknown; voice?: unknown; speed?: unknown; language?: unknown; quality?: unknown }
   try {
     body = await request.json()
   } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
   try {
-    const clip = await speak(body.text, body.voice, { speed: body.speed, language: body.language })
+    const clip = await speak(body.text, body.voice, { speed: body.speed, language: body.language, quality: body.quality })
     return NextResponse.json({ ...clip, url: `/api/village/speak?id=${clip.id}` })
   } catch (error) {
     if (error instanceof SpeechError) return NextResponse.json({ error: error.message }, { status: error.status })

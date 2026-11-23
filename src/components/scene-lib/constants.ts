@@ -40,6 +40,7 @@ export const defaultSettings: OasisSettings = {
   villageDeskScreens: 'off',
   villageAcademy: true,
   villageAcademyTree: false,
+  villageFilmMode: false,
   // FPS COUNTER
   fpsCounterEnabled: false,
   fpsCounterFontSize: 14,

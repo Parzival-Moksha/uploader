@@ -19,6 +19,7 @@ import {
   type VoiceTypingEngine,
 } from '@/lib/voice/voice-typing-engine'
 import { VoiceTypingSetup } from './VoiceTypingSetup'
+import { VoiceOutSection } from '@/components/village/VoiceOutSection'
 
 /** Your own footsteps (0 = silent; the default is a third of the old, too-loud level). */
 function FootstepSlider() {
@@ -64,6 +65,7 @@ function VolumeSlider({
 }
 
 const EVENT_LABELS: Record<string, string> = {
+  missionEnd: 'Mission time is up (Mindcraft)',
   select: 'Select Object', deselect: 'Deselect', place: 'Place Object', delete: 'Delete Object',
   panelOpen: 'Panel Open', panelClose: 'Panel Close', buttonClick: 'Button Click', buttonHover: 'Button Hover',
   modeSwitch: 'Camera Mode', conjureStart: 'Conjure Start', conjureDone: 'Conjure Done',
@@ -172,6 +174,8 @@ export function SoundTab() {
   return (
     <div className="space-y-3">
       <VoiceTypingSection />
+      {/* How the agents' spoken lines are made, and the month's ElevenLabs credits (VoiceOutSection.tsx). */}
+      <VoiceOutSection />
       <MenuSoundSettings />
       <section>
         <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-1.5 font-mono">Volume Mixers</div>

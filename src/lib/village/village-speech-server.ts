@@ -10,6 +10,7 @@ import path from 'node:path'
 import type { ElevenLabsAlignment } from '@/lib/lip-sync-lab'
 import { SPOKEN_MAX_CHARS, cleanSpoken } from '@/lib/village/village-spoken'
 import { defaultModelSpeaks, detectSpokenLanguage } from '@/lib/village/spoken-language'
+import { DEFAULT_VOICE_OUT, FAST_MODEL, isVoiceOutQuality, type VoiceOutQuality } from '@/lib/village/voice-out'
 import { VILLAGE_VOICES, clampModelSpeed, villageVoice } from '@/lib/village/village-voices'
 
 /** Voices from before each agent had its own (same ids as /api/media/voice): clips asked for by these names still resolve. */
@@ -120,14 +121,26 @@ export class SpeechError extends Error {
  * capped at SPOKEN_MAX_CHARS first, so a long or marked-up line can never cost more than that.
  * `speed`: ElevenLabs' own voice speed (0.7 to 1.2; the page plays the rest of a faster setting itself).
  */
-export async function speak(rawText: unknown, voice: unknown, options: { env?: EnvLike; fetcher?: typeof fetch; speed?: unknown; language?: unknown } = {}): Promise<SpokenClip> {
+/**
+ * The model for a line at a quality (voice-out.ts): fast is ElevenLabs' flash model for every language it speaks
+ * (told the language when it is not English); best is the default model, or eleven_v4 for a language that one lacks.
+ */
+export function speechModelForQuality(quality: VoiceOutQuality, language: string | null, env: EnvLike = process.env): { model: string; languageCode: string | null } {
+  if (quality === 'fast') return { model: env.OASIS_VILLAGE_VOICE_MODEL_FAST || FAST_MODEL, languageCode: language }
+  return speechModelFor(language, env)
+}
+
+export async function speak(rawText: unknown, voice: unknown, options: { env?: EnvLike; fetcher?: typeof fetch; speed?: unknown; language?: unknown; quality?: unknown } = {}): Promise<SpokenClip> {
   const env = options.env || process.env
   const text = typeof rawText === 'string' ? cleanSpoken(rawText, SPOKEN_MAX_CHARS) : ''
   if (!text) throw new SpeechError('Nothing to say', 400)
   const voiceId = resolveSpeechVoice(voice, env)
   // Its language: the caller's word (a two- or three-letter code), else a look at the line itself.
   const asked = typeof options.language === 'string' && /^[a-z]{2,3}$/.test(options.language) ? options.language : null
-  const { model, languageCode } = speechModelFor(asked ?? detectSpokenLanguage(text), env)
+  // Its quality: the page's Settings > Sound > Voice out; else this machine's default (fast since 2026-11-23).
+  const fallback = env.OASIS_VILLAGE_VOICE_QUALITY
+  const quality: VoiceOutQuality = isVoiceOutQuality(options.quality) ? options.quality : isVoiceOutQuality(fallback) ? fallback : DEFAULT_VOICE_OUT
+  const { model, languageCode } = speechModelForQuality(quality, asked ?? detectSpokenLanguage(text), env)
   const modelSpeed = clampModelSpeed(options.speed)
   const id = speechClipId(text, voiceId, model, modelSpeed)
   const dir = speechDir(env)
@@ -146,6 +159,9 @@ export async function speak(rawText: unknown, voice: unknown, options: { env?: E
         text,
         model_id: model,
         ...(languageCode ? { language_code: languageCode } : {}),
+        // The fast model leaves numbers and dates as written unless asked; asked only for English: on a Hungarian
+        // line it read the first words by English rules (2026-11-23, Scribe heard "Figyelj, ész" for "Szia! Kész").
+        ...(/flash/.test(model) && !languageCode ? { apply_text_normalization: 'on' } : {}),
         voice_settings: { stability: 0.42, similarity_boost: 0.78, style: 0.18, use_speaker_boost: true, ...(modelSpeed === 1 ? {} : { speed: modelSpeed }) },
       }),
     })

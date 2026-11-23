@@ -226,7 +226,12 @@ export function MissionSheet({ mission, mode }: { mission: Mission; mode: 'side'
               type="button"
               className={`${button} ${working ? 'border-amber-300/50 bg-amber-400/20 text-amber-50' : 'border-emerald-300/45 bg-emerald-400/20 text-emerald-50'}`}
               title={working ? 'Stop: your time is counted on what you have open again' : 'Keep counting your time on this mission after you close the card, until you stop'}
-              onClick={() => { void setWorkMission(working ? null : mission.file) }}
+              onClick={() => {
+                // His own mission is running: starting this one ends it (not kept if its time is not up), so ask first.
+                const own = getWorkVowState().snapshot?.active
+                if (!working && own?.run && !window.confirm(`End your mission "${own.title}" now and count this one instead?`)) return
+                void setWorkMission(working ? null : mission.file)
+              }}
             >
               {working ? '■ stop work' : '▶ work on this'}
             </button>

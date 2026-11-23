@@ -44,6 +44,8 @@ export interface CarbonMission {
   unclear: { date: string; hash: string } | null
   /** Still unclear: the body has not changed since. Such a mission sinks below the other open ones. */
   sinking: boolean
+  /** Put aside for later: when it comes back, in the file's words ("Fri 27 Nov", "the Hermes day"); '' if not said. */
+  backOn: string
   /** Everything under the title. */
   body: string
   markdown: string
@@ -100,9 +102,22 @@ export function parseCarbonMission(file: string, text: string): CarbonMission {
     took: num(head.took),
     hit: head.hit || '',
     ...unclearOf(head.unclear, body),
+    backOn: state === 'parked' ? backOn(body) : '',
     body,
     markdown,
   }
+}
+
+/** "It comes back on Fri 27 Nov." in a parked mission's "## Parked" section (or anywhere in it): "Fri 27 Nov". */
+export function backOn(body: string): string {
+  // The "## Parked" section says it; elsewhere "comes back" may be about something else ("the key comes back").
+  const section = /^##\s+Parked\s*\n([\s\S]*?)(?=^##?\s|(?![\s\S]))/im.exec(body)?.[1]
+  const match = /comes back(?: on)?\s+([^\n]+?)\.(?:\s|$)/i.exec(section ?? body)
+  if (!match) return ''
+  const said = match[1].trim()
+  // "if the village returns to the Zen Workshop, or on Fri 27 Nov": the date is what can be shown.
+  const date = /\b((?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)\w*\s+\d{1,2}\s+\w{3,9}|\d{4}-\d{2}-\d{2})\b/.exec(said)
+  return (date ? date[1] : said).slice(0, 60)
 }
 
 /** A short, stable fingerprint of a mission's body (FNV-1a), to tell whether the asker has changed it. */

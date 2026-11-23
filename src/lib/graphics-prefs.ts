@@ -3,6 +3,8 @@
 // (localStorage `oasis-graphics-prefs`) so that renderers deep in the canvas can read them
 // without the settings context, and code outside React can read them too.
 
+import { VIEW_DISTANCES, VIEW_DISTANCE_DEFAULT, type ViewDistance } from './forge/camera-range'
+
 export type GroundSharpness = 1 | 2 | 4
 export type ShadowMode = 'off' | 'avatars' | 'all'
 export type ShadowQuality = 'low' | 'medium' | 'high'
@@ -28,10 +30,12 @@ export interface GraphicsPrefs {
   flopSaver: FlopSaverMode
   /** Minutes without input before the 3D world stops drawing (src/lib/away-mode.ts); 0: only when hidden or on F8. */
   restAfter: 0 | 1 | 3 | 5 | 10
+  /** How far the world is drawn, in metres (the camera's far plane; src/lib/forge/camera-range.ts). */
+  viewDistance: ViewDistance
 }
 
 export const GRAPHICS_PREFS_DEFAULT: GraphicsPrefs = {
-  groundSharpness: 2, shadows: 'avatars', shadowQuality: 'high', shadowSoftness: 0.5, shadowStrength: 0.5, shadowRefresh: 'auto', flopSaver: 'auto', restAfter: 3,
+  groundSharpness: 2, shadows: 'avatars', shadowQuality: 'high', shadowSoftness: 0.5, shadowStrength: 0.5, shadowRefresh: 'auto', flopSaver: 'auto', restAfter: 3, viewDistance: VIEW_DISTANCE_DEFAULT,
 }
 
 function unit(value: unknown, fallback: number): number {
@@ -49,7 +53,9 @@ export function normalizeGraphicsPrefs(raw: unknown): GraphicsPrefs {
   const refresh = value.shadowRefresh
   const flop = value.flopSaver
   const rest = value.restAfter
+  const view = value.viewDistance
   return {
+    viewDistance: (VIEW_DISTANCES as readonly unknown[]).includes(view) ? view as ViewDistance : GRAPHICS_PREFS_DEFAULT.viewDistance,
     restAfter: rest === 0 || rest === 1 || rest === 3 || rest === 5 || rest === 10 ? rest : GRAPHICS_PREFS_DEFAULT.restAfter,
     flopSaver: flop === 'auto' || flop === 'all' || flop === 'saver' ? flop : GRAPHICS_PREFS_DEFAULT.flopSaver,
     shadowQuality: quality === 'low' || quality === 'medium' || quality === 'high' ? quality : GRAPHICS_PREFS_DEFAULT.shadowQuality,

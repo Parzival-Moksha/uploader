@@ -210,7 +210,7 @@ function CharacterTabView({ profile, onPickAvatar }: { profile: Profile | null; 
                   <span className={TEXT.note}>{trainee.level.name} · {number(trainee.xp.score)} XP</span>
                 </div>
               ))
-              : <div className={TEXT.note}>Nobody yet. Open an agent and switch Train on.</div>}
+              : <div className={TEXT.note}>Nobody yet. On the Skills tab, pick one of your agents under Trainee.</div>}
           </KitCard>
         )}
       </div>

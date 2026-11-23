@@ -1,7 +1,7 @@
 // /api/village/work — the Mindcraft work counter (the owner's vow: three hours a day in the Oasis).
 //   GET   ?day=YYYY-MM-DD: that day's `summary` alone (time, XP, kept or not, per agent, per mission, top XP, agent hours).
 //   GET   ?mindcraft=1: every day as lists of work units (the owner's, each agent's, the whole Oasis').
-//   GET   ?missions=1: per mission, the owner's seconds on it and the agents'.
+//   GET   ?missions=1: per mission, the owner's seconds on it and the agents' (`activity`: the last day agents worked on it, and who).
 //   POST  { agentMission: { agent: "Name", mission: "file.md" | null } }  an agent says which mission it works on
 //         (its minutes and XP are booked there; null: back to the mission whose `who` names it)
 //   POST  { manual: { date, minutes, reason, valor? } }  add time to a day by hand (shown as manual) · { manual: { date, remove: 0 } }
@@ -15,13 +15,23 @@
 //         (a report may carry `focus: { agent: { key, name }, mission: "file.md" }`: what the owner had open)
 //         { agentWork: [{ key, name, ts, kind: 'turn' | 'helper', ms }] }  finished agent turns and helpers
 //         { mission: "file.md" }  start working on a mission · { mission: null }  stop: back to "in the Oasis"
+//   His own missions (Mindcraft's small panel; files in docs/questions, by: owner):
+//   POST  { run: { start: { title | file, minutes: 60 | null, notify: "Anorak" | null } } }  start (null minutes: open-ended)
+//         { run: { save: { title, minutes, ease, impact, urgency } } }  into his list, for later
+//         { run: { note: "..." } }  a note on the running one · { run: { pause: true | false } } · { run: { notify: name | null } }
+//         { run: { end: true, startedAt? } }  end it: kept or not, minutes, XP; his notes go to the agent
+//         { run: { extend: 300 } }  more time on the timed one (from now if its time is up)
+//         { run: { end: 'due', startedAt } }  a page saw the time run out: ended only if the book agrees
+//   GET   ?run=1: the running one's notes
+//   `run` commands are refused without a loopback browser Origin (the Oasis page): not from curl or an agent's shell.
 // Local requests only, like /api/academy. The book is data/work-vow.local.json.
 
 import { NextRequest, NextResponse } from 'next/server'
 
 import { guardAgentRoute } from '@/lib/local-request-guard'
-import { declareAgentMission, editManualTime, reportAgentWork, reportWorkBeat, setWorkSettings, switchWorkMission, workDaySummary, workAgentHours, workMindcraft, workMissionTimers, workVowSnapshot } from '@/lib/work-vow-server'
+import { extendOwnMission, endOwnMission, noteOwnMission, notifyOwnMission, ownMissionNotes, pauseOwnMission, saveOwnMission, startOwnMission, declareAgentMission, editManualTime, reportAgentWork, reportWorkBeat, setWorkSettings, switchWorkMission, workDaySummary, workAgentHours, workMindcraft, workMissionTimers, workMissionActivity, workRebuilt, workVowSnapshot } from '@/lib/work-vow-server'
 import { clientLabel, isAutomationRequest, type AgentWorkReport } from '@/lib/village/work-vow'
+import { fromOasisPage } from '@/lib/village/own-mission'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -37,11 +47,13 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ summary: await workDaySummary(day) })
     }
     // ?mindcraft=1: every day in the book as lists (the owner's, each agent's, the whole Oasis').
-    if (new URL(request.url).searchParams.get('mindcraft')) return NextResponse.json(await workMindcraft())
+    // (with `rebuilt`: the days before the counter began, from the transcripts, when they have been rebuilt)
+    if (new URL(request.url).searchParams.get('mindcraft')) return NextResponse.json({ ...(await workMindcraft()), rebuilt: await workRebuilt() })
     // ?agentHours=1: the agents' working hours per day, oldest first, with the mark each day reached.
     if (new URL(request.url).searchParams.get('agentHours')) return NextResponse.json({ marks: [24, 72, 168], days: await workAgentHours() })
     // ?missions=1: per mission, the owner's time on it and the agents' time on it.
-    if (new URL(request.url).searchParams.get('missions')) return NextResponse.json({ missions: await workMissionTimers() })
+    if (new URL(request.url).searchParams.get('missions')) return NextResponse.json({ missions: await workMissionTimers(), activity: await workMissionActivity() })
+    if (new URL(request.url).searchParams.get('run')) return NextResponse.json({ notes: await ownMissionNotes() })
     return NextResponse.json(await workVowSnapshot())
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 })
@@ -62,6 +74,12 @@ export async function POST(request: NextRequest) {
       : NextResponse.json({ error: 'automated pages cannot change the work book' }, { status: 403 })
   }
   try {
+    const run = (body as { run?: unknown }).run
+    // His own missions only from the Oasis page in a browser: the end speaks to an agent in his voice.
+    if (run !== undefined && !fromOasisPage(request.headers.get('origin'), request.headers.get('host'))) {
+      return NextResponse.json({ error: 'own missions are run from the Oasis page only' }, { status: 403 })
+    }
+    if (run && typeof run === 'object') return NextResponse.json(...(await ownMissionRequest(run as Record<string, unknown>)))
     if (body.agentMission && typeof body.agentMission === 'object') {
       const { agent, mission } = body.agentMission
       if (typeof agent !== 'string' || (mission !== null && typeof mission !== 'string')) return NextResponse.json({ error: 'agentMission is { agent: name, mission: "file.md" | null }' }, { status: 400 })
@@ -108,4 +126,37 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 })
   }
+}
+
+const str = (value: unknown, max: number) => (typeof value === 'string' ? value.slice(0, max) : '')
+const minutesOf = (value: unknown) => (typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : null)
+const agentOf = (value: unknown) => (typeof value === 'string' && value.trim() ? value.trim().slice(0, 60) : null)
+const scoreOf = (value: unknown) => (typeof value === 'number' && Number.isFinite(value) ? value : undefined)
+
+/** His own missions: start, save, note, pause, notify, end. Returns [body, init] for NextResponse.json. */
+async function ownMissionRequest(run: Record<string, unknown>): Promise<[unknown, { status: number }?]> {
+  const fail = (result: { error: string; status: number }): [unknown, { status: number }] => [{ error: result.error }, { status: result.status }]
+  if (run.start && typeof run.start === 'object') {
+    const start = run.start as Record<string, unknown>
+    const result = await startOwnMission({ title: str(start.title, 140) || undefined, file: str(start.file, 120) || undefined, minutes: minutesOf(start.minutes), notify: agentOf(start.notify) })
+    return result.ok ? [result] : fail(result)
+  }
+  if (run.save && typeof run.save === 'object') {
+    const save = run.save as Record<string, unknown>
+    const result = await saveOwnMission({ title: str(save.title, 140), minutes: minutesOf(save.minutes), ease: scoreOf(save.ease), impact: scoreOf(save.impact), urgency: scoreOf(save.urgency) })
+    return result.ok ? [result] : fail(result)
+  }
+  if (typeof run.note === 'string') {
+    const result = await noteOwnMission(run.note)
+    return result.ok ? [result] : fail(result)
+  }
+  if (typeof run.extend === 'number' && run.extend > 0) return [{ ok: true, snapshot: await extendOwnMission(run.extend) }]
+  if (typeof run.pause === 'boolean') return [{ ok: true, snapshot: await pauseOwnMission(run.pause) }]
+  if ('notify' in run) return [{ ok: true, snapshot: await notifyOwnMission(agentOf(run.notify)) }]
+  if (run.end === true || run.end === 'due') {
+    // 'due': a page's clock says the time is up; the book ends it only if its own clock agrees.
+    const result = await endOwnMission(typeof run.startedAt === 'number' ? run.startedAt : undefined, Date.now(), run.end === 'due')
+    return result.ok ? [result] : fail(result)
+  }
+  return [{ error: 'run is { start } | { save } | { note } | { pause } | { notify } | { end: true }' }, { status: 400 }]
 }

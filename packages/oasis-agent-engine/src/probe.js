@@ -10,13 +10,18 @@ import { spawnClaude, onLines } from './claude.js';
 
 export const LIMIT_KINDS = new Set(['usage_limit_reached', 'model_requires_usage_credits']);
 
-/** A fresh `claude -p` with this token (null: the CLI login), fed by `send`; resolves with what `onMessage` finishes with, or null. */
+/**
+ * A fresh `claude -p` with this token (null: the CLI login), or with an account's whole environment (an object, from
+ * accounts.js envFor: a full login's CLAUDE_CONFIG_DIR), fed by `send`; resolves with what `onMessage` finishes with,
+ * or null.
+ */
 export function runClaude(token, send, onMessage, timeoutMs, extra = []) {
+  const accountEnv = token && typeof token === 'object' ? token : { CLAUDE_CODE_OAUTH_TOKEN: token || null };
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'oasis-probe-'));
   return new Promise((resolve) => {
     let proc;
     try {
-      proc = spawnClaude(['-p', '--input-format', 'stream-json', '--output-format', 'stream-json', '--verbose', '--no-session-persistence', ...extra], { cwd, env: { CLAUDE_CODE_OAUTH_TOKEN: token || null, CLAUDE_CODE_DISABLE_AUTO_MEMORY: '1' } });
+      proc = spawnClaude(['-p', '--input-format', 'stream-json', '--output-format', 'stream-json', '--verbose', '--no-session-persistence', ...extra], { cwd, env: { ...accountEnv, CLAUDE_CODE_DISABLE_AUTO_MEMORY: '1' } });
     } catch {
       resolve(null);
       return;

@@ -89,6 +89,7 @@ export function worldToolsConfigFile() {
 }
 
 /** Spawn args that give an agent the world tools: the server unless the plugin brings it, and its free tools pre-allowed. */
-export function worldToolsArgs({ cwd, viaPlugin = pluginShipsWorldTools(cwd) } = {}) {
+/** configDir: the Claude folder this agent runs with (an account with a full login of its own, accounts.js). */
+export function worldToolsArgs({ cwd, configDir, viaPlugin = pluginShipsWorldTools(cwd, configDir || undefined) } = {}) {
   return [...(viaPlugin ? [] : ['--mcp-config', worldToolsConfigFile()]), '--allowedTools', WORLD_TOOLS_ALLOWED.join(',')];
 }

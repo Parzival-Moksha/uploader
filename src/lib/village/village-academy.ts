@@ -439,13 +439,56 @@ export function parseAcademyFile(text: string): AcademyFile {
   }
 }
 
-/** What "Ask Anorak to check" sends him. */
-export function academyCheckMessage(input: { name: string; key: string; cwd: string | null; skill: Pick<AcademySkill, 'id' | 'name' | 'proof'>; origin: string }): string {
+/** What "Ask Anorak to check" sends him (or whoever checks: `by`). */
+export function academyCheckMessage(input: { name: string; key: string; cwd: string | null; skill: Pick<AcademySkill, 'id' | 'name' | 'proof'>; origin: string; by?: string }): string {
   const { name, key, cwd, skill, origin } = input
-  const body = `{"trainee":"${key}","skill":"${skill.id}","state":"verified" or "claimed","proof":"<what you saw>","by":"Anorak"}`
+  const by = JSON.stringify(input.by || 'Anorak')
+  const body = `{"trainee":"${key}","skill":"${skill.id}","state":"verified" or "claimed","proof":"<what you saw>","by":${by}}`
   return `Academy check: trainee ${name} (session ${key}, folder ${cwd || 'unknown'}) claims skill ${skill.id} '${skill.name}'. `
     + `Proof wanted: ${skill.proof} `
     + `Check it, then POST ${origin}/api/academy ${body}. Use "verified" if you saw the proof, "claimed" if you could not, and say why in "proof".`
+}
+
+/**
+ * The clear path forward: what the player does next. No trainee: pick one. Else the first skill (by
+ * order) it can do now; else the first one claimed and waiting for a check; else every skill is done.
+ */
+export type AcademyNextStep =
+  | { kind: 'pick' }
+  | { kind: 'do'; skill: AcademySkill; first: boolean }
+  | { kind: 'check'; skill: AcademySkill }
+  | { kind: 'done' }
+
+export function academyNextStep(trainee: Pick<AcademyTraineeView, 'skills' | 'available'> | null, skills: readonly AcademySkill[]): AcademyNextStep {
+  if (!trainee) return { kind: 'pick' }
+  const ordered = [...skills].sort((a, b) => a.order - b.order)
+  const first = !ordered.some(skill => trainee.skills[skill.id] && trainee.skills[skill.id].state !== 'none')
+  const doable = ordered.find(skill => trainee.available.includes(skill.id))
+  if (doable) return { kind: 'do', skill: doable, first }
+  const waiting = ordered.find(skill => trainee.skills[skill.id]?.state === 'claimed')
+  if (waiting) return { kind: 'check', skill: waiting }
+  return { kind: 'done' }
+}
+
+export interface AcademyCheckerCandidate {
+  id: string
+  name: string
+  owned: boolean
+  /** Alive and able to take a message. */
+  reachable: boolean
+  /** Its trainee key (session). */
+  key: string
+}
+
+/**
+ * Who checks a trainee's skill: an agent named Anorak if there is one, else another agent of yours
+ * (any coding agent can look at the proof), never the trainee itself. Null: nobody to ask, so the
+ * player looks at the proof themselves (a newcomer's village often holds one agent).
+ */
+export function pickAcademyChecker<T extends AcademyCheckerCandidate>(agents: readonly T[], traineeKey: string): T | null {
+  const others = agents.filter(agent => agent.reachable && agent.key !== traineeKey)
+  const rank = (agent: T) => (/anorak/i.test(agent.name) ? 0 : 2) + (agent.owned ? 0 : 1)
+  return [...others].sort((a, b) => rank(a) - rank(b))[0] || null
 }
 
 // ─── the tree in the world ──────────────────────────────────────────────────

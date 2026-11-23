@@ -14,9 +14,12 @@ import { useMindcraftLook } from './mindcraft-look'
 import { useOasisStore } from '../../store/oasisStore'
 import { ManualTimeForm } from './ManualTimeForm'
 import { CarbonMissions } from './CarbonMissions'
+import { HoursChart, type RebuiltDays } from './MindcraftChart'
+import { runningClock } from './OwnMissionPanel'
+import { useLiveWork } from './useLiveWork'
 import { useKitStyle } from '@/components/ui-kit'
 import { setWorkInMindcraft } from './work-vow-client'
-import { formatClock, type MindcraftBook, type MindcraftDay, type WorkSnapshot, type WorkUnit } from '../../lib/village/work-vow'
+import { addDays, formatClock, type MindcraftBook, type MindcraftDay, type WorkSnapshot, type WorkUnit } from '../../lib/village/work-vow'
 
 const UNIT_COLOR = { mission: '#38bdf8', agent: '#c084fc', free: '#34d399', manual: '#f59e0b' }
 
@@ -81,13 +84,16 @@ function UnitRow({ unit, date, onRemoveManual }: { unit: WorkUnit; date: string;
   )
 }
 
-function DayList({ days, today, target, empty, onRemoveManual }: { days: MindcraftDay[]; today: string; target: number | null; empty: string; onRemoveManual?: (date: string, index: number) => void }) {
+function DayList({ days, today, target, empty, onRemoveManual, liveToday }: { days: MindcraftDay[]; today: string; target: number | null; empty: string; onRemoveManual?: (date: string, index: number) => void; liveToday?: number }) {
   const [open, setOpen] = useState<Record<string, boolean>>({})
   if (!days.length) return <div className="py-6 text-center text-white/45">{empty}</div>
-  const top = Math.max(1, ...days.map(day => day.seconds))
+  // Today's row runs with the clock (the owner, 2026-11-23: "it needs to be real time").
+  const secondsOf = (day: MindcraftDay) => (day.date === today && liveToday !== undefined ? Math.max(day.seconds, liveToday) : day.seconds)
+  const top = Math.max(1, ...days.map(secondsOf))
   return (
     <div className="flex flex-col gap-1.5">
-      {days.map(day => {
+      {days.map(raw => {
+        const day = { ...raw, seconds: secondsOf(raw) }
         const isOpen = open[day.date] ?? day.date === today
         const hit = target !== null && day.seconds >= target
         return (
@@ -118,28 +124,87 @@ function DayList({ days, today, target, empty, onRemoveManual }: { days: Mindcra
   )
 }
 
-/** The agents' missions (docs/missions), ranked: they moved here from the Zen garden's wall, which now shows his. */
-function AgentMissionBoard() {
+/**
+ * The agents' missions (docs/missions). The owner, 2026-11-23: what do "open", "doing" and the golden scores mean, and
+ * is the list true? So each line says who has it and when an agent last worked on it (from the agents' hours, not
+ * from the file's word); "in hand" only if that was today or yesterday (48 h). The rest waits, longest-idle last.
+ */
+function AgentMissionBoard({ today }: { today: string }) {
   const [list, setList] = useState<Array<{ file: string; title: string; column: string; state: string; who: string; priority: number | null; tldr: string }> | null>(null)
+  const [activity, setActivity] = useState<Record<string, { last: string; seconds: number; agents: Record<string, number> }>>({})
   useEffect(() => {
     let gone = false
     fetch('/api/village/missions', { cache: 'no-store' })
       .then(response => (response.ok ? response.json() : null))
       .then((data: { missions?: typeof list } | null) => { if (!gone) setList(data?.missions || []) })
       .catch(() => { if (!gone) setList([]) })
+    fetch('/api/village/work?missions=1', { cache: 'no-store' })
+      .then(response => (response.ok ? response.json() : null))
+      .then((data: { activity?: typeof activity } | null) => { if (!gone && data?.activity) setActivity(data.activity) })
+      .catch(() => {})
     return () => { gone = true }
   }, [])
   if (!list?.length) return null
-  const open = list.filter(m => m.column !== 'done')
+  const yesterday = addDays(today, -1)
+  const open = list.filter(m => m.column !== 'done').map(m => {
+    const a = activity[m.file]
+    const top = a ? Object.entries(a.agents).sort((x, y) => y[1] - x[1]).map(([name]) => name).slice(0, 3) : []
+    return { ...m, last: a?.last || '', inHand: Boolean(a && a.last >= yesterday), workers: top }
+  }).sort((a, b) => Number(b.inHand) - Number(a.inHand) || b.last.localeCompare(a.last) || (b.priority ?? 0) - (a.priority ?? 0))
+  const when = (date: string) => (!date ? 'no agent time counted on it yet' : date === today ? 'last worked on today' : date === yesterday ? 'last worked on yesterday' : `last worked on ${dayLabel(date)}`)
+  const inHand = open.filter(m => m.inHand).length
   return (
     <div className="mc-card flex flex-col gap-1 px-3 py-2" data-mindcraft="silicon-missions">
-      <div className="mc-strong text-[14px]">The agents&rsquo; missions ({open.length} open)</div>
+      <div className="mc-strong text-[14px]">The agents&rsquo; missions: {inHand} in hand, {open.length - inHand} waiting</div>
+      <div className="text-[12.5px] text-white/55">In hand: an agent worked on it today or yesterday (counted from the agents&rsquo; hours). The number is its priority, ease × impact × urgency ÷ 125: what is done next, not what it pays.</div>
       {open.map(m => (
         <div key={m.file} className="flex items-start gap-3 text-white/85">
-          <span className="w-[42px] shrink-0 text-right font-bold tabular-nums" style={{ color: m.column === 'doing' ? '#fbbf24' : '#7dd3fc' }}>{m.priority === null ? '—' : m.priority.toFixed(2)}</span>
-          <span className="min-w-0 flex-1 break-words">{m.title} <span className="text-white/50">· {m.state} · {m.who || 'nobody yet'}</span></span>
+          <span className="w-[66px] shrink-0 pt-[2px] text-[11px] font-bold uppercase tracking-[0.08em]" style={{ color: m.inHand ? '#34d399' : 'rgba(255,255,255,0.4)' }}>{m.inHand ? 'in hand' : 'waiting'}</span>
+          <span className="min-w-0 flex-1 break-words">{m.title} <span className="text-white/50">· {m.who ? `who: ${m.who}` : 'nobody named'} · {when(m.last)}{m.workers.length && m.workers.join(', ').toLowerCase() !== (m.who || '').toLowerCase() ? ` (by ${m.workers.join(', ')})` : ''}</span></span>
+          <span className="w-[42px] shrink-0 text-right tabular-nums text-white/55" title="priority: ease × impact × urgency ÷ 125">{m.priority === null ? '—' : m.priority.toFixed(2)}</span>
         </div>
       ))}
+    </div>
+  )
+}
+
+/**
+ * Today, beside the chart in Carbon (the Today tab folded into it, 2026-11-23: the owner found the tab was "all the
+ * other days"): the mission running now, today's hours by what they went to, his own missions that ended today, and
+ * adding (or taking back) time by hand. Earlier days are in the chart; their entries fold out at the bottom.
+ */
+function TodayCard({ book, snapshot, onRemoveManual, onSaved }: { book: MindcraftBook; snapshot: WorkSnapshot; onRemoveManual: (date: string, index: number) => void; onSaved: () => void }) {
+  const [manual, setManual] = useState(false)
+  const [earlier, setEarlier] = useState(false)
+  const [, tick] = useState(0)
+  useEffect(() => {
+    const timer = window.setInterval(() => tick(n => n + 1), 1000)
+    return () => window.clearInterval(timer)
+  }, [])
+  const run = runningClock(snapshot, Date.now())
+  const live = useLiveWork()
+  const today = book.owner.filter(day => day.date === snapshot.date)
+  return (
+    <div className="mc-card flex min-w-[280px] flex-1 flex-col gap-1.5 overflow-y-auto px-3 py-2" style={{ maxHeight: 372 }} data-mindcraft="today">
+      <div className="flex items-baseline justify-between gap-2">
+        <div className="mc-strong text-[14px]">Today</div>
+        <div className="text-[17px] font-bold tabular-nums">{hms(Math.max(snapshot.today.seconds, live.mine))}{snapshot.targetSeconds !== null && <span className="text-white/45"> / {hms(snapshot.targetSeconds)}</span>}</div>
+      </div>
+      {run
+        ? <div className="rounded border border-amber-300/30 bg-amber-400/5 px-2 py-1"><b>{run.title}</b> <span className="tabular-nums text-amber-200">{formatClock(run.seconds)}</span> <span className="text-white/55">{run.paused ? 'paused' : run.share === null ? 'so far' : 'to go'} · notes and end: the counter, bottom left</span></div>
+        : <div className="text-white/55">No mission of yours running. Start one from the counter, bottom left: “New mission”.</div>}
+      {snapshot.runs.length > 0 && (
+        <div className="flex flex-col gap-0.5">
+          {snapshot.runs.map((r, i) => <div key={i} className="text-white/85"><span style={{ color: r.plannedSeconds === null || r.kept ? '#34d399' : '#f87171' }}>{r.plannedSeconds === null || r.kept ? '✓' : '×'}</span> {r.title}: {r.plannedSeconds === null ? 'done' : r.kept ? 'kept' : 'not kept'} · {hms(r.seconds)}{r.told ? ' · notes to ' + r.told : ''}</div>)}
+        </div>
+      )}
+      <DayList days={today} today={snapshot.date} target={snapshot.targetSeconds} onRemoveManual={onRemoveManual} empty="Nothing counted yet today." liveToday={live.mine} />
+      <div className="flex flex-wrap gap-3 text-[13px]">
+        <button type="button" className="text-amber-200/85 underline decoration-dotted" onClick={() => setManual(v => !v)}>{manual ? 'close' : 'add time by hand'}</button>
+        <button type="button" className="text-amber-200/85 underline decoration-dotted" onClick={() => setEarlier(v => !v)}>{earlier ? 'hide earlier days' : 'earlier days'}</button>
+      </div>
+      {manual && <ManualTimeForm today={snapshot.date} targetSeconds={snapshot.targetSeconds ?? undefined} daySeconds={date => book.owner.find(day => day.date === date)?.seconds || 0} onSaved={onSaved} />}
+      {earlier && <DayList days={book.owner.filter(day => day.date !== snapshot.date)} today={snapshot.date} target={snapshot.targetSeconds} onRemoveManual={onRemoveManual} empty="No earlier days." />}
     </div>
   )
 }
@@ -151,10 +216,11 @@ export function MindcraftView({ carbonFile }: { carbonFile?: string | null } = {
     setWorkInMindcraft(true)
     return () => setWorkInMindcraft(false)
   }, [])
-  const [book, setBook] = useState<MindcraftBook | null>(null)
+  const [book, setBook] = useState<(MindcraftBook & { rebuilt?: RebuiltDays }) | null>(null)
   const [snapshot, setSnapshot] = useState<WorkSnapshot | null>(null)
   // Carbon: what the Oasis needs from him. Silicon: what the agents did. Today: his own time (the owner, 2026-11-20).
-  const [tab, setTab] = useState<'carbon' | 'silicon' | 'today'>('carbon')
+  const [tab, setTab] = useState<'carbon' | 'silicon'>('carbon')
+  const live = useLiveWork()
   const [error, setError] = useState('')
 
   const load = useCallback(async () => {
@@ -190,19 +256,21 @@ export function MindcraftView({ carbonFile }: { carbonFile?: string | null } = {
   if (error && !book) return <div className="p-6 text-rose-200">Mindcraft can&rsquo;t read the work book: {error}</div>
   if (!book || !snapshot) return <div className="p-6 text-white/50">Opening the book…</div>
 
+  // Every running figure ticks: his time and the agents' (turns running now included).
+  const mine = Math.max(snapshot.today.seconds, live.mine)
+  const theirs = Math.max(snapshot.agentHours?.today || 0, live.agents)
   const tabs = [
-    { id: 'carbon' as const, label: 'Carbon', sub: 'your missions' },
-    { id: 'silicon' as const, label: 'Silicon', sub: `agents today ${hms(snapshot.agentHours?.today || 0)}` },
-    { id: 'today' as const, label: 'Today', sub: `you ${hms(snapshot.today.seconds)}` },
+    { id: 'carbon' as const, label: 'Carbon', sub: `you today ${hms(mine)}` },
+    { id: 'silicon' as const, label: 'Silicon', sub: `agents today ${hms(theirs)}` },
   ]
   const vow = snapshot.commitments[0]
   return (
     <div className="mc-scope flex h-full min-h-0 flex-col gap-3">
-      <div className="flex shrink-0 flex-wrap items-end justify-between gap-3">
-        <div>
-          <div className="mc-eyebrow">Mindcraft</div>
-          <div className="mc-title text-[26px] leading-tight">
-            Today {hms(snapshot.today.seconds)} {snapshot.targetSeconds !== null && <span className="text-white/45">/ {hms(snapshot.targetSeconds)}</span>}
+      <div className="flex shrink-0 flex-wrap items-end justify-between gap-3 pr-14 pt-4">
+        <div className="pl-1">
+          <div className="mc-title text-[34px] leading-none tracking-[0.06em]">Mindcraft</div>
+          <div className="mt-1.5 text-[19px] text-white/80">
+            Today <b className="tabular-nums text-white">{hms(mine)}</b>{snapshot.targetSeconds !== null && <span className="text-white/45"> / {hms(snapshot.targetSeconds)}</span>} · agents <b className="tabular-nums text-violet-200">{hms(theirs)}</b>
           </div>
           {vow && (
             <div className="mc-note" style={{ fontSize: 21 }}>
@@ -231,14 +299,29 @@ export function MindcraftView({ carbonFile }: { carbonFile?: string | null } = {
         ))}
       </div>
       {/* Carbon fills the space and scrolls inside its own list; the other tabs scroll here. */}
-      <div className={`min-h-0 flex-1 pr-1 ${tab === 'carbon' ? 'flex flex-col' : 'overflow-y-auto'}`}>
-        {tab === 'carbon' && <CarbonMissions key={carbonFile || ''} initialFile={carbonFile || null} />}
-        {tab === 'today' && <DayList days={book.owner} today={snapshot.date} target={snapshot.targetSeconds} onRemoveManual={removeManual} empty="Nothing counted yet. Time counts while the Oasis is in front and you are doing something." />}
+      <div className={`min-h-0 flex-1 pr-1 ${tab === 'carbon' ? 'flex flex-col gap-3' : 'overflow-y-auto'}`}>
+        {tab === 'carbon' && (
+          <>
+            {/* Top left the chart, beside it today (the owner, 2026-11-23). */}
+            <div className="flex shrink-0 flex-wrap items-start gap-3">
+              <div style={{ flex: '0 1 640px', minWidth: 320 }}><HoursChart owner={book.owner} oasis={book.oasis} today={snapshot.date} liveToday={{ carbon: mine, silicon: theirs }} rebuilt={book.rebuilt ?? null} /></div>
+              <TodayCard book={book} snapshot={snapshot} onRemoveManual={removeManual} onSaved={() => { void load() }} />
+            </div>
+            <CarbonMissions key={carbonFile || ''} initialFile={carbonFile || null} />
+          </>
+        )}
         {tab === 'silicon' && (
           <div className="flex flex-col gap-3">
+            {/* Top left the chart; beside it the last two days, today open, each agent and its time. */}
+            <div className="flex flex-wrap items-start gap-3">
+              <div style={{ flex: '0 1 640px', minWidth: 320 }}><HoursChart owner={book.owner} oasis={book.oasis} today={snapshot.date} liveToday={{ carbon: mine, silicon: theirs }} rebuilt={book.rebuilt ?? null} /></div>
+              <div className="min-w-[280px] flex-1 overflow-y-auto" style={{ maxHeight: 372 }}>
+                <DayList days={book.oasis.slice(0, 2)} today={snapshot.date} target={null} empty="No agent has finished a turn yet while an Oasis page was listening." liveToday={theirs} />
+              </div>
+            </div>
             {snapshot.agentHours && (
               <div className="mc-card px-3 py-2 text-[14px] leading-snug">
-                <div className="mc-strong">The Oasis worked {hms(snapshot.agentHours.today)} today{snapshot.agentHours.mark ? `: ${snapshot.agentHours.mark}` : ''} · yesterday {hms(snapshot.agentHours.yesterday)}</div>
+                <div className="mc-strong">The Oasis worked {hms(theirs)} today{snapshot.agentHours.mark ? `: ${snapshot.agentHours.mark}` : ''} · yesterday {hms(snapshot.agentHours.yesterday)}</div>
                 <div className="text-white/60">24 h of agent work in a day: alive · 72 h: superalive · 168 h: uploaded. An agent-hour is time inside an agent&rsquo;s turns (minus time it only waited on its helpers) plus its helpers&rsquo; time; time between turns doesn&rsquo;t count. Helpers working at once each count.</div>
               </div>
             )}
@@ -250,19 +333,11 @@ export function MindcraftView({ carbonFile }: { carbonFile?: string | null } = {
                 ))}
               </div>
             )}
-            <DayList days={book.oasis} today={snapshot.date} target={null} empty="No agent has finished a turn yet while an Oasis page was listening." />
-            <AgentMissionBoard />
+            {book.oasis.length > 2 && <DayList days={book.oasis.slice(2)} today={snapshot.date} target={null} empty="" />}
+            <AgentMissionBoard today={snapshot.date} />
           </div>
         )}
       </div>
-      {tab === 'today' && (
-        <ManualTimeForm
-          today={snapshot.date}
-          targetSeconds={snapshot.targetSeconds ?? undefined}
-          daySeconds={date => book.owner.find(day => day.date === date)?.seconds || 0}
-          onSaved={() => { void load() }}
-        />
-      )}
       <div className="mc-foot shrink-0 pt-2 leading-snug" style={{ fontSize: 16, display: tab === 'carbon' ? 'none' : undefined }}>
         Hours are what counts here. Behind them, in the counter&rsquo;s detail and your Profile level, XP is time: 1 XP a minute of work, for you and for every agent; 0.7 only for time in the world with nothing in focus. A mission&rsquo;s priority decides what comes next, not what it pays. A day runs from {snapshot.settings.dayStartsAt} to {snapshot.settings.dayStartsAt}.
       </div>
@@ -271,11 +346,12 @@ export function MindcraftView({ carbonFile }: { carbonFile?: string | null } = {
 }
 
 const WINDOW_Z = 9395
-/** On top: above the agent panels (9400 and up), below the game rail (10400), dialogs and the main menu (20000). */
-const WINDOW_Z_TOP = 10300
+/** On top: above the agent panels (9400 and up) and the game rail (10400: the owner, 2026-11-23, "draw over the World and Spells buttons"), below dialogs and the main menu (20000). */
+const WINDOW_Z_TOP = 10450
 // Nearly full screen (the owner: "honestly, that could be full screen somehow"), between the always-on buttons.
-const WINDOW_MAX_WIDTH = 1500
-const WINDOW_GAP = 12
+// The same margin on all four sides (the owner, 2026-11-23: "horizontally 95 percent, vertically only about 90").
+const WINDOW_MAX_WIDTH = 1800
+const WINDOW_GAP = 28
 
 /**
  * Where the window may stand: between the always-on overlays that sit above it (the game rail on the
@@ -388,6 +464,8 @@ export function MindcraftWindow() {
   const area = band || { left: 0, right: vw }
   const width = Math.max(0, Math.min(WINDOW_MAX_WIDTH, area.right - area.left - WINDOW_GAP * 2))
   const left = area.left + (area.right - area.left - width) / 2
+  // Top and bottom as far from the edge as left and right (a wide screen caps the width, not the height).
+  const margin = Math.min(WINDOW_GAP * 2, Math.max(WINDOW_GAP, left - area.left))
   return (
     <>
       <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm" style={{ zIndex: z - 5 }} onClick={() => setOpen(false)} />
@@ -395,8 +473,8 @@ export function MindcraftWindow() {
         data-ui-panel="mindcraft"
         // A kit panel (Hipster's UI kit), so the one menu-style switch reaches Mindcraft too.
         data-kit-style={kitStyle}
-        className="kit-panel fixed top-[5%] flex h-[90%] flex-col px-2 pb-1 pt-0"
-        style={{ left, width, zIndex: z }}
+        className="kit-panel fixed flex flex-col px-2 pb-1 pt-0"
+        style={{ left, width, top: margin, bottom: margin, zIndex: z }}
       >
         <button type="button" onClick={() => setOpen(false)} title="Close (Esc)" className="mc-scope absolute right-1 top-1 z-10"><span className="mc-close flex items-center justify-center">✕</span></button>
         <MindcraftView carbonFile={carbonFile} />
