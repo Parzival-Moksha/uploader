@@ -1,221 +1,19 @@
 {
  "_doc": "Written by scripts/cut-slim.mjs: the catalog entries whose files the slim Oasis does not ship are taken out here.",
  "deletedIds": [
-  "ac",
-  "ac_side",
-  "ac_stacked",
-  "antenna1",
-  "antenna2",
-  "av_amazonas",
-  "av_anna",
-  "av_bruno",
-  "av_captain_lobster",
-  "av_cookieman",
-  "av_cool_cyclops",
-  "av_cool_radish",
-  "av_cool_spaguetti",
-  "av_cosmic_bot",
-  "av_crustybutt",
-  "av_cyberpal",
-  "av_dream_eater",
-  "av_dream_fighter",
   "av_esktix",
-  "av_eugenia",
-  "av_evil_pendra",
-  "av_eye_diviner",
-  "av_gary",
-  "av_good_knight",
-  "av_grifter_squad",
   "av_harvester",
-  "av_juanita",
-  "av_king_mutatio",
-  "av_lady_fawn",
   "av_mimic_slime",
   "av_mocking_spit",
-  "av_mr",
-  "av_mushroom_fairy",
-  "av_orion",
-  "av_pitcher_dude",
-  "av_ripped_jimbo",
-  "av_sport_tv",
-  "av_stingcake",
-  "av_stitch_witch",
   "av_vipe_2723",
   "av_vipe_2770",
   "av_vipe_2784",
   "av_vipe_2799",
   "av_vipe_2902",
-  "board",
-  "cable_long",
-  "cable_small",
-  "cable_thick",
   "char_george",
   "char_leela",
   "char_mike",
   "char_stan",
-  "character",
-  "computer",
-  "computer_large",
-  "door",
-  "enemy_2legs",
-  "enemy_2legs_gun",
-  "enemy_eyedrone",
-  "enemy_flying",
-  "enemy_flying_gun",
-  "enemy_large",
-  "enemy_large_gun",
-  "enemy_quadshell",
-  "enemy_trilobite",
-  "fence",
-  "gear",
-  "gun_pistol",
-  "gun_revolver",
-  "gun_rifle",
-  "gun_smg",
-  "gun_sniper",
-  "gun_sniper_ammo",
-  "health",
-  "heart",
-  "kf_bathroom_cabinet",
-  "kf_bathroom_cabinet_drawer",
-  "kf_bathroom_mirror",
-  "kf_bathroom_sink",
-  "kf_bathroom_sink_square",
-  "kf_bathtub",
-  "kf_bear",
-  "kf_bed_bunk",
-  "kf_bed_double",
-  "kf_bed_single",
-  "kf_bench",
-  "kf_bench_cushion",
-  "kf_bench_cushion_low",
-  "kf_bookcase_closed",
-  "kf_bookcase_closed_doors",
-  "kf_bookcase_closed_wide",
-  "kf_bookcase_open",
-  "kf_bookcase_open_low",
-  "kf_books",
-  "kf_cabinet_bed",
-  "kf_cabinet_bed_drawer",
-  "kf_cabinet_bed_drawer_table",
-  "kf_cabinet_television",
-  "kf_cabinet_television_doors",
-  "kf_cardboard_box_closed",
-  "kf_cardboard_box_open",
-  "kf_ceiling_fan",
-  "kf_chair",
-  "kf_chair_cushion",
-  "kf_chair_desk",
-  "kf_chair_modern_cushion",
-  "kf_chair_modern_frame_cushion",
-  "kf_chair_rounded",
-  "kf_coat_rack",
-  "kf_coat_rack_standing",
-  "kf_computer_keyboard",
-  "kf_computer_mouse",
-  "kf_computer_screen",
-  "kf_desk",
-  "kf_desk_corner",
-  "kf_doorway",
-  "kf_doorway_front",
-  "kf_doorway_open",
-  "kf_dryer",
-  "kf_floor_corner",
-  "kf_floor_corner_round",
-  "kf_floor_full",
-  "kf_floor_half",
-  "kf_hood_large",
-  "kf_hood_modern",
-  "kf_kitchen_bar",
-  "kf_kitchen_bar_end",
-  "kf_kitchen_blender",
-  "kf_kitchen_cabinet",
-  "kf_kitchen_cabinet_corner_inner",
-  "kf_kitchen_cabinet_corner_round",
-  "kf_kitchen_cabinet_drawer",
-  "kf_kitchen_cabinet_upper",
-  "kf_kitchen_cabinet_upper_corner",
-  "kf_kitchen_cabinet_upper_double",
-  "kf_kitchen_cabinet_upper_low",
-  "kf_kitchen_coffee_machine",
-  "kf_kitchen_fridge",
-  "kf_kitchen_fridge_built_in",
-  "kf_kitchen_fridge_large",
-  "kf_kitchen_fridge_small",
-  "kf_kitchen_microwave",
-  "kf_kitchen_sink",
-  "kf_kitchen_stove",
-  "kf_kitchen_stove_electric",
-  "kf_lamp_round_floor",
-  "kf_lamp_round_table",
-  "kf_lamp_square_ceiling",
-  "kf_lamp_square_floor",
-  "kf_lamp_square_table",
-  "kf_lamp_wall",
-  "kf_laptop",
-  "kf_lounge_chair",
-  "kf_lounge_chair_relax",
-  "kf_lounge_design_chair",
-  "kf_lounge_design_sofa",
-  "kf_lounge_design_sofa_corner",
-  "kf_lounge_sofa",
-  "kf_lounge_sofa_corner",
-  "kf_lounge_sofa_long",
-  "kf_lounge_sofa_ottoman",
-  "kf_paneling",
-  "kf_pillow",
-  "kf_pillow_blue",
-  "kf_pillow_blue_long",
-  "kf_pillow_long",
-  "kf_plant_small_1",
-  "kf_plant_small_2",
-  "kf_plant_small_3",
-  "kf_potted_plant",
-  "kf_radio",
-  "kf_rug_doormat",
-  "kf_rug_rectangle",
-  "kf_rug_round",
-  "kf_rug_rounded",
-  "kf_rug_square",
-  "kf_shower",
-  "kf_shower_round",
-  "kf_side_table",
-  "kf_side_table_drawers",
-  "kf_speaker",
-  "kf_speaker_small",
-  "kf_stairs",
-  "kf_stairs_corner",
-  "kf_stairs_open",
-  "kf_stairs_open_single",
-  "kf_stool_bar",
-  "kf_stool_bar_square",
-  "kf_table",
-  "kf_table_cloth",
-  "kf_table_coffee",
-  "kf_table_coffee_glass",
-  "kf_table_coffee_glass_square",
-  "kf_table_coffee_square",
-  "kf_table_cross",
-  "kf_table_cross_cloth",
-  "kf_table_glass",
-  "kf_table_round",
-  "kf_television_antenna",
-  "kf_television_modern",
-  "kf_television_vintage",
-  "kf_toaster",
-  "kf_toilet",
-  "kf_toilet_square",
-  "kf_trashcan",
-  "kf_wall",
-  "kf_wall_corner",
-  "kf_wall_corner_rond",
-  "kf_wall_doorway",
-  "kf_wall_doorway_wide",
-  "kf_wall_half",
-  "kf_wall_window",
-  "kf_wall_window_slide",
-  "kf_washer",
-  "kf_washer_dryer_stacked",
   "km_barrel",
   "km_barrels",
   "km_battlement",
@@ -445,53 +243,6 @@
   "ku_window_wide_b",
   "ku_window_wide_c",
   "ku_window_wide_d",
-  "lever",
-  "light_square",
-  "light_street1",
-  "light_street2",
-  "lootbox",
-  "pickup_tank",
-  "pipe1",
-  "pipe2",
-  "pipe_corner",
-  "pipe_corner2",
-  "platform_1x1",
-  "platform_2x1",
-  "platform_2x2",
-  "platform_2x2_empty",
-  "platform_4x1",
-  "platform_4x1_empty",
-  "platform_4x2",
-  "platform_4x4",
-  "platform_4x4_empty",
-  "prop_ammo",
-  "prop_ammo_closed",
-  "prop_ammo_small",
-  "prop_barrel1",
-  "prop_barrel2_closed",
-  "prop_barrel2_open",
-  "prop_chair",
-  "prop_chest",
-  "prop_crate",
-  "prop_crate_large",
-  "prop_crate_tarp",
-  "prop_crate_tarp_large",
-  "prop_desk_l",
-  "prop_desk_medium",
-  "prop_desk_small",
-  "prop_grenade",
-  "prop_healthpack",
-  "prop_healthpack_tube",
-  "prop_keycard",
-  "prop_locker",
-  "prop_mine",
-  "prop_mug",
-  "prop_satellite",
-  "prop_shelves_thin_short",
-  "prop_shelves_thin_tall",
-  "prop_shelves_wide_short",
-  "prop_shelves_wide_tall",
-  "prop_syringe",
   "qf_anvil_log",
   "qf_banner_1",
   "qf_barrel",
@@ -515,79 +266,2120 @@
   "qf_table_large",
   "qf_torch_metal",
   "qf_weapon_stand",
-  "qf_workbench",
-  "qs_alien_cyclop",
-  "qs_alien_oculichrysalis",
-  "qs_alien_scolitex",
-  "qs_column_astra",
-  "qs_column_hollow",
-  "qs_column_pipes",
-  "qs_door_darkmetal",
-  "qs_door_metal",
-  "qs_platform_rails_4",
-  "qs_platform_ramp_4",
-  "qs_platform_round",
-  "qs_platform_stairs_4",
-  "qs_prop_access_point",
-  "qs_prop_barrel",
-  "qs_prop_chest",
-  "qs_prop_computer",
-  "qs_prop_crate",
-  "qs_prop_light_floor",
-  "qs_prop_vent_big",
-  "qv_balcony_simple",
-  "qv_door_round",
-  "qv_fence_ornament",
-  "qv_fence_wooden",
-  "qv_prop_chimney",
-  "qv_prop_crate",
-  "qv_prop_wagon",
-  "qv_roof_dormer",
-  "qv_roof_roundtiles",
-  "qv_roof_tower",
-  "qv_stairs_exterior",
-  "qv_vine",
-  "qv_wall_arch",
-  "qv_wall_brick_door",
-  "qv_wall_plaster",
-  "qv_wall_plaster_door",
-  "qv_wall_plaster_window",
-  "qv_window_shutters_open",
-  "rail_corner",
-  "rail_corner2",
-  "rail_long",
-  "rail_short",
-  "sign1",
-  "sign2",
-  "sign3",
-  "sign4",
-  "sign_corner1",
-  "sign_corner2",
-  "sign_corner3",
-  "sign_corner3_fenced",
-  "sign_corner_hazard",
-  "sign_corner_small1",
-  "sign_corner_small2",
-  "sign_small1",
-  "sign_small2",
-  "sign_small3",
-  "support",
-  "support_long",
-  "support_short",
-  "tank",
-  "turret_cannon",
-  "turret_double",
-  "turret_gun",
-  "turret_teleporter",
-  "tv1",
-  "tv2",
-  "tv3"
+  "qf_workbench"
  ],
  "additions": [
+  {
+   "id": "scifi-megakit_aliens_alien_cyclop",
+   "name": "SciFi Alien Cyclop (Aliens)",
+   "path": "/models/scifi-megakit/aliens/alien_cyclop.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_aliens_alien_oculichrysalis",
+   "name": "SciFi Alien Oculichrysalis (Aliens)",
+   "path": "/models/scifi-megakit/aliens/alien_oculichrysalis.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_aliens_alien_scolitex",
+   "name": "SciFi Alien Scolitex (Aliens)",
+   "path": "/models/scifi-megakit/aliens/alien_scolitex.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_columns_column_astra",
+   "name": "SciFi Column Astra (Columns)",
+   "path": "/models/scifi-megakit/columns/column_astra.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_columns_column_hollow",
+   "name": "SciFi Column Hollow (Columns)",
+   "path": "/models/scifi-megakit/columns/column_hollow.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_columns_column_large_straight",
+   "name": "SciFi Column Large Straight (Columns)",
+   "path": "/models/scifi-megakit/columns/column_large_straight.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_columns_column_metalsupport",
+   "name": "SciFi Column MetalSupport (Columns)",
+   "path": "/models/scifi-megakit/columns/column_metalsupport.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_columns_column_metalsupport_curve",
+   "name": "SciFi Column MetalSupport Curve (Columns)",
+   "path": "/models/scifi-megakit/columns/column_metalsupport_curve.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_columns_column_pipes",
+   "name": "SciFi Column Pipes (Columns)",
+   "path": "/models/scifi-megakit/columns/column_pipes.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_columns_column_round",
+   "name": "SciFi Column Round (Columns)",
+   "path": "/models/scifi-megakit/columns/column_round.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_columns_column_simple",
+   "name": "SciFi Column Simple (Columns)",
+   "path": "/models/scifi-megakit/columns/column_simple.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_decals_decal_0",
+   "name": "SciFi Decal 0 (Decals)",
+   "path": "/models/scifi-megakit/decals/decal_0.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_decals_decal_1",
+   "name": "SciFi Decal 1 (Decals)",
+   "path": "/models/scifi-megakit/decals/decal_1.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_decals_decal_2",
+   "name": "SciFi Decal 2 (Decals)",
+   "path": "/models/scifi-megakit/decals/decal_2.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_decals_decal_3",
+   "name": "SciFi Decal 3 (Decals)",
+   "path": "/models/scifi-megakit/decals/decal_3.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_decals_decal_4",
+   "name": "SciFi Decal 4 (Decals)",
+   "path": "/models/scifi-megakit/decals/decal_4.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_decals_decal_5",
+   "name": "SciFi Decal 5 (Decals)",
+   "path": "/models/scifi-megakit/decals/decal_5.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_decals_decal_6",
+   "name": "SciFi Decal 6 (Decals)",
+   "path": "/models/scifi-megakit/decals/decal_6.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_decals_decal_7",
+   "name": "SciFi Decal 7 (Decals)",
+   "path": "/models/scifi-megakit/decals/decal_7.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_decals_decal_8",
+   "name": "SciFi Decal 8 (Decals)",
+   "path": "/models/scifi-megakit/decals/decal_8.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_decals_decal_9",
+   "name": "SciFi Decal 9 (Decals)",
+   "path": "/models/scifi-megakit/decals/decal_9.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_decals_decal_a",
+   "name": "SciFi Decal A (Decals)",
+   "path": "/models/scifi-megakit/decals/decal_a.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_decals_decal_dashes",
+   "name": "SciFi Decal Dashes (Decals)",
+   "path": "/models/scifi-megakit/decals/decal_dashes.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_decals_decal_k",
+   "name": "SciFi Decal K (Decals)",
+   "path": "/models/scifi-megakit/decals/decal_k.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_decals_decal_line_90_round",
+   "name": "SciFi Decal Line 90 Round (Decals)",
+   "path": "/models/scifi-megakit/decals/decal_line_90_round.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_decals_decal_line_90_round_large",
+   "name": "SciFi Decal Line 90 Round Large (Decals)",
+   "path": "/models/scifi-megakit/decals/decal_line_90_round_large.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_decals_decal_line_bend1_l",
+   "name": "SciFi Decal Line Bend1 L (Decals)",
+   "path": "/models/scifi-megakit/decals/decal_line_bend1_l.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_decals_decal_line_bend1_r",
+   "name": "SciFi Decal Line Bend1 R (Decals)",
+   "path": "/models/scifi-megakit/decals/decal_line_bend1_r.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_decals_decal_line_bend2_l",
+   "name": "SciFi Decal Line Bend2 L (Decals)",
+   "path": "/models/scifi-megakit/decals/decal_line_bend2_l.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_decals_decal_line_bend2_r",
+   "name": "SciFi Decal Line Bend2 R (Decals)",
+   "path": "/models/scifi-megakit/decals/decal_line_bend2_r.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_decals_decal_line_straight",
+   "name": "SciFi Decal Line Straight (Decals)",
+   "path": "/models/scifi-megakit/decals/decal_line_straight.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_decals_decal_logo",
+   "name": "SciFi Decal Logo (Decals)",
+   "path": "/models/scifi-megakit/decals/decal_logo.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_decals_decal_logo_letters",
+   "name": "SciFi Decal Logo Letters (Decals)",
+   "path": "/models/scifi-megakit/decals/decal_logo_letters.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_decals_decal_logo_small",
+   "name": "SciFi Decal Logo Small (Decals)",
+   "path": "/models/scifi-megakit/decals/decal_logo_small.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_decals_decal_sign",
+   "name": "SciFi Decal Sign (Decals)",
+   "path": "/models/scifi-megakit/decals/decal_sign.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_decals_decal_v",
+   "name": "SciFi Decal V (Decals)",
+   "path": "/models/scifi-megakit/decals/decal_v.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_decals_decal_x",
+   "name": "SciFi Decal X (Decals)",
+   "path": "/models/scifi-megakit/decals/decal_x.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_decals_decal_xsign",
+   "name": "SciFi Decal XSign (Decals)",
+   "path": "/models/scifi-megakit/decals/decal_xsign.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_decals_decal_z",
+   "name": "SciFi Decal Z (Decals)",
+   "path": "/models/scifi-megakit/decals/decal_z.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_platforms_door_darkmetal",
+   "name": "SciFi Door DarkMetal (Platforms)",
+   "path": "/models/scifi-megakit/platforms/door_darkmetal.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_platforms_door_frame_a",
+   "name": "SciFi Door Frame A (Platforms)",
+   "path": "/models/scifi-megakit/platforms/door_frame_a.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_platforms_door_frame_square",
+   "name": "SciFi Door Frame Square (Platforms)",
+   "path": "/models/scifi-megakit/platforms/door_frame_square.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_platforms_door_frame_squaretall",
+   "name": "SciFi Door Frame SquareTall (Platforms)",
+   "path": "/models/scifi-megakit/platforms/door_frame_squaretall.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_platforms_door_frame_square_blocked",
+   "name": "SciFi Door Frame Square Blocked (Platforms)",
+   "path": "/models/scifi-megakit/platforms/door_frame_square_blocked.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_platforms_door_metal",
+   "name": "SciFi Door Metal (Platforms)",
+   "path": "/models/scifi-megakit/platforms/door_metal.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_platforms_door_simple",
+   "name": "SciFi Door Simple (Platforms)",
+   "path": "/models/scifi-megakit/platforms/door_simple.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_platforms_platform_3plates",
+   "name": "SciFi Platform 3Plates (Platforms)",
+   "path": "/models/scifi-megakit/platforms/platform_3plates.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_platforms_platform_centerplate",
+   "name": "SciFi Platform CenterPlate (Platforms)",
+   "path": "/models/scifi-megakit/platforms/platform_centerplate.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_platforms_platform_centerplate_curve",
+   "name": "SciFi Platform CenterPlate Curve (Platforms)",
+   "path": "/models/scifi-megakit/platforms/platform_centerplate_curve.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_platforms_platform_darkplates",
+   "name": "SciFi Platform DarkPlates (Platforms)",
+   "path": "/models/scifi-megakit/platforms/platform_darkplates.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_platforms_platform_darkplates_curves",
+   "name": "SciFi Platform DarkPlates Curves (Platforms)",
+   "path": "/models/scifi-megakit/platforms/platform_darkplates_curves.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_platforms_platform_metal",
+   "name": "SciFi Platform Metal (Platforms)",
+   "path": "/models/scifi-megakit/platforms/platform_metal.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_platforms_platform_metal2",
+   "name": "SciFi Platform Metal2 (Platforms)",
+   "path": "/models/scifi-megakit/platforms/platform_metal2.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_platforms_platform_metal2_curve",
+   "name": "SciFi Platform Metal2 Curve (Platforms)",
+   "path": "/models/scifi-megakit/platforms/platform_metal2_curve.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_platforms_platform_metal_curve",
+   "name": "SciFi Platform Metal Curve (Platforms)",
+   "path": "/models/scifi-megakit/platforms/platform_metal_curve.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_platforms_platform_rails_2",
+   "name": "SciFi Platform Rails 2 (Platforms)",
+   "path": "/models/scifi-megakit/platforms/platform_rails_2.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_platforms_platform_rails_4",
+   "name": "SciFi Platform Rails 4 (Platforms)",
+   "path": "/models/scifi-megakit/platforms/platform_rails_4.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_platforms_platform_rails_4wide",
+   "name": "SciFi Platform Rails 4Wide (Platforms)",
+   "path": "/models/scifi-megakit/platforms/platform_rails_4wide.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_platforms_platform_rails_4widetall",
+   "name": "SciFi Platform Rails 4WideTall (Platforms)",
+   "path": "/models/scifi-megakit/platforms/platform_rails_4widetall.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_platforms_platform_ramp_2",
+   "name": "SciFi Platform Ramp 2 (Platforms)",
+   "path": "/models/scifi-megakit/platforms/platform_ramp_2.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_platforms_platform_ramp_2short",
+   "name": "SciFi Platform Ramp 2Short (Platforms)",
+   "path": "/models/scifi-megakit/platforms/platform_ramp_2short.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_platforms_platform_ramp_4",
+   "name": "SciFi Platform Ramp 4 (Platforms)",
+   "path": "/models/scifi-megakit/platforms/platform_ramp_4.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_platforms_platform_ramp_4wide",
+   "name": "SciFi Platform Ramp 4Wide (Platforms)",
+   "path": "/models/scifi-megakit/platforms/platform_ramp_4wide.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_platforms_platform_round1",
+   "name": "SciFi Platform Round1 (Platforms)",
+   "path": "/models/scifi-megakit/platforms/platform_round1.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_platforms_platform_simple",
+   "name": "SciFi Platform Simple (Platforms)",
+   "path": "/models/scifi-megakit/platforms/platform_simple.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_platforms_platform_simple2",
+   "name": "SciFi Platform Simple2 (Platforms)",
+   "path": "/models/scifi-megakit/platforms/platform_simple2.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_platforms_platform_simple2_curve",
+   "name": "SciFi Platform Simple2 Curve (Platforms)",
+   "path": "/models/scifi-megakit/platforms/platform_simple2_curve.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_platforms_platform_simple_curve",
+   "name": "SciFi Platform Simple Curve (Platforms)",
+   "path": "/models/scifi-megakit/platforms/platform_simple_curve.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_platforms_platform_squares",
+   "name": "SciFi Platform Squares (Platforms)",
+   "path": "/models/scifi-megakit/platforms/platform_squares.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_platforms_platform_squares_curve",
+   "name": "SciFi Platform Squares Curve (Platforms)",
+   "path": "/models/scifi-megakit/platforms/platform_squares_curve.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_platforms_platform_stairs_2",
+   "name": "SciFi Platform Stairs 2 (Platforms)",
+   "path": "/models/scifi-megakit/platforms/platform_stairs_2.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_platforms_platform_stairs_4",
+   "name": "SciFi Platform Stairs 4 (Platforms)",
+   "path": "/models/scifi-megakit/platforms/platform_stairs_4.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_platforms_platform_stairs_4wide",
+   "name": "SciFi Platform Stairs 4Wide (Platforms)",
+   "path": "/models/scifi-megakit/platforms/platform_stairs_4wide.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_platforms_platform_stairs_4widetall",
+   "name": "SciFi Platform Stairs 4WideTall (Platforms)",
+   "path": "/models/scifi-megakit/platforms/platform_stairs_4widetall.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_platforms_platform_window_thin",
+   "name": "SciFi Platform Window Thin (Platforms)",
+   "path": "/models/scifi-megakit/platforms/platform_window_thin.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_platforms_platform_window_wide",
+   "name": "SciFi Platform Window Wide (Platforms)",
+   "path": "/models/scifi-megakit/platforms/platform_window_wide.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_platforms_platform_x",
+   "name": "SciFi Platform X (Platforms)",
+   "path": "/models/scifi-megakit/platforms/platform_x.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_props_prop_accesspoint",
+   "name": "SciFi Prop AccessPoint (Props)",
+   "path": "/models/scifi-megakit/props/prop_accesspoint.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_props_prop_barrel_large",
+   "name": "SciFi Prop Barrel Large (Props)",
+   "path": "/models/scifi-megakit/props/prop_barrel_large.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_props_prop_cable_1",
+   "name": "SciFi Prop Cable 1 (Props)",
+   "path": "/models/scifi-megakit/props/prop_cable_1.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_props_prop_cable_3",
+   "name": "SciFi Prop Cable 3 (Props)",
+   "path": "/models/scifi-megakit/props/prop_cable_3.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_props_prop_chest",
+   "name": "SciFi Prop Chest (Props)",
+   "path": "/models/scifi-megakit/props/prop_chest.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_props_prop_clamp",
+   "name": "SciFi Prop Clamp (Props)",
+   "path": "/models/scifi-megakit/props/prop_clamp.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_props_prop_computer",
+   "name": "SciFi Prop Computer (Props)",
+   "path": "/models/scifi-megakit/props/prop_computer.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_props_prop_crate3",
+   "name": "SciFi Prop Crate3 (Props)",
+   "path": "/models/scifi-megakit/props/prop_crate3.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_props_prop_crate4",
+   "name": "SciFi Prop Crate4 (Props)",
+   "path": "/models/scifi-megakit/props/prop_crate4.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_props_prop_fan_small",
+   "name": "SciFi Prop Fan Small (Props)",
+   "path": "/models/scifi-megakit/props/prop_fan_small.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_props_prop_itemholder",
+   "name": "SciFi Prop ItemHolder (Props)",
+   "path": "/models/scifi-megakit/props/prop_itemholder.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_props_prop_light_corner",
+   "name": "SciFi Prop Light Corner (Props)",
+   "path": "/models/scifi-megakit/props/prop_light_corner.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_props_prop_light_floor",
+   "name": "SciFi Prop Light Floor (Props)",
+   "path": "/models/scifi-megakit/props/prop_light_floor.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_props_prop_light_small",
+   "name": "SciFi Prop Light Small (Props)",
+   "path": "/models/scifi-megakit/props/prop_light_small.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_props_prop_light_wide",
+   "name": "SciFi Prop Light Wide (Props)",
+   "path": "/models/scifi-megakit/props/prop_light_wide.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_props_prop_pipeholder",
+   "name": "SciFi Prop PipeHolder (Props)",
+   "path": "/models/scifi-megakit/props/prop_pipeholder.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_props_prop_rail_2",
+   "name": "SciFi Prop Rail 2 (Props)",
+   "path": "/models/scifi-megakit/props/prop_rail_2.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_props_prop_rail_3",
+   "name": "SciFi Prop Rail 3 (Props)",
+   "path": "/models/scifi-megakit/props/prop_rail_3.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_props_prop_rail_4",
+   "name": "SciFi Prop Rail 4 (Props)",
+   "path": "/models/scifi-megakit/props/prop_rail_4.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_props_prop_rail_incline_long_l",
+   "name": "SciFi Prop Rail Incline Long L (Props)",
+   "path": "/models/scifi-megakit/props/prop_rail_incline_long_l.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_props_prop_rail_incline_long_r",
+   "name": "SciFi Prop Rail Incline Long R (Props)",
+   "path": "/models/scifi-megakit/props/prop_rail_incline_long_r.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_props_prop_rail_incline_short_l",
+   "name": "SciFi Prop Rail Incline Short L (Props)",
+   "path": "/models/scifi-megakit/props/prop_rail_incline_short_l.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_props_prop_rail_incline_short_r",
+   "name": "SciFi Prop Rail Incline Short R (Props)",
+   "path": "/models/scifi-megakit/props/prop_rail_incline_short_r.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_props_prop_rail_round_big",
+   "name": "SciFi Prop Rail Round Big (Props)",
+   "path": "/models/scifi-megakit/props/prop_rail_round_big.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_props_prop_rail_round_small",
+   "name": "SciFi Prop Rail Round Small (Props)",
+   "path": "/models/scifi-megakit/props/prop_rail_round_small.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_props_prop_vent_big",
+   "name": "SciFi Prop Vent Big (Props)",
+   "path": "/models/scifi-megakit/props/prop_vent_big.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_props_prop_vent_small",
+   "name": "SciFi Prop Vent Small (Props)",
+   "path": "/models/scifi-megakit/props/prop_vent_small.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_props_prop_vent_wide",
+   "name": "SciFi Prop Vent Wide (Props)",
+   "path": "/models/scifi-megakit/props/prop_vent_wide.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_bottommetal_corner_round_inner",
+   "name": "SciFi BottomMetal Corner Round Inner (Walls)",
+   "path": "/models/scifi-megakit/walls/bottommetal_corner_round_inner.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_bottommetal_corner_round_outer",
+   "name": "SciFi BottomMetal Corner Round Outer (Walls)",
+   "path": "/models/scifi-megakit/walls/bottommetal_corner_round_outer.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_bottommetal_corner_square_inner",
+   "name": "SciFi BottomMetal Corner Square Inner (Walls)",
+   "path": "/models/scifi-megakit/walls/bottommetal_corner_square_inner.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_bottommetal_corner_square_outer_1",
+   "name": "SciFi BottomMetal Corner Square Outer 1 (Walls)",
+   "path": "/models/scifi-megakit/walls/bottommetal_corner_square_outer_1.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_bottommetal_corner_square_outer_2",
+   "name": "SciFi BottomMetal Corner Square Outer 2 (Walls)",
+   "path": "/models/scifi-megakit/walls/bottommetal_corner_square_outer_2.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_bottommetal_straight",
+   "name": "SciFi BottomMetal Straight (Walls)",
+   "path": "/models/scifi-megakit/walls/bottommetal_straight.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_bottomsimple_corner_round_inner",
+   "name": "SciFi BottomSimple Corner Round Inner (Walls)",
+   "path": "/models/scifi-megakit/walls/bottomsimple_corner_round_inner.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_bottomsimple_corner_round_outer",
+   "name": "SciFi BottomSimple Corner Round Outer (Walls)",
+   "path": "/models/scifi-megakit/walls/bottomsimple_corner_round_outer.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_bottomsimple_corner_square_inner",
+   "name": "SciFi BottomSimple Corner Square Inner (Walls)",
+   "path": "/models/scifi-megakit/walls/bottomsimple_corner_square_inner.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_bottomsimple_corner_square_outer_1",
+   "name": "SciFi BottomSimple Corner Square Outer 1 (Walls)",
+   "path": "/models/scifi-megakit/walls/bottomsimple_corner_square_outer_1.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_bottomsimple_corner_square_outer_2",
+   "name": "SciFi BottomSimple Corner Square Outer 2 (Walls)",
+   "path": "/models/scifi-megakit/walls/bottomsimple_corner_square_outer_2.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_bottomsimple_straight",
+   "name": "SciFi BottomSimple Straight (Walls)",
+   "path": "/models/scifi-megakit/walls/bottomsimple_straight.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_shortwall_accentstrip_corner_inner",
+   "name": "SciFi ShortWall AccentStrip Corner Inner (Walls)",
+   "path": "/models/scifi-megakit/walls/shortwall_accentstrip_corner_inner.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_shortwall_accentstrip_corner_outer",
+   "name": "SciFi ShortWall AccentStrip Corner Outer (Walls)",
+   "path": "/models/scifi-megakit/walls/shortwall_accentstrip_corner_outer.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_shortwall_accentstrip_straight",
+   "name": "SciFi ShortWall AccentStrip Straight (Walls)",
+   "path": "/models/scifi-megakit/walls/shortwall_accentstrip_straight.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_shortwall_band2_corner_inner",
+   "name": "SciFi ShortWall Band2 Corner Inner (Walls)",
+   "path": "/models/scifi-megakit/walls/shortwall_band2_corner_inner.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_shortwall_band2_corner_outer",
+   "name": "SciFi ShortWall Band2 Corner Outer (Walls)",
+   "path": "/models/scifi-megakit/walls/shortwall_band2_corner_outer.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_shortwall_band2_straight",
+   "name": "SciFi ShortWall Band2 Straight (Walls)",
+   "path": "/models/scifi-megakit/walls/shortwall_band2_straight.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_shortwall_darkmetal2_corner_inner",
+   "name": "SciFi ShortWall DarkMetal2 Corner Inner (Walls)",
+   "path": "/models/scifi-megakit/walls/shortwall_darkmetal2_corner_inner.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_shortwall_darkmetal2_corner_outer",
+   "name": "SciFi ShortWall DarkMetal2 Corner Outer (Walls)",
+   "path": "/models/scifi-megakit/walls/shortwall_darkmetal2_corner_outer.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_shortwall_darkmetal2_straight",
+   "name": "SciFi ShortWall DarkMetal2 Straight (Walls)",
+   "path": "/models/scifi-megakit/walls/shortwall_darkmetal2_straight.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_shortwall_darkplastic_corner_inner",
+   "name": "SciFi ShortWall DarkPlastic Corner Inner (Walls)",
+   "path": "/models/scifi-megakit/walls/shortwall_darkplastic_corner_inner.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_shortwall_darkplastic_corner_outer",
+   "name": "SciFi ShortWall DarkPlastic Corner Outer (Walls)",
+   "path": "/models/scifi-megakit/walls/shortwall_darkplastic_corner_outer.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_shortwall_darkplastic_straight",
+   "name": "SciFi ShortWall DarkPlastic Straight (Walls)",
+   "path": "/models/scifi-megakit/walls/shortwall_darkplastic_straight.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_shortwall_metal2_corner_inner",
+   "name": "SciFi ShortWall Metal2 Corner Inner (Walls)",
+   "path": "/models/scifi-megakit/walls/shortwall_metal2_corner_inner.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_shortwall_metal2_corner_outer",
+   "name": "SciFi ShortWall Metal2 Corner Outer (Walls)",
+   "path": "/models/scifi-megakit/walls/shortwall_metal2_corner_outer.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_shortwall_metal2_straight",
+   "name": "SciFi ShortWall Metal2 Straight (Walls)",
+   "path": "/models/scifi-megakit/walls/shortwall_metal2_straight.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_shortwall_metalplates_corner_inner",
+   "name": "SciFi ShortWall MetalPlates Corner Inner (Walls)",
+   "path": "/models/scifi-megakit/walls/shortwall_metalplates_corner_inner.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_shortwall_metalplates_corner_outer",
+   "name": "SciFi ShortWall MetalPlates Corner Outer (Walls)",
+   "path": "/models/scifi-megakit/walls/shortwall_metalplates_corner_outer.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_shortwall_metalplates_straight",
+   "name": "SciFi ShortWall MetalPlates Straight (Walls)",
+   "path": "/models/scifi-megakit/walls/shortwall_metalplates_straight.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_shortwall_simple1_corner_inner",
+   "name": "SciFi ShortWall Simple1 Corner Inner (Walls)",
+   "path": "/models/scifi-megakit/walls/shortwall_simple1_corner_inner.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_shortwall_simple1_corner_outer",
+   "name": "SciFi ShortWall Simple1 Corner Outer (Walls)",
+   "path": "/models/scifi-megakit/walls/shortwall_simple1_corner_outer.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_shortwall_simple1_straight",
+   "name": "SciFi ShortWall Simple1 Straight (Walls)",
+   "path": "/models/scifi-megakit/walls/shortwall_simple1_straight.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_shortwall_simple2_corner_inner",
+   "name": "SciFi ShortWall Simple2 Corner Inner (Walls)",
+   "path": "/models/scifi-megakit/walls/shortwall_simple2_corner_inner.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_shortwall_simple2_corner_outer",
+   "name": "SciFi ShortWall Simple2 Corner Outer (Walls)",
+   "path": "/models/scifi-megakit/walls/shortwall_simple2_corner_outer.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_shortwall_simple2_straight",
+   "name": "SciFi ShortWall Simple2 Straight (Walls)",
+   "path": "/models/scifi-megakit/walls/shortwall_simple2_straight.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_shortwall_triangles_corner_inner",
+   "name": "SciFi ShortWall Triangles Corner Inner (Walls)",
+   "path": "/models/scifi-megakit/walls/shortwall_triangles_corner_inner.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_shortwall_triangles_corner_outer",
+   "name": "SciFi ShortWall Triangles Corner Outer (Walls)",
+   "path": "/models/scifi-megakit/walls/shortwall_triangles_corner_outer.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_shortwall_triangles_straight",
+   "name": "SciFi ShortWall Triangles Straight (Walls)",
+   "path": "/models/scifi-megakit/walls/shortwall_triangles_straight.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_shortwall_whiteplate2_corner_inner",
+   "name": "SciFi ShortWall WhitePlate2 Corner Inner (Walls)",
+   "path": "/models/scifi-megakit/walls/shortwall_whiteplate2_corner_inner.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_shortwall_whiteplate2_corner_outer",
+   "name": "SciFi ShortWall WhitePlate2 Corner Outer (Walls)",
+   "path": "/models/scifi-megakit/walls/shortwall_whiteplate2_corner_outer.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_shortwall_whiteplate2_straight",
+   "name": "SciFi ShortWall WhitePlate2 Straight (Walls)",
+   "path": "/models/scifi-megakit/walls/shortwall_whiteplate2_straight.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_topastra_corner_round_inner",
+   "name": "SciFi TopAstra Corner Round Inner (Walls)",
+   "path": "/models/scifi-megakit/walls/topastra_corner_round_inner.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_topastra_curve_round_outer",
+   "name": "SciFi TopAstra Curve Round Outer (Walls)",
+   "path": "/models/scifi-megakit/walls/topastra_curve_round_outer.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_topastra_straight",
+   "name": "SciFi TopAstra Straight (Walls)",
+   "path": "/models/scifi-megakit/walls/topastra_straight.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_topcables_corner_round_inner",
+   "name": "SciFi TopCables Corner Round Inner (Walls)",
+   "path": "/models/scifi-megakit/walls/topcables_corner_round_inner.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_topcables_corner_round_outer",
+   "name": "SciFi TopCables Corner Round Outer (Walls)",
+   "path": "/models/scifi-megakit/walls/topcables_corner_round_outer.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_topcables_corner_square_inner",
+   "name": "SciFi TopCables Corner Square Inner (Walls)",
+   "path": "/models/scifi-megakit/walls/topcables_corner_square_inner.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_topcables_corner_square_outer",
+   "name": "SciFi TopCables Corner Square Outer (Walls)",
+   "path": "/models/scifi-megakit/walls/topcables_corner_square_outer.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_topcables_straight",
+   "name": "SciFi TopCables Straight (Walls)",
+   "path": "/models/scifi-megakit/walls/topcables_straight.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_topcables_straight_hanging",
+   "name": "SciFi TopCables Straight Hanging (Walls)",
+   "path": "/models/scifi-megakit/walls/topcables_straight_hanging.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_topplastic_corner_outer",
+   "name": "SciFi TopPlastic Corner Outer (Walls)",
+   "path": "/models/scifi-megakit/walls/topplastic_corner_outer.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_topplastic_corner_round_inner",
+   "name": "SciFi TopPlastic Corner Round Inner (Walls)",
+   "path": "/models/scifi-megakit/walls/topplastic_corner_round_inner.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_topplastic_corner_round_outer",
+   "name": "SciFi TopPlastic Corner Round Outer (Walls)",
+   "path": "/models/scifi-megakit/walls/topplastic_corner_round_outer.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_topplastic_straight",
+   "name": "SciFi TopPlastic Straight (Walls)",
+   "path": "/models/scifi-megakit/walls/topplastic_straight.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_topsimple_corner_round_inner",
+   "name": "SciFi TopSimple Corner Round Inner (Walls)",
+   "path": "/models/scifi-megakit/walls/topsimple_corner_round_inner.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_topsimple_corner_round_outer",
+   "name": "SciFi TopSimple Corner Round Outer (Walls)",
+   "path": "/models/scifi-megakit/walls/topsimple_corner_round_outer.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_topsimple_straight",
+   "name": "SciFi TopSimple Straight (Walls)",
+   "path": "/models/scifi-megakit/walls/topsimple_straight.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_topwindow_corner_curve_inner",
+   "name": "SciFi TopWindow Corner Curve Inner (Walls)",
+   "path": "/models/scifi-megakit/walls/topwindow_corner_curve_inner.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_topwindow_corner_curve_outer",
+   "name": "SciFi TopWindow Corner Curve Outer (Walls)",
+   "path": "/models/scifi-megakit/walls/topwindow_corner_curve_outer.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_topwindow_straight",
+   "name": "SciFi TopWindow Straight (Walls)",
+   "path": "/models/scifi-megakit/walls/topwindow_straight.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_wallastra_corner_round_inner",
+   "name": "SciFi WallAstra Corner Round Inner (Walls)",
+   "path": "/models/scifi-megakit/walls/wallastra_corner_round_inner.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_wallastra_corner_round_outer",
+   "name": "SciFi WallAstra Corner Round Outer (Walls)",
+   "path": "/models/scifi-megakit/walls/wallastra_corner_round_outer.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_wallastra_corner_square_inner",
+   "name": "SciFi WallAstra Corner Square Inner (Walls)",
+   "path": "/models/scifi-megakit/walls/wallastra_corner_square_inner.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_wallastra_corner_square_outer",
+   "name": "SciFi WallAstra Corner Square Outer (Walls)",
+   "path": "/models/scifi-megakit/walls/wallastra_corner_square_outer.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_wallastra_straight",
+   "name": "SciFi WallAstra Straight (Walls)",
+   "path": "/models/scifi-megakit/walls/wallastra_straight.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_wallastra_straight_broken",
+   "name": "SciFi WallAstra Straight Broken (Walls)",
+   "path": "/models/scifi-megakit/walls/wallastra_straight_broken.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_wallastra_straight_divided",
+   "name": "SciFi WallAstra Straight Divided (Walls)",
+   "path": "/models/scifi-megakit/walls/wallastra_straight_divided.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_wallastra_straight_flat",
+   "name": "SciFi WallAstra Straight Flat (Walls)",
+   "path": "/models/scifi-megakit/walls/wallastra_straight_flat.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_wallastra_straight_flat_window",
+   "name": "SciFi WallAstra Straight Flat Window (Walls)",
+   "path": "/models/scifi-megakit/walls/wallastra_straight_flat_window.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_wallastra_straight_window",
+   "name": "SciFi WallAstra Straight Window (Walls)",
+   "path": "/models/scifi-megakit/walls/wallastra_straight_window.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_wallband_corner_round_inner",
+   "name": "SciFi WallBand Corner Round Inner (Walls)",
+   "path": "/models/scifi-megakit/walls/wallband_corner_round_inner.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_wallband_corner_round_outer",
+   "name": "SciFi WallBand Corner Round Outer (Walls)",
+   "path": "/models/scifi-megakit/walls/wallband_corner_round_outer.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_wallband_corner_square_inner",
+   "name": "SciFi WallBand Corner Square Inner (Walls)",
+   "path": "/models/scifi-megakit/walls/wallband_corner_square_inner.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_wallband_corner_square_outer",
+   "name": "SciFi WallBand Corner Square Outer (Walls)",
+   "path": "/models/scifi-megakit/walls/wallband_corner_square_outer.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_wallband_straight",
+   "name": "SciFi WallBand Straight (Walls)",
+   "path": "/models/scifi-megakit/walls/wallband_straight.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_wallband_straight_broken",
+   "name": "SciFi WallBand Straight Broken (Walls)",
+   "path": "/models/scifi-megakit/walls/wallband_straight_broken.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_wallwindow_cap_a",
+   "name": "SciFi WallWindow Cap A (Walls)",
+   "path": "/models/scifi-megakit/walls/wallwindow_cap_a.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_wallwindow_cap_b",
+   "name": "SciFi WallWindow Cap B (Walls)",
+   "path": "/models/scifi-megakit/walls/wallwindow_cap_b.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_wallwindow_corner_round_inner",
+   "name": "SciFi WallWindow Corner Round Inner (Walls)",
+   "path": "/models/scifi-megakit/walls/wallwindow_corner_round_inner.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_wallwindow_corner_round_outer",
+   "name": "SciFi WallWindow Corner Round Outer (Walls)",
+   "path": "/models/scifi-megakit/walls/wallwindow_corner_round_outer.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_wallwindow_corner_square_inner",
+   "name": "SciFi WallWindow Corner Square Inner (Walls)",
+   "path": "/models/scifi-megakit/walls/wallwindow_corner_square_inner.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_wallwindow_corner_square_outer",
+   "name": "SciFi WallWindow Corner Square Outer (Walls)",
+   "path": "/models/scifi-megakit/walls/wallwindow_corner_square_outer.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "scifi-megakit_walls_wallwindow_straight",
+   "name": "SciFi WallWindow Straight (Walls)",
+   "path": "/models/scifi-megakit/walls/wallwindow_straight.gltf",
+   "category": "scifi-megakit",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_anvil",
+   "name": "Fantasy Anvil",
+   "path": "/models/fantasy-props/anvil.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_anvil_log",
+   "name": "Fantasy Anvil Log",
+   "path": "/models/fantasy-props/anvil_log.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_axe_bronze",
+   "name": "Fantasy Axe Bronze",
+   "path": "/models/fantasy-props/axe_bronze.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_bag",
+   "name": "Fantasy Bag",
+   "path": "/models/fantasy-props/bag.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_banner_1",
+   "name": "Fantasy Banner 1",
+   "path": "/models/fantasy-props/banner_1.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_banner_1_cloth",
+   "name": "Fantasy Banner 1 Cloth",
+   "path": "/models/fantasy-props/banner_1_cloth.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_banner_2",
+   "name": "Fantasy Banner 2",
+   "path": "/models/fantasy-props/banner_2.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_banner_2_cloth",
+   "name": "Fantasy Banner 2 Cloth",
+   "path": "/models/fantasy-props/banner_2_cloth.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_barrel",
+   "name": "Fantasy Barrel",
+   "path": "/models/fantasy-props/barrel.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_barrel_apples",
+   "name": "Fantasy Barrel Apples",
+   "path": "/models/fantasy-props/barrel_apples.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_barrel_holder",
+   "name": "Fantasy Barrel Holder",
+   "path": "/models/fantasy-props/barrel_holder.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_bed_twin1",
+   "name": "Fantasy Bed Twin1",
+   "path": "/models/fantasy-props/bed_twin1.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_bed_twin2",
+   "name": "Fantasy Bed Twin2",
+   "path": "/models/fantasy-props/bed_twin2.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_bench",
+   "name": "Fantasy Bench",
+   "path": "/models/fantasy-props/bench.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_bookcase_2",
+   "name": "Fantasy Bookcase 2",
+   "path": "/models/fantasy-props/bookcase_2.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_bookgroup_medium_1",
+   "name": "Fantasy BookGroup Medium 1",
+   "path": "/models/fantasy-props/bookgroup_medium_1.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_bookgroup_medium_2",
+   "name": "Fantasy BookGroup Medium 2",
+   "path": "/models/fantasy-props/bookgroup_medium_2.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_bookgroup_medium_3",
+   "name": "Fantasy BookGroup Medium 3",
+   "path": "/models/fantasy-props/bookgroup_medium_3.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_bookgroup_small_1",
+   "name": "Fantasy BookGroup Small 1",
+   "path": "/models/fantasy-props/bookgroup_small_1.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_bookgroup_small_2",
+   "name": "Fantasy BookGroup Small 2",
+   "path": "/models/fantasy-props/bookgroup_small_2.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_bookgroup_small_3",
+   "name": "Fantasy BookGroup Small 3",
+   "path": "/models/fantasy-props/bookgroup_small_3.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_bookstand",
+   "name": "Fantasy BookStand",
+   "path": "/models/fantasy-props/bookstand.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_book_5",
+   "name": "Fantasy Book 5",
+   "path": "/models/fantasy-props/book_5.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_book_7",
+   "name": "Fantasy Book 7",
+   "path": "/models/fantasy-props/book_7.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_book_simplified_single",
+   "name": "Fantasy Book Simplified Single",
+   "path": "/models/fantasy-props/book_simplified_single.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_book_stack_1",
+   "name": "Fantasy Book Stack 1",
+   "path": "/models/fantasy-props/book_stack_1.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_book_stack_2",
+   "name": "Fantasy Book Stack 2",
+   "path": "/models/fantasy-props/book_stack_2.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_bottle_1",
+   "name": "Fantasy Bottle 1",
+   "path": "/models/fantasy-props/bottle_1.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_bucket_metal",
+   "name": "Fantasy Bucket Metal",
+   "path": "/models/fantasy-props/bucket_metal.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_bucket_wooden_1",
+   "name": "Fantasy Bucket Wooden 1",
+   "path": "/models/fantasy-props/bucket_wooden_1.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_cabinet",
+   "name": "Fantasy Cabinet",
+   "path": "/models/fantasy-props/cabinet.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_cage_small",
+   "name": "Fantasy Cage Small",
+   "path": "/models/fantasy-props/cage_small.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_candlestick",
+   "name": "Fantasy CandleStick",
+   "path": "/models/fantasy-props/candlestick.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_candlestick_stand",
+   "name": "Fantasy CandleStick Stand",
+   "path": "/models/fantasy-props/candlestick_stand.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_candlestick_triple",
+   "name": "Fantasy CandleStick Triple",
+   "path": "/models/fantasy-props/candlestick_triple.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_candle_1",
+   "name": "Fantasy Candle 1",
+   "path": "/models/fantasy-props/candle_1.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_candle_2",
+   "name": "Fantasy Candle 2",
+   "path": "/models/fantasy-props/candle_2.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_carrot",
+   "name": "Fantasy Carrot",
+   "path": "/models/fantasy-props/carrot.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_cauldron",
+   "name": "Fantasy Cauldron",
+   "path": "/models/fantasy-props/cauldron.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_chain_coil",
+   "name": "Fantasy Chain Coil",
+   "path": "/models/fantasy-props/chain_coil.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_chair_1",
+   "name": "Fantasy Chair 1",
+   "path": "/models/fantasy-props/chair_1.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_chalice",
+   "name": "Fantasy Chalice",
+   "path": "/models/fantasy-props/chalice.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_chandelier",
+   "name": "Fantasy Chandelier",
+   "path": "/models/fantasy-props/chandelier.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_chest_wood",
+   "name": "Fantasy Chest Wood",
+   "path": "/models/fantasy-props/chest_wood.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_coin",
+   "name": "Fantasy Coin",
+   "path": "/models/fantasy-props/coin.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_coin_pile",
+   "name": "Fantasy Coin Pile",
+   "path": "/models/fantasy-props/coin_pile.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_coin_pile_2",
+   "name": "Fantasy Coin Pile 2",
+   "path": "/models/fantasy-props/coin_pile_2.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_crate_metal",
+   "name": "Fantasy Crate Metal",
+   "path": "/models/fantasy-props/crate_metal.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_crate_wooden",
+   "name": "Fantasy Crate Wooden",
+   "path": "/models/fantasy-props/crate_wooden.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_dummy",
+   "name": "Fantasy Dummy",
+   "path": "/models/fantasy-props/dummy.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_farmcrate_apple",
+   "name": "Fantasy FarmCrate Apple",
+   "path": "/models/fantasy-props/farmcrate_apple.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_farmcrate_carrot",
+   "name": "Fantasy FarmCrate Carrot",
+   "path": "/models/fantasy-props/farmcrate_carrot.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_farmcrate_empty",
+   "name": "Fantasy FarmCrate Empty",
+   "path": "/models/fantasy-props/farmcrate_empty.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_key_gold",
+   "name": "Fantasy Key Gold",
+   "path": "/models/fantasy-props/key_gold.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_key_metal",
+   "name": "Fantasy Key Metal",
+   "path": "/models/fantasy-props/key_metal.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_lantern_wall",
+   "name": "Fantasy Lantern Wall",
+   "path": "/models/fantasy-props/lantern_wall.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_mug",
+   "name": "Fantasy Mug",
+   "path": "/models/fantasy-props/mug.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_nightstand_shelf",
+   "name": "Fantasy Nightstand Shelf",
+   "path": "/models/fantasy-props/nightstand_shelf.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_peg_rack",
+   "name": "Fantasy Peg Rack",
+   "path": "/models/fantasy-props/peg_rack.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_pickaxe_bronze",
+   "name": "Fantasy Pickaxe Bronze",
+   "path": "/models/fantasy-props/pickaxe_bronze.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_potion_1",
+   "name": "Fantasy Potion 1",
+   "path": "/models/fantasy-props/potion_1.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_potion_2",
+   "name": "Fantasy Potion 2",
+   "path": "/models/fantasy-props/potion_2.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_potion_4",
+   "name": "Fantasy Potion 4",
+   "path": "/models/fantasy-props/potion_4.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_pot_1",
+   "name": "Fantasy Pot 1",
+   "path": "/models/fantasy-props/pot_1.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_pot_1_lid",
+   "name": "Fantasy Pot 1 Lid",
+   "path": "/models/fantasy-props/pot_1_lid.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_pouch_large",
+   "name": "Fantasy Pouch Large",
+   "path": "/models/fantasy-props/pouch_large.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_rope_1",
+   "name": "Fantasy Rope 1",
+   "path": "/models/fantasy-props/rope_1.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_rope_2",
+   "name": "Fantasy Rope 2",
+   "path": "/models/fantasy-props/rope_2.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_rope_3",
+   "name": "Fantasy Rope 3",
+   "path": "/models/fantasy-props/rope_3.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_scroll_1",
+   "name": "Fantasy Scroll 1",
+   "path": "/models/fantasy-props/scroll_1.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_scroll_2",
+   "name": "Fantasy Scroll 2",
+   "path": "/models/fantasy-props/scroll_2.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_shelf_arch",
+   "name": "Fantasy Shelf Arch",
+   "path": "/models/fantasy-props/shelf_arch.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_shelf_simple",
+   "name": "Fantasy Shelf Simple",
+   "path": "/models/fantasy-props/shelf_simple.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_shelf_small_bottles",
+   "name": "Fantasy Shelf Small Bottles",
+   "path": "/models/fantasy-props/shelf_small_bottles.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_shield_wooden",
+   "name": "Fantasy Shield Wooden",
+   "path": "/models/fantasy-props/shield_wooden.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_smallbottle",
+   "name": "Fantasy SmallBottle",
+   "path": "/models/fantasy-props/smallbottle.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_smallbottles_1",
+   "name": "Fantasy SmallBottles 1",
+   "path": "/models/fantasy-props/smallbottles_1.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_stall_cart_empty",
+   "name": "Fantasy Stall Cart Empty",
+   "path": "/models/fantasy-props/stall_cart_empty.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_stall_empty",
+   "name": "Fantasy Stall Empty",
+   "path": "/models/fantasy-props/stall_empty.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_stool",
+   "name": "Fantasy Stool",
+   "path": "/models/fantasy-props/stool.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_sword_bronze",
+   "name": "Fantasy Sword Bronze",
+   "path": "/models/fantasy-props/sword_bronze.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_table_fork",
+   "name": "Fantasy Table Fork",
+   "path": "/models/fantasy-props/table_fork.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_table_knife",
+   "name": "Fantasy Table Knife",
+   "path": "/models/fantasy-props/table_knife.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_table_large",
+   "name": "Fantasy Table Large",
+   "path": "/models/fantasy-props/table_large.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_table_plate",
+   "name": "Fantasy Table Plate",
+   "path": "/models/fantasy-props/table_plate.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_table_spoon",
+   "name": "Fantasy Table Spoon",
+   "path": "/models/fantasy-props/table_spoon.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_torch_metal",
+   "name": "Fantasy Torch Metal",
+   "path": "/models/fantasy-props/torch_metal.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_vase_2",
+   "name": "Fantasy Vase 2",
+   "path": "/models/fantasy-props/vase_2.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_vase_4",
+   "name": "Fantasy Vase 4",
+   "path": "/models/fantasy-props/vase_4.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_vase_rubble_medium",
+   "name": "Fantasy Vase Rubble Medium",
+   "path": "/models/fantasy-props/vase_rubble_medium.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_weaponstand",
+   "name": "Fantasy WeaponStand",
+   "path": "/models/fantasy-props/weaponstand.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_whetstone",
+   "name": "Fantasy Whetstone",
+   "path": "/models/fantasy-props/whetstone.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_workbench",
+   "name": "Fantasy Workbench",
+   "path": "/models/fantasy-props/workbench.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "fantasy-props_workbench_drawers",
+   "name": "Fantasy Workbench Drawers",
+   "path": "/models/fantasy-props/workbench_drawers.gltf",
+   "category": "fantasy-props",
+   "defaultScale": 1
+  },
+  {
+   "id": "stylized-nature_bush_common",
+   "name": "Nature Bush Common",
+   "path": "/models/stylized-nature/bush_common.gltf",
+   "category": "stylized-nature",
+   "defaultScale": 1
+  },
+  {
+   "id": "stylized-nature_bush_common_flowers",
+   "name": "Nature Bush Common Flowers",
+   "path": "/models/stylized-nature/bush_common_flowers.gltf",
+   "category": "stylized-nature",
+   "defaultScale": 1
+  },
+  {
+   "id": "stylized-nature_clover_1",
+   "name": "Nature Clover 1",
+   "path": "/models/stylized-nature/clover_1.gltf",
+   "category": "stylized-nature",
+   "defaultScale": 1
+  },
+  {
+   "id": "stylized-nature_clover_2",
+   "name": "Nature Clover 2",
+   "path": "/models/stylized-nature/clover_2.gltf",
+   "category": "stylized-nature",
+   "defaultScale": 1
+  },
+  {
+   "id": "stylized-nature_commontree_1",
+   "name": "Nature CommonTree 1",
+   "path": "/models/stylized-nature/commontree_1.gltf",
+   "category": "stylized-nature",
+   "defaultScale": 1
+  },
+  {
+   "id": "stylized-nature_commontree_2",
+   "name": "Nature CommonTree 2",
+   "path": "/models/stylized-nature/commontree_2.gltf",
+   "category": "stylized-nature",
+   "defaultScale": 1
+  },
+  {
+   "id": "stylized-nature_commontree_3",
+   "name": "Nature CommonTree 3",
+   "path": "/models/stylized-nature/commontree_3.gltf",
+   "category": "stylized-nature",
+   "defaultScale": 1
+  },
+  {
+   "id": "stylized-nature_commontree_4",
+   "name": "Nature CommonTree 4",
+   "path": "/models/stylized-nature/commontree_4.gltf",
+   "category": "stylized-nature",
+   "defaultScale": 1
+  },
+  {
+   "id": "stylized-nature_commontree_5",
+   "name": "Nature CommonTree 5",
+   "path": "/models/stylized-nature/commontree_5.gltf",
+   "category": "stylized-nature",
+   "defaultScale": 1
+  },
+  {
+   "id": "stylized-nature_deadtree_1",
+   "name": "Nature DeadTree 1",
+   "path": "/models/stylized-nature/deadtree_1.gltf",
+   "category": "stylized-nature",
+   "defaultScale": 1
+  },
+  {
+   "id": "stylized-nature_deadtree_2",
+   "name": "Nature DeadTree 2",
+   "path": "/models/stylized-nature/deadtree_2.gltf",
+   "category": "stylized-nature",
+   "defaultScale": 1
+  },
+  {
+   "id": "stylized-nature_deadtree_3",
+   "name": "Nature DeadTree 3",
+   "path": "/models/stylized-nature/deadtree_3.gltf",
+   "category": "stylized-nature",
+   "defaultScale": 1
+  },
+  {
+   "id": "stylized-nature_deadtree_4",
+   "name": "Nature DeadTree 4",
+   "path": "/models/stylized-nature/deadtree_4.gltf",
+   "category": "stylized-nature",
+   "defaultScale": 1
+  },
+  {
+   "id": "stylized-nature_deadtree_5",
+   "name": "Nature DeadTree 5",
+   "path": "/models/stylized-nature/deadtree_5.gltf",
+   "category": "stylized-nature",
+   "defaultScale": 1
+  },
   {
    "id": "stylized-nature_fern_1",
    "name": "Nature Fern 1",
    "path": "/models/stylized-nature/fern_1.gltf",
+   "category": "stylized-nature",
+   "defaultScale": 1
+  },
+  {
+   "id": "stylized-nature_flower_3_group",
+   "name": "Nature Flower 3 Group",
+   "path": "/models/stylized-nature/flower_3_group.gltf",
+   "category": "stylized-nature",
+   "defaultScale": 1
+  },
+  {
+   "id": "stylized-nature_flower_3_single",
+   "name": "Nature Flower 3 Single",
+   "path": "/models/stylized-nature/flower_3_single.gltf",
+   "category": "stylized-nature",
+   "defaultScale": 1
+  },
+  {
+   "id": "stylized-nature_flower_4_group",
+   "name": "Nature Flower 4 Group",
+   "path": "/models/stylized-nature/flower_4_group.gltf",
+   "category": "stylized-nature",
+   "defaultScale": 1
+  },
+  {
+   "id": "stylized-nature_flower_4_single",
+   "name": "Nature Flower 4 Single",
+   "path": "/models/stylized-nature/flower_4_single.gltf",
    "category": "stylized-nature",
    "defaultScale": 1
   },
@@ -618,6 +2410,5386 @@
    "path": "/models/stylized-nature/grass_wispy_tall.gltf",
    "category": "stylized-nature",
    "defaultScale": 1
+  },
+  {
+   "id": "stylized-nature_mushroom_common",
+   "name": "Nature Mushroom Common",
+   "path": "/models/stylized-nature/mushroom_common.gltf",
+   "category": "stylized-nature",
+   "defaultScale": 1
+  },
+  {
+   "id": "stylized-nature_mushroom_laetiporus",
+   "name": "Nature Mushroom Laetiporus",
+   "path": "/models/stylized-nature/mushroom_laetiporus.gltf",
+   "category": "stylized-nature",
+   "defaultScale": 1
+  },
+  {
+   "id": "stylized-nature_pebble_round_1",
+   "name": "Nature Pebble Round 1",
+   "path": "/models/stylized-nature/pebble_round_1.gltf",
+   "category": "stylized-nature",
+   "defaultScale": 1
+  },
+  {
+   "id": "stylized-nature_pebble_round_2",
+   "name": "Nature Pebble Round 2",
+   "path": "/models/stylized-nature/pebble_round_2.gltf",
+   "category": "stylized-nature",
+   "defaultScale": 1
+  },
+  {
+   "id": "stylized-nature_pebble_round_3",
+   "name": "Nature Pebble Round 3",
+   "path": "/models/stylized-nature/pebble_round_3.gltf",
+   "category": "stylized-nature",
+   "defaultScale": 1
+  },
+  {
+   "id": "stylized-nature_pebble_round_4",
+   "name": "Nature Pebble Round 4",
+   "path": "/models/stylized-nature/pebble_round_4.gltf",
+   "category": "stylized-nature",
+   "defaultScale": 1
+  },
+  {
+   "id": "stylized-nature_pebble_round_5",
+   "name": "Nature Pebble Round 5",
+   "path": "/models/stylized-nature/pebble_round_5.gltf",
+   "category": "stylized-nature",
+   "defaultScale": 1
+  },
+  {
+   "id": "stylized-nature_pebble_square_1",
+   "name": "Nature Pebble Square 1",
+   "path": "/models/stylized-nature/pebble_square_1.gltf",
+   "category": "stylized-nature",
+   "defaultScale": 1
+  },
+  {
+   "id": "stylized-nature_pebble_square_2",
+   "name": "Nature Pebble Square 2",
+   "path": "/models/stylized-nature/pebble_square_2.gltf",
+   "category": "stylized-nature",
+   "defaultScale": 1
+  },
+  {
+   "id": "stylized-nature_pebble_square_3",
+   "name": "Nature Pebble Square 3",
+   "path": "/models/stylized-nature/pebble_square_3.gltf",
+   "category": "stylized-nature",
+   "defaultScale": 1
+  },
+  {
+   "id": "stylized-nature_pebble_square_4",
+   "name": "Nature Pebble Square 4",
+   "path": "/models/stylized-nature/pebble_square_4.gltf",
+   "category": "stylized-nature",
+   "defaultScale": 1
+  },
+  {
+   "id": "stylized-nature_pebble_square_5",
+   "name": "Nature Pebble Square 5",
+   "path": "/models/stylized-nature/pebble_square_5.gltf",
+   "category": "stylized-nature",
+   "defaultScale": 1
+  },
+  {
+   "id": "stylized-nature_pebble_square_6",
+   "name": "Nature Pebble Square 6",
+   "path": "/models/stylized-nature/pebble_square_6.gltf",
+   "category": "stylized-nature",
+   "defaultScale": 1
+  },
+  {
+   "id": "stylized-nature_petal_1",
+   "name": "Nature Petal 1",
+   "path": "/models/stylized-nature/petal_1.gltf",
+   "category": "stylized-nature",
+   "defaultScale": 1
+  },
+  {
+   "id": "stylized-nature_petal_2",
+   "name": "Nature Petal 2",
+   "path": "/models/stylized-nature/petal_2.gltf",
+   "category": "stylized-nature",
+   "defaultScale": 1
+  },
+  {
+   "id": "stylized-nature_petal_3",
+   "name": "Nature Petal 3",
+   "path": "/models/stylized-nature/petal_3.gltf",
+   "category": "stylized-nature",
+   "defaultScale": 1
+  },
+  {
+   "id": "stylized-nature_petal_4",
+   "name": "Nature Petal 4",
+   "path": "/models/stylized-nature/petal_4.gltf",
+   "category": "stylized-nature",
+   "defaultScale": 1
+  },
+  {
+   "id": "stylized-nature_petal_5",
+   "name": "Nature Petal 5",
+   "path": "/models/stylized-nature/petal_5.gltf",
+   "category": "stylized-nature",
+   "defaultScale": 1
+  },
+  {
+   "id": "stylized-nature_pine_1",
+   "name": "Nature Pine 1",
+   "path": "/models/stylized-nature/pine_1.gltf",
+   "category": "stylized-nature",
+   "defaultScale": 1
+  },
+  {
+   "id": "stylized-nature_pine_2",
+   "name": "Nature Pine 2",
+   "path": "/models/stylized-nature/pine_2.gltf",
+   "category": "stylized-nature",
+   "defaultScale": 1
+  },
+  {
+   "id": "stylized-nature_pine_3",
+   "name": "Nature Pine 3",
+   "path": "/models/stylized-nature/pine_3.gltf",
+   "category": "stylized-nature",
+   "defaultScale": 1
+  },
+  {
+   "id": "stylized-nature_pine_4",
+   "name": "Nature Pine 4",
+   "path": "/models/stylized-nature/pine_4.gltf",
+   "category": "stylized-nature",
+   "defaultScale": 1
+  },
+  {
+   "id": "stylized-nature_pine_5",
+   "name": "Nature Pine 5",
+   "path": "/models/stylized-nature/pine_5.gltf",
+   "category": "stylized-nature",
+   "defaultScale": 1
+  },
+  {
+   "id": "stylized-nature_plant_1",
+   "name": "Nature Plant 1",
+   "path": "/models/stylized-nature/plant_1.gltf",
+   "category": "stylized-nature",
+   "defaultScale": 1
+  },
+  {
+   "id": "stylized-nature_plant_1_big",
+   "name": "Nature Plant 1 Big",
+   "path": "/models/stylized-nature/plant_1_big.gltf",
+   "category": "stylized-nature",
+   "defaultScale": 1
+  },
+  {
+   "id": "stylized-nature_plant_7",
+   "name": "Nature Plant 7",
+   "path": "/models/stylized-nature/plant_7.gltf",
+   "category": "stylized-nature",
+   "defaultScale": 1
+  },
+  {
+   "id": "stylized-nature_plant_7_big",
+   "name": "Nature Plant 7 Big",
+   "path": "/models/stylized-nature/plant_7_big.gltf",
+   "category": "stylized-nature",
+   "defaultScale": 1
+  },
+  {
+   "id": "stylized-nature_rockpath_round_small_1",
+   "name": "Nature RockPath Round Small 1",
+   "path": "/models/stylized-nature/rockpath_round_small_1.gltf",
+   "category": "stylized-nature",
+   "defaultScale": 1
+  },
+  {
+   "id": "stylized-nature_rockpath_round_small_2",
+   "name": "Nature RockPath Round Small 2",
+   "path": "/models/stylized-nature/rockpath_round_small_2.gltf",
+   "category": "stylized-nature",
+   "defaultScale": 1
+  },
+  {
+   "id": "stylized-nature_rockpath_round_small_3",
+   "name": "Nature RockPath Round Small 3",
+   "path": "/models/stylized-nature/rockpath_round_small_3.gltf",
+   "category": "stylized-nature",
+   "defaultScale": 1
+  },
+  {
+   "id": "stylized-nature_rockpath_round_thin",
+   "name": "Nature RockPath Round Thin",
+   "path": "/models/stylized-nature/rockpath_round_thin.gltf",
+   "category": "stylized-nature",
+   "defaultScale": 1
+  },
+  {
+   "id": "stylized-nature_rockpath_round_wide",
+   "name": "Nature RockPath Round Wide",
+   "path": "/models/stylized-nature/rockpath_round_wide.gltf",
+   "category": "stylized-nature",
+   "defaultScale": 1
+  },
+  {
+   "id": "stylized-nature_rockpath_square_small_1",
+   "name": "Nature RockPath Square Small 1",
+   "path": "/models/stylized-nature/rockpath_square_small_1.gltf",
+   "category": "stylized-nature",
+   "defaultScale": 1
+  },
+  {
+   "id": "stylized-nature_rockpath_square_small_2",
+   "name": "Nature RockPath Square Small 2",
+   "path": "/models/stylized-nature/rockpath_square_small_2.gltf",
+   "category": "stylized-nature",
+   "defaultScale": 1
+  },
+  {
+   "id": "stylized-nature_rockpath_square_small_3",
+   "name": "Nature RockPath Square Small 3",
+   "path": "/models/stylized-nature/rockpath_square_small_3.gltf",
+   "category": "stylized-nature",
+   "defaultScale": 1
+  },
+  {
+   "id": "stylized-nature_rockpath_square_thin",
+   "name": "Nature RockPath Square Thin",
+   "path": "/models/stylized-nature/rockpath_square_thin.gltf",
+   "category": "stylized-nature",
+   "defaultScale": 1
+  },
+  {
+   "id": "stylized-nature_rockpath_square_wide",
+   "name": "Nature RockPath Square Wide",
+   "path": "/models/stylized-nature/rockpath_square_wide.gltf",
+   "category": "stylized-nature",
+   "defaultScale": 1
+  },
+  {
+   "id": "stylized-nature_rock_medium_1",
+   "name": "Nature Rock Medium 1",
+   "path": "/models/stylized-nature/rock_medium_1.gltf",
+   "category": "stylized-nature",
+   "defaultScale": 1
+  },
+  {
+   "id": "stylized-nature_rock_medium_2",
+   "name": "Nature Rock Medium 2",
+   "path": "/models/stylized-nature/rock_medium_2.gltf",
+   "category": "stylized-nature",
+   "defaultScale": 1
+  },
+  {
+   "id": "stylized-nature_rock_medium_3",
+   "name": "Nature Rock Medium 3",
+   "path": "/models/stylized-nature/rock_medium_3.gltf",
+   "category": "stylized-nature",
+   "defaultScale": 1
+  },
+  {
+   "id": "stylized-nature_twistedtree_1",
+   "name": "Nature TwistedTree 1",
+   "path": "/models/stylized-nature/twistedtree_1.gltf",
+   "category": "stylized-nature",
+   "defaultScale": 1
+  },
+  {
+   "id": "stylized-nature_twistedtree_2",
+   "name": "Nature TwistedTree 2",
+   "path": "/models/stylized-nature/twistedtree_2.gltf",
+   "category": "stylized-nature",
+   "defaultScale": 1
+  },
+  {
+   "id": "stylized-nature_twistedtree_3",
+   "name": "Nature TwistedTree 3",
+   "path": "/models/stylized-nature/twistedtree_3.gltf",
+   "category": "stylized-nature",
+   "defaultScale": 1
+  },
+  {
+   "id": "stylized-nature_twistedtree_4",
+   "name": "Nature TwistedTree 4",
+   "path": "/models/stylized-nature/twistedtree_4.gltf",
+   "category": "stylized-nature",
+   "defaultScale": 1
+  },
+  {
+   "id": "stylized-nature_twistedtree_5",
+   "name": "Nature TwistedTree 5",
+   "path": "/models/stylized-nature/twistedtree_5.gltf",
+   "category": "stylized-nature",
+   "defaultScale": 1
+  },
+  {
+   "id": "qmv_balcony_cross_corner",
+   "name": "Balcony Cross Corner",
+   "path": "/models/quaternius-medieval-village/Balcony_Cross_Corner.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "balcony",
+    "corner",
+    "cross",
+    "edge",
+    "medieval",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_balcony_cross_straight",
+   "name": "Balcony Cross Straight",
+   "path": "/models/quaternius-medieval-village/Balcony_Cross_Straight.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "balcony",
+    "cross",
+    "medieval",
+    "straight",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_balcony_simple_corner",
+   "name": "Balcony Simple Corner",
+   "path": "/models/quaternius-medieval-village/Balcony_Simple_Corner.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "balcony",
+    "corner",
+    "edge",
+    "medieval",
+    "simple",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_corner_exteriorwide_brick",
+   "name": "Corner Exterior Wide Brick",
+   "path": "/models/quaternius-medieval-village/Corner_ExteriorWide_Brick.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "brick",
+    "corner",
+    "edge",
+    "exterior",
+    "masonry",
+    "medieval",
+    "stone",
+    "village",
+    "wide"
+   ]
+  },
+  {
+   "id": "qmv_corner_exteriorwide_wood",
+   "name": "Corner Exterior Wide Wood",
+   "path": "/models/quaternius-medieval-village/Corner_ExteriorWide_Wood.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "corner",
+    "edge",
+    "exterior",
+    "medieval",
+    "plank",
+    "timber",
+    "village",
+    "wide",
+    "wood"
+   ]
+  },
+  {
+   "id": "qmv_corner_exterior_brick",
+   "name": "Corner Exterior Brick",
+   "path": "/models/quaternius-medieval-village/Corner_Exterior_Brick.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "brick",
+    "corner",
+    "edge",
+    "exterior",
+    "masonry",
+    "medieval",
+    "stone",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_corner_exterior_topdown",
+   "name": "Corner Exterior Top Down",
+   "path": "/models/quaternius-medieval-village/Corner_Exterior_TopDown.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "corner",
+    "down",
+    "edge",
+    "exterior",
+    "medieval",
+    "top",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_corner_exterior_toponly",
+   "name": "Corner Exterior Top Only",
+   "path": "/models/quaternius-medieval-village/Corner_Exterior_TopOnly.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "corner",
+    "edge",
+    "exterior",
+    "medieval",
+    "only",
+    "top",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_corner_exterior_wood",
+   "name": "Corner Exterior Wood",
+   "path": "/models/quaternius-medieval-village/Corner_Exterior_Wood.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "corner",
+    "edge",
+    "exterior",
+    "medieval",
+    "plank",
+    "timber",
+    "village",
+    "wood"
+   ]
+  },
+  {
+   "id": "qmv_corner_interior_big",
+   "name": "Corner Interior Big",
+   "path": "/models/quaternius-medieval-village/Corner_Interior_Big.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "big",
+    "corner",
+    "edge",
+    "interior",
+    "medieval",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_corner_interior_small",
+   "name": "Corner Interior Small",
+   "path": "/models/quaternius-medieval-village/Corner_Interior_Small.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "corner",
+    "edge",
+    "interior",
+    "medieval",
+    "small",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_doorframe_flat_brick",
+   "name": "Door Frame Flat Brick",
+   "path": "/models/quaternius-medieval-village/DoorFrame_Flat_Brick.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "brick",
+    "door",
+    "entry",
+    "flat",
+    "frame",
+    "masonry",
+    "medieval",
+    "portal",
+    "stone",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_doorframe_flat_wooddark",
+   "name": "Door Frame Flat Wood Dark",
+   "path": "/models/quaternius-medieval-village/DoorFrame_Flat_WoodDark.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "dark",
+    "door",
+    "entry",
+    "flat",
+    "frame",
+    "medieval",
+    "plank",
+    "portal",
+    "timber",
+    "village",
+    "wood"
+   ]
+  },
+  {
+   "id": "qmv_doorframe_round_brick",
+   "name": "Door Frame Round Brick",
+   "path": "/models/quaternius-medieval-village/DoorFrame_Round_Brick.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "brick",
+    "door",
+    "entry",
+    "frame",
+    "masonry",
+    "medieval",
+    "portal",
+    "round",
+    "stone",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_doorframe_round_wooddark",
+   "name": "Door Frame Round Wood Dark",
+   "path": "/models/quaternius-medieval-village/DoorFrame_Round_WoodDark.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "dark",
+    "door",
+    "entry",
+    "frame",
+    "medieval",
+    "plank",
+    "portal",
+    "round",
+    "timber",
+    "village",
+    "wood"
+   ]
+  },
+  {
+   "id": "qmv_door_1_flat",
+   "name": "Door 1 Flat",
+   "path": "/models/quaternius-medieval-village/Door_1_Flat.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "door",
+    "entry",
+    "flat",
+    "medieval",
+    "portal",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_door_1_round",
+   "name": "Door 1 Round",
+   "path": "/models/quaternius-medieval-village/Door_1_Round.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "door",
+    "entry",
+    "medieval",
+    "portal",
+    "round",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_door_2_flat",
+   "name": "Door 2 Flat",
+   "path": "/models/quaternius-medieval-village/Door_2_Flat.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "door",
+    "entry",
+    "flat",
+    "medieval",
+    "portal",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_door_4_flat",
+   "name": "Door 4 Flat",
+   "path": "/models/quaternius-medieval-village/Door_4_Flat.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "door",
+    "entry",
+    "flat",
+    "medieval",
+    "portal",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_door_4_round",
+   "name": "Door 4 Round",
+   "path": "/models/quaternius-medieval-village/Door_4_Round.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "door",
+    "entry",
+    "medieval",
+    "portal",
+    "round",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_door_8_flat",
+   "name": "Door 8 Flat",
+   "path": "/models/quaternius-medieval-village/Door_8_Flat.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "door",
+    "entry",
+    "flat",
+    "medieval",
+    "portal",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_door_8_round",
+   "name": "Door 8 Round",
+   "path": "/models/quaternius-medieval-village/Door_8_Round.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "door",
+    "entry",
+    "medieval",
+    "portal",
+    "round",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_floor_brick",
+   "name": "Floor Brick",
+   "path": "/models/quaternius-medieval-village/Floor_Brick.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "brick",
+    "floor",
+    "ground",
+    "masonry",
+    "medieval",
+    "stone",
+    "tile",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_floor_redbrick",
+   "name": "Floor Red Brick",
+   "path": "/models/quaternius-medieval-village/Floor_RedBrick.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "brick",
+    "floor",
+    "ground",
+    "masonry",
+    "medieval",
+    "red",
+    "stone",
+    "tile",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_floor_unevenbrick",
+   "name": "Floor Uneven Brick",
+   "path": "/models/quaternius-medieval-village/Floor_UnevenBrick.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "brick",
+    "floor",
+    "ground",
+    "masonry",
+    "medieval",
+    "stone",
+    "tile",
+    "uneven",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_floor_wooddark",
+   "name": "Floor Wood Dark",
+   "path": "/models/quaternius-medieval-village/Floor_WoodDark.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "dark",
+    "floor",
+    "ground",
+    "medieval",
+    "plank",
+    "tile",
+    "timber",
+    "village",
+    "wood"
+   ]
+  },
+  {
+   "id": "qmv_floor_wooddark_half1",
+   "name": "Floor Wood Dark Half1",
+   "path": "/models/quaternius-medieval-village/Floor_WoodDark_Half1.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "dark",
+    "floor",
+    "ground",
+    "half1",
+    "medieval",
+    "plank",
+    "tile",
+    "timber",
+    "village",
+    "wood"
+   ]
+  },
+  {
+   "id": "qmv_floor_wooddark_half2",
+   "name": "Floor Wood Dark Half2",
+   "path": "/models/quaternius-medieval-village/Floor_WoodDark_Half2.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "dark",
+    "floor",
+    "ground",
+    "half2",
+    "medieval",
+    "plank",
+    "tile",
+    "timber",
+    "village",
+    "wood"
+   ]
+  },
+  {
+   "id": "qmv_floor_wooddark_half3",
+   "name": "Floor Wood Dark Half3",
+   "path": "/models/quaternius-medieval-village/Floor_WoodDark_Half3.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "dark",
+    "floor",
+    "ground",
+    "half3",
+    "medieval",
+    "plank",
+    "tile",
+    "timber",
+    "village",
+    "wood"
+   ]
+  },
+  {
+   "id": "qmv_floor_wooddark_overhangcorner",
+   "name": "Floor Wood Dark Overhang Corner",
+   "path": "/models/quaternius-medieval-village/Floor_WoodDark_OverhangCorner.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "corner",
+    "dark",
+    "edge",
+    "floor",
+    "ground",
+    "medieval",
+    "overhang",
+    "plank",
+    "tile",
+    "timber",
+    "village",
+    "wood"
+   ]
+  },
+  {
+   "id": "qmv_floor_wooddark_overhangcorner2",
+   "name": "Floor Wood Dark Overhang Corner2",
+   "path": "/models/quaternius-medieval-village/Floor_WoodDark_OverhangCorner2.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "corner2",
+    "dark",
+    "floor",
+    "ground",
+    "medieval",
+    "overhang",
+    "plank",
+    "tile",
+    "timber",
+    "village",
+    "wood"
+   ]
+  },
+  {
+   "id": "qmv_floor_woodlight",
+   "name": "Floor Wood Light",
+   "path": "/models/quaternius-medieval-village/Floor_WoodLight.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "floor",
+    "ground",
+    "lamp",
+    "light",
+    "lighting",
+    "medieval",
+    "plank",
+    "tile",
+    "timber",
+    "village",
+    "wood"
+   ]
+  },
+  {
+   "id": "qmv_floor_woodlight_overhangcorner",
+   "name": "Floor Wood Light Overhang Corner",
+   "path": "/models/quaternius-medieval-village/Floor_WoodLight_OverhangCorner.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "corner",
+    "edge",
+    "floor",
+    "ground",
+    "lamp",
+    "light",
+    "lighting",
+    "medieval",
+    "overhang",
+    "plank",
+    "tile",
+    "timber",
+    "village",
+    "wood"
+   ]
+  },
+  {
+   "id": "qmv_floor_woodlight_overhangcorner2",
+   "name": "Floor Wood Light Overhang Corner2",
+   "path": "/models/quaternius-medieval-village/Floor_WoodLight_OverhangCorner2.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "corner2",
+    "floor",
+    "ground",
+    "lamp",
+    "light",
+    "lighting",
+    "medieval",
+    "overhang",
+    "plank",
+    "tile",
+    "timber",
+    "village",
+    "wood"
+   ]
+  },
+  {
+   "id": "qmv_holecover_90angle",
+   "name": "Hole Cover 90Angle",
+   "path": "/models/quaternius-medieval-village/HoleCover_90Angle.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "90angle",
+    "cover",
+    "hole",
+    "medieval",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_holecover_90half",
+   "name": "Hole Cover 90Half",
+   "path": "/models/quaternius-medieval-village/HoleCover_90Half.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "90half",
+    "cover",
+    "hole",
+    "medieval",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_holecover_90stairs",
+   "name": "Hole Cover 90Stairs",
+   "path": "/models/quaternius-medieval-village/HoleCover_90Stairs.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "90stairs",
+    "cover",
+    "hole",
+    "medieval",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_holecover_straight",
+   "name": "Hole Cover Straight",
+   "path": "/models/quaternius-medieval-village/HoleCover_Straight.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "cover",
+    "hole",
+    "medieval",
+    "straight",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_holecover_straighthalf",
+   "name": "Hole Cover Straight Half",
+   "path": "/models/quaternius-medieval-village/HoleCover_StraightHalf.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "cover",
+    "half",
+    "hole",
+    "medieval",
+    "straight",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_overhang_plaster_corner",
+   "name": "Overhang Plaster Corner",
+   "path": "/models/quaternius-medieval-village/Overhang_Plaster_Corner.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "corner",
+    "edge",
+    "medieval",
+    "overhang",
+    "plaster",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_overhang_plaster_corner_front",
+   "name": "Overhang Plaster Corner Front",
+   "path": "/models/quaternius-medieval-village/Overhang_Plaster_Corner_Front.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "corner",
+    "edge",
+    "front",
+    "medieval",
+    "overhang",
+    "plaster",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_overhang_plaster_long",
+   "name": "Overhang Plaster Long",
+   "path": "/models/quaternius-medieval-village/Overhang_Plaster_Long.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "long",
+    "medieval",
+    "overhang",
+    "plaster",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_overhang_plaster_short",
+   "name": "Overhang Plaster Short",
+   "path": "/models/quaternius-medieval-village/Overhang_Plaster_Short.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "medieval",
+    "overhang",
+    "plaster",
+    "short",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_overhang_roofincline_plaster",
+   "name": "Overhang Roof Incline Plaster",
+   "path": "/models/quaternius-medieval-village/Overhang_RoofIncline_Plaster.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "incline",
+    "medieval",
+    "overhang",
+    "plaster",
+    "roof",
+    "rooftop",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_overhang_roofincline_unevenbricks",
+   "name": "Overhang Roof Incline Uneven Bricks",
+   "path": "/models/quaternius-medieval-village/Overhang_RoofIncline_UnevenBricks.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "bricks",
+    "incline",
+    "medieval",
+    "overhang",
+    "roof",
+    "rooftop",
+    "uneven",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_overhang_roof_plaster",
+   "name": "Overhang Roof Plaster",
+   "path": "/models/quaternius-medieval-village/Overhang_Roof_Plaster.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "medieval",
+    "overhang",
+    "plaster",
+    "roof",
+    "rooftop",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_overhang_roof_unevenbricks",
+   "name": "Overhang Roof Uneven Bricks",
+   "path": "/models/quaternius-medieval-village/Overhang_Roof_UnevenBricks.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "bricks",
+    "medieval",
+    "overhang",
+    "roof",
+    "rooftop",
+    "uneven",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_overhang_side_plaster_long_l",
+   "name": "Overhang Side Plaster Long L",
+   "path": "/models/quaternius-medieval-village/Overhang_Side_Plaster_Long_L.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "long",
+    "medieval",
+    "overhang",
+    "plaster",
+    "side",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_overhang_side_plaster_long_r",
+   "name": "Overhang Side Plaster Long R",
+   "path": "/models/quaternius-medieval-village/Overhang_Side_Plaster_Long_R.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "long",
+    "medieval",
+    "overhang",
+    "plaster",
+    "side",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_overhang_side_plaster_short_l",
+   "name": "Overhang Side Plaster Short L",
+   "path": "/models/quaternius-medieval-village/Overhang_Side_Plaster_Short_L.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "medieval",
+    "overhang",
+    "plaster",
+    "short",
+    "side",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_overhang_side_plaster_short_r",
+   "name": "Overhang Side Plaster Short R",
+   "path": "/models/quaternius-medieval-village/Overhang_Side_Plaster_Short_R.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "medieval",
+    "overhang",
+    "plaster",
+    "short",
+    "side",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_overhang_side_unevenbrick_long_l",
+   "name": "Overhang Side Uneven Brick Long L",
+   "path": "/models/quaternius-medieval-village/Overhang_Side_UnevenBrick_Long_L.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "brick",
+    "long",
+    "masonry",
+    "medieval",
+    "overhang",
+    "side",
+    "stone",
+    "uneven",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_overhang_side_unevenbrick_long_r",
+   "name": "Overhang Side Uneven Brick Long R",
+   "path": "/models/quaternius-medieval-village/Overhang_Side_UnevenBrick_Long_R.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "brick",
+    "long",
+    "masonry",
+    "medieval",
+    "overhang",
+    "side",
+    "stone",
+    "uneven",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_overhang_side_unevenbrick_short_l",
+   "name": "Overhang Side Uneven Brick Short L",
+   "path": "/models/quaternius-medieval-village/Overhang_Side_UnevenBrick_Short_L.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "brick",
+    "masonry",
+    "medieval",
+    "overhang",
+    "short",
+    "side",
+    "stone",
+    "uneven",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_overhang_side_unevenbrick_short_r",
+   "name": "Overhang Side Uneven Brick Short R",
+   "path": "/models/quaternius-medieval-village/Overhang_Side_UnevenBrick_Short_R.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "brick",
+    "masonry",
+    "medieval",
+    "overhang",
+    "short",
+    "side",
+    "stone",
+    "uneven",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_overhang_unevenbrick_corner",
+   "name": "Overhang Uneven Brick Corner",
+   "path": "/models/quaternius-medieval-village/Overhang_UnevenBrick_Corner.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "brick",
+    "corner",
+    "edge",
+    "masonry",
+    "medieval",
+    "overhang",
+    "stone",
+    "uneven",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_overhang_unevenbrick_corner_front",
+   "name": "Overhang Uneven Brick Corner Front",
+   "path": "/models/quaternius-medieval-village/Overhang_UnevenBrick_Corner_Front.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "brick",
+    "corner",
+    "edge",
+    "front",
+    "masonry",
+    "medieval",
+    "overhang",
+    "stone",
+    "uneven",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_overhang_unevenbrick_long",
+   "name": "Overhang Uneven Brick Long",
+   "path": "/models/quaternius-medieval-village/Overhang_UnevenBrick_Long.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "brick",
+    "long",
+    "masonry",
+    "medieval",
+    "overhang",
+    "stone",
+    "uneven",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_overhang_unevenbrick_short",
+   "name": "Overhang Uneven Brick Short",
+   "path": "/models/quaternius-medieval-village/Overhang_UnevenBrick_Short.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "brick",
+    "masonry",
+    "medieval",
+    "overhang",
+    "short",
+    "stone",
+    "uneven",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_prop_brick1",
+   "name": "Prop Brick1",
+   "path": "/models/quaternius-medieval-village/Prop_Brick1.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "brick1",
+    "decor",
+    "medieval",
+    "prop",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_prop_brick2",
+   "name": "Prop Brick2",
+   "path": "/models/quaternius-medieval-village/Prop_Brick2.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "brick2",
+    "decor",
+    "medieval",
+    "prop",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_prop_brick3",
+   "name": "Prop Brick3",
+   "path": "/models/quaternius-medieval-village/Prop_Brick3.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "brick3",
+    "decor",
+    "medieval",
+    "prop",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_prop_brick4",
+   "name": "Prop Brick4",
+   "path": "/models/quaternius-medieval-village/Prop_Brick4.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "brick4",
+    "decor",
+    "medieval",
+    "prop",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_prop_chimney2",
+   "name": "Prop Chimney2",
+   "path": "/models/quaternius-medieval-village/Prop_Chimney2.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "chimney2",
+    "decor",
+    "medieval",
+    "prop",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_prop_exteriorborder_corner",
+   "name": "Prop Exterior Border Corner",
+   "path": "/models/quaternius-medieval-village/Prop_ExteriorBorder_Corner.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "border",
+    "corner",
+    "decor",
+    "edge",
+    "exterior",
+    "medieval",
+    "prop",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_prop_exteriorborder_straight1",
+   "name": "Prop Exterior Border Straight1",
+   "path": "/models/quaternius-medieval-village/Prop_ExteriorBorder_Straight1.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "border",
+    "decor",
+    "exterior",
+    "medieval",
+    "prop",
+    "straight1",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_prop_exteriorborder_straight2",
+   "name": "Prop Exterior Border Straight2",
+   "path": "/models/quaternius-medieval-village/Prop_ExteriorBorder_Straight2.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "border",
+    "decor",
+    "exterior",
+    "medieval",
+    "prop",
+    "straight2",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_prop_metalfence_simple",
+   "name": "Prop Metal Fence Simple",
+   "path": "/models/quaternius-medieval-village/Prop_MetalFence_Simple.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "decor",
+    "fence",
+    "iron",
+    "medieval",
+    "metal",
+    "prop",
+    "simple",
+    "steel",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_prop_support",
+   "name": "Prop Support",
+   "path": "/models/quaternius-medieval-village/Prop_Support.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "decor",
+    "medieval",
+    "prop",
+    "support",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_prop_vine2",
+   "name": "Prop Vine2",
+   "path": "/models/quaternius-medieval-village/Prop_Vine2.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "decor",
+    "medieval",
+    "prop",
+    "village",
+    "vine2"
+   ]
+  },
+  {
+   "id": "qmv_prop_vine4",
+   "name": "Prop Vine4",
+   "path": "/models/quaternius-medieval-village/Prop_Vine4.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "decor",
+    "medieval",
+    "prop",
+    "village",
+    "vine4"
+   ]
+  },
+  {
+   "id": "qmv_prop_vine5",
+   "name": "Prop Vine5",
+   "path": "/models/quaternius-medieval-village/Prop_Vine5.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "decor",
+    "medieval",
+    "prop",
+    "village",
+    "vine5"
+   ]
+  },
+  {
+   "id": "qmv_prop_vine6",
+   "name": "Prop Vine6",
+   "path": "/models/quaternius-medieval-village/Prop_Vine6.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "decor",
+    "medieval",
+    "prop",
+    "village",
+    "vine6"
+   ]
+  },
+  {
+   "id": "qmv_prop_vine9",
+   "name": "Prop Vine9",
+   "path": "/models/quaternius-medieval-village/Prop_Vine9.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "decor",
+    "medieval",
+    "prop",
+    "village",
+    "vine9"
+   ]
+  },
+  {
+   "id": "qmv_prop_woodenfence_extension1",
+   "name": "Prop Wooden Fence Extension1",
+   "path": "/models/quaternius-medieval-village/Prop_WoodenFence_Extension1.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "decor",
+    "extension1",
+    "fence",
+    "medieval",
+    "prop",
+    "village",
+    "wooden"
+   ]
+  },
+  {
+   "id": "qmv_prop_woodenfence_extension2",
+   "name": "Prop Wooden Fence Extension2",
+   "path": "/models/quaternius-medieval-village/Prop_WoodenFence_Extension2.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "decor",
+    "extension2",
+    "fence",
+    "medieval",
+    "prop",
+    "village",
+    "wooden"
+   ]
+  },
+  {
+   "id": "qmv_roof_2x4_roundtile",
+   "name": "Roof 2x4 Round Tile",
+   "path": "/models/quaternius-medieval-village/Roof_2x4_RoundTile.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "2x4",
+    "medieval",
+    "roof",
+    "rooftop",
+    "round",
+    "tile",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_roof_frontsupports",
+   "name": "Roof Front Supports",
+   "path": "/models/quaternius-medieval-village/Roof_FrontSupports.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "front",
+    "medieval",
+    "roof",
+    "rooftop",
+    "supports",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_roof_front_brick2",
+   "name": "Roof Front Brick2",
+   "path": "/models/quaternius-medieval-village/Roof_Front_Brick2.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "brick2",
+    "front",
+    "medieval",
+    "roof",
+    "rooftop",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_roof_front_brick4",
+   "name": "Roof Front Brick4",
+   "path": "/models/quaternius-medieval-village/Roof_Front_Brick4.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "brick4",
+    "front",
+    "medieval",
+    "roof",
+    "rooftop",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_roof_front_brick4_half_l",
+   "name": "Roof Front Brick4 Half L",
+   "path": "/models/quaternius-medieval-village/Roof_Front_Brick4_Half_L.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "brick4",
+    "front",
+    "half",
+    "medieval",
+    "roof",
+    "rooftop",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_roof_front_brick4_half_r",
+   "name": "Roof Front Brick4 Half R",
+   "path": "/models/quaternius-medieval-village/Roof_Front_Brick4_Half_R.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "brick4",
+    "front",
+    "half",
+    "medieval",
+    "roof",
+    "rooftop",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_roof_front_brick6",
+   "name": "Roof Front Brick6",
+   "path": "/models/quaternius-medieval-village/Roof_Front_Brick6.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "brick6",
+    "front",
+    "medieval",
+    "roof",
+    "rooftop",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_roof_front_brick6_half_l",
+   "name": "Roof Front Brick6 Half L",
+   "path": "/models/quaternius-medieval-village/Roof_Front_Brick6_Half_L.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "brick6",
+    "front",
+    "half",
+    "medieval",
+    "roof",
+    "rooftop",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_roof_front_brick6_half_r",
+   "name": "Roof Front Brick6 Half R",
+   "path": "/models/quaternius-medieval-village/Roof_Front_Brick6_Half_R.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "brick6",
+    "front",
+    "half",
+    "medieval",
+    "roof",
+    "rooftop",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_roof_front_brick8",
+   "name": "Roof Front Brick8",
+   "path": "/models/quaternius-medieval-village/Roof_Front_Brick8.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "brick8",
+    "front",
+    "medieval",
+    "roof",
+    "rooftop",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_roof_front_brick8_half_l",
+   "name": "Roof Front Brick8 Half L",
+   "path": "/models/quaternius-medieval-village/Roof_Front_Brick8_Half_L.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "brick8",
+    "front",
+    "half",
+    "medieval",
+    "roof",
+    "rooftop",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_roof_front_brick8_half_r",
+   "name": "Roof Front Brick8 Half R",
+   "path": "/models/quaternius-medieval-village/Roof_Front_Brick8_Half_R.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "brick8",
+    "front",
+    "half",
+    "medieval",
+    "roof",
+    "rooftop",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_roof_log",
+   "name": "Roof Log",
+   "path": "/models/quaternius-medieval-village/Roof_Log.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "log",
+    "medieval",
+    "roof",
+    "rooftop",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_roof_modular_roundtiles",
+   "name": "Roof Modular Round Tiles",
+   "path": "/models/quaternius-medieval-village/Roof_Modular_RoundTiles.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "medieval",
+    "modular",
+    "roof",
+    "rooftop",
+    "round",
+    "tiles",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_roof_roundtiles_4x4",
+   "name": "Roof Round Tiles 4x4",
+   "path": "/models/quaternius-medieval-village/Roof_RoundTiles_4x4.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "4x4",
+    "medieval",
+    "roof",
+    "rooftop",
+    "round",
+    "tiles",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_roof_roundtiles_4x6",
+   "name": "Roof Round Tiles 4x6",
+   "path": "/models/quaternius-medieval-village/Roof_RoundTiles_4x6.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "4x6",
+    "medieval",
+    "roof",
+    "rooftop",
+    "round",
+    "tiles",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_roof_roundtiles_4x8",
+   "name": "Roof Round Tiles 4x8",
+   "path": "/models/quaternius-medieval-village/Roof_RoundTiles_4x8.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "4x8",
+    "medieval",
+    "roof",
+    "rooftop",
+    "round",
+    "tiles",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_roof_roundtiles_6x10",
+   "name": "Roof Round Tiles 6x10",
+   "path": "/models/quaternius-medieval-village/Roof_RoundTiles_6x10.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "6x10",
+    "medieval",
+    "roof",
+    "rooftop",
+    "round",
+    "tiles",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_roof_roundtiles_6x12",
+   "name": "Roof Round Tiles 6x12",
+   "path": "/models/quaternius-medieval-village/Roof_RoundTiles_6x12.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "6x12",
+    "medieval",
+    "roof",
+    "rooftop",
+    "round",
+    "tiles",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_roof_roundtiles_6x14",
+   "name": "Roof Round Tiles 6x14",
+   "path": "/models/quaternius-medieval-village/Roof_RoundTiles_6x14.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "6x14",
+    "medieval",
+    "roof",
+    "rooftop",
+    "round",
+    "tiles",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_roof_roundtiles_6x4",
+   "name": "Roof Round Tiles 6x4",
+   "path": "/models/quaternius-medieval-village/Roof_RoundTiles_6x4.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "6x4",
+    "medieval",
+    "roof",
+    "rooftop",
+    "round",
+    "tiles",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_roof_roundtiles_6x6",
+   "name": "Roof Round Tiles 6x6",
+   "path": "/models/quaternius-medieval-village/Roof_RoundTiles_6x6.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "6x6",
+    "medieval",
+    "roof",
+    "rooftop",
+    "round",
+    "tiles",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_roof_roundtiles_8x10",
+   "name": "Roof Round Tiles 8x10",
+   "path": "/models/quaternius-medieval-village/Roof_RoundTiles_8x10.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "8x10",
+    "medieval",
+    "roof",
+    "rooftop",
+    "round",
+    "tiles",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_roof_roundtiles_8x12",
+   "name": "Roof Round Tiles 8x12",
+   "path": "/models/quaternius-medieval-village/Roof_RoundTiles_8x12.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "8x12",
+    "medieval",
+    "roof",
+    "rooftop",
+    "round",
+    "tiles",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_roof_roundtiles_8x14",
+   "name": "Roof Round Tiles 8x14",
+   "path": "/models/quaternius-medieval-village/Roof_RoundTiles_8x14.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "8x14",
+    "medieval",
+    "roof",
+    "rooftop",
+    "round",
+    "tiles",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_roof_roundtiles_8x8",
+   "name": "Roof Round Tiles 8x8",
+   "path": "/models/quaternius-medieval-village/Roof_RoundTiles_8x8.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "8x8",
+    "medieval",
+    "roof",
+    "rooftop",
+    "round",
+    "tiles",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_roof_roundtile_2x1",
+   "name": "Roof Round Tile 2x1",
+   "path": "/models/quaternius-medieval-village/Roof_RoundTile_2x1.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "2x1",
+    "medieval",
+    "roof",
+    "rooftop",
+    "round",
+    "tile",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_roof_roundtile_2x1_long",
+   "name": "Roof Round Tile 2x1 Long",
+   "path": "/models/quaternius-medieval-village/Roof_RoundTile_2x1_Long.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "2x1",
+    "long",
+    "medieval",
+    "roof",
+    "rooftop",
+    "round",
+    "tile",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_roof_support2",
+   "name": "Roof Support2",
+   "path": "/models/quaternius-medieval-village/Roof_Support2.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "medieval",
+    "roof",
+    "rooftop",
+    "support2",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_roof_wooden_2x1",
+   "name": "Roof Wooden 2x1",
+   "path": "/models/quaternius-medieval-village/Roof_Wooden_2x1.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "2x1",
+    "medieval",
+    "roof",
+    "rooftop",
+    "village",
+    "wooden"
+   ]
+  },
+  {
+   "id": "qmv_roof_wooden_2x1_center",
+   "name": "Roof Wooden 2x1 Center",
+   "path": "/models/quaternius-medieval-village/Roof_Wooden_2x1_Center.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "2x1",
+    "center",
+    "medieval",
+    "roof",
+    "rooftop",
+    "village",
+    "wooden"
+   ]
+  },
+  {
+   "id": "qmv_roof_wooden_2x1_center_mirror",
+   "name": "Roof Wooden 2x1 Center Mirror",
+   "path": "/models/quaternius-medieval-village/Roof_Wooden_2x1_Center_Mirror.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "2x1",
+    "center",
+    "medieval",
+    "mirror",
+    "roof",
+    "rooftop",
+    "village",
+    "wooden"
+   ]
+  },
+  {
+   "id": "qmv_roof_wooden_2x1_corner",
+   "name": "Roof Wooden 2x1 Corner",
+   "path": "/models/quaternius-medieval-village/Roof_Wooden_2x1_Corner.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "2x1",
+    "corner",
+    "edge",
+    "medieval",
+    "roof",
+    "rooftop",
+    "village",
+    "wooden"
+   ]
+  },
+  {
+   "id": "qmv_roof_wooden_2x1_l",
+   "name": "Roof Wooden 2x1 L",
+   "path": "/models/quaternius-medieval-village/Roof_Wooden_2x1_L.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "2x1",
+    "medieval",
+    "roof",
+    "rooftop",
+    "village",
+    "wooden"
+   ]
+  },
+  {
+   "id": "qmv_roof_wooden_2x1_middle",
+   "name": "Roof Wooden 2x1 Middle",
+   "path": "/models/quaternius-medieval-village/Roof_Wooden_2x1_Middle.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "2x1",
+    "medieval",
+    "middle",
+    "roof",
+    "rooftop",
+    "village",
+    "wooden"
+   ]
+  },
+  {
+   "id": "qmv_roof_wooden_2x1_r",
+   "name": "Roof Wooden 2x1 R",
+   "path": "/models/quaternius-medieval-village/Roof_Wooden_2x1_R.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "2x1",
+    "medieval",
+    "roof",
+    "rooftop",
+    "village",
+    "wooden"
+   ]
+  },
+  {
+   "id": "qmv_stairs_exterior_nofirststep",
+   "name": "Stairs Exterior No First Step",
+   "path": "/models/quaternius-medieval-village/Stairs_Exterior_NoFirstStep.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "exterior",
+    "first",
+    "medieval",
+    "no",
+    "stairs",
+    "step",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_stairs_exterior_platform",
+   "name": "Stairs Exterior Platform",
+   "path": "/models/quaternius-medieval-village/Stairs_Exterior_Platform.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "exterior",
+    "floor",
+    "medieval",
+    "platform",
+    "stairs",
+    "tile",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_stairs_exterior_platform45",
+   "name": "Stairs Exterior Platform45",
+   "path": "/models/quaternius-medieval-village/Stairs_Exterior_Platform45.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "exterior",
+    "medieval",
+    "platform45",
+    "stairs",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_stairs_exterior_platform45clean",
+   "name": "Stairs Exterior Platform45Clean",
+   "path": "/models/quaternius-medieval-village/Stairs_Exterior_Platform45Clean.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "exterior",
+    "medieval",
+    "platform45clean",
+    "stairs",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_stairs_exterior_platformu",
+   "name": "Stairs Exterior Platform U",
+   "path": "/models/quaternius-medieval-village/Stairs_Exterior_PlatformU.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "exterior",
+    "floor",
+    "medieval",
+    "platform",
+    "stairs",
+    "tile",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_stairs_exterior_sideplatform",
+   "name": "Stairs Exterior Side Platform",
+   "path": "/models/quaternius-medieval-village/Stairs_Exterior_SidePlatform.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "exterior",
+    "floor",
+    "medieval",
+    "platform",
+    "side",
+    "stairs",
+    "tile",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_stairs_exterior_sides",
+   "name": "Stairs Exterior Sides",
+   "path": "/models/quaternius-medieval-village/Stairs_Exterior_Sides.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "exterior",
+    "medieval",
+    "sides",
+    "stairs",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_stairs_exterior_sides45",
+   "name": "Stairs Exterior Sides45",
+   "path": "/models/quaternius-medieval-village/Stairs_Exterior_Sides45.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "exterior",
+    "medieval",
+    "sides45",
+    "stairs",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_stairs_exterior_sidesu",
+   "name": "Stairs Exterior Sides U",
+   "path": "/models/quaternius-medieval-village/Stairs_Exterior_SidesU.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "exterior",
+    "medieval",
+    "sides",
+    "stairs",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_stairs_exterior_singleside",
+   "name": "Stairs Exterior Single Side",
+   "path": "/models/quaternius-medieval-village/Stairs_Exterior_SingleSide.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "exterior",
+    "medieval",
+    "side",
+    "single",
+    "stairs",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_stairs_exterior_singlesidethick",
+   "name": "Stairs Exterior Single Side Thick",
+   "path": "/models/quaternius-medieval-village/Stairs_Exterior_SingleSideThick.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "exterior",
+    "medieval",
+    "side",
+    "single",
+    "stairs",
+    "thick",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_stairs_exterior_straight_center",
+   "name": "Stairs Exterior Straight Center",
+   "path": "/models/quaternius-medieval-village/Stairs_Exterior_Straight_Center.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "center",
+    "exterior",
+    "medieval",
+    "stairs",
+    "straight",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_stairs_exterior_straight_l",
+   "name": "Stairs Exterior Straight L",
+   "path": "/models/quaternius-medieval-village/Stairs_Exterior_Straight_L.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "exterior",
+    "medieval",
+    "stairs",
+    "straight",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_stairs_exterior_straight_r",
+   "name": "Stairs Exterior Straight R",
+   "path": "/models/quaternius-medieval-village/Stairs_Exterior_Straight_R.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "exterior",
+    "medieval",
+    "stairs",
+    "straight",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_stair_interior_rails",
+   "name": "Stair Interior Rails",
+   "path": "/models/quaternius-medieval-village/Stair_Interior_Rails.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "interior",
+    "medieval",
+    "rails",
+    "stair",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_stair_interior_simple",
+   "name": "Stair Interior Simple",
+   "path": "/models/quaternius-medieval-village/Stair_Interior_Simple.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "interior",
+    "medieval",
+    "simple",
+    "stair",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_stair_interior_solid",
+   "name": "Stair Interior Solid",
+   "path": "/models/quaternius-medieval-village/Stair_Interior_Solid.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "interior",
+    "medieval",
+    "solid",
+    "stair",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_stair_interior_solidextended",
+   "name": "Stair Interior Solid Extended",
+   "path": "/models/quaternius-medieval-village/Stair_Interior_SolidExtended.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "extended",
+    "interior",
+    "medieval",
+    "solid",
+    "stair",
+    "village"
+   ]
+  },
+  {
+   "id": "qmv_wall_bottomcover",
+   "name": "Wall Bottom Cover",
+   "path": "/models/quaternius-medieval-village/Wall_BottomCover.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "barrier",
+    "bottom",
+    "cover",
+    "medieval",
+    "village",
+    "wall"
+   ]
+  },
+  {
+   "id": "qmv_wall_plaster_door_flat",
+   "name": "Wall Plaster Door Flat",
+   "path": "/models/quaternius-medieval-village/Wall_Plaster_Door_Flat.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "barrier",
+    "door",
+    "entry",
+    "flat",
+    "medieval",
+    "plaster",
+    "portal",
+    "village",
+    "wall"
+   ]
+  },
+  {
+   "id": "qmv_wall_plaster_door_roundinset",
+   "name": "Wall Plaster Door Round Inset",
+   "path": "/models/quaternius-medieval-village/Wall_Plaster_Door_RoundInset.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "barrier",
+    "door",
+    "entry",
+    "inset",
+    "medieval",
+    "plaster",
+    "portal",
+    "round",
+    "village",
+    "wall"
+   ]
+  },
+  {
+   "id": "qmv_wall_plaster_straight_base",
+   "name": "Wall Plaster Straight Base",
+   "path": "/models/quaternius-medieval-village/Wall_Plaster_Straight_Base.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "barrier",
+    "base",
+    "medieval",
+    "plaster",
+    "straight",
+    "village",
+    "wall"
+   ]
+  },
+  {
+   "id": "qmv_wall_plaster_straight_l",
+   "name": "Wall Plaster Straight L",
+   "path": "/models/quaternius-medieval-village/Wall_Plaster_Straight_L.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "barrier",
+    "medieval",
+    "plaster",
+    "straight",
+    "village",
+    "wall"
+   ]
+  },
+  {
+   "id": "qmv_wall_plaster_straight_r",
+   "name": "Wall Plaster Straight R",
+   "path": "/models/quaternius-medieval-village/Wall_Plaster_Straight_R.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "barrier",
+    "medieval",
+    "plaster",
+    "straight",
+    "village",
+    "wall"
+   ]
+  },
+  {
+   "id": "qmv_wall_plaster_window_thin_round",
+   "name": "Wall Plaster Window Thin Round",
+   "path": "/models/quaternius-medieval-village/Wall_Plaster_Window_Thin_Round.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "barrier",
+    "glass",
+    "medieval",
+    "plaster",
+    "round",
+    "thin",
+    "village",
+    "wall",
+    "window"
+   ]
+  },
+  {
+   "id": "qmv_wall_plaster_window_wide_flat",
+   "name": "Wall Plaster Window Wide Flat",
+   "path": "/models/quaternius-medieval-village/Wall_Plaster_Window_Wide_Flat.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "barrier",
+    "flat",
+    "glass",
+    "medieval",
+    "plaster",
+    "village",
+    "wall",
+    "wide",
+    "window"
+   ]
+  },
+  {
+   "id": "qmv_wall_plaster_window_wide_flat2",
+   "name": "Wall Plaster Window Wide Flat2",
+   "path": "/models/quaternius-medieval-village/Wall_Plaster_Window_Wide_Flat2.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "barrier",
+    "flat2",
+    "glass",
+    "medieval",
+    "plaster",
+    "village",
+    "wall",
+    "wide",
+    "window"
+   ]
+  },
+  {
+   "id": "qmv_wall_plaster_woodgrid",
+   "name": "Wall Plaster Wood Grid",
+   "path": "/models/quaternius-medieval-village/Wall_Plaster_WoodGrid.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "barrier",
+    "grid",
+    "medieval",
+    "plank",
+    "plaster",
+    "timber",
+    "village",
+    "wall",
+    "wood"
+   ]
+  },
+  {
+   "id": "qmv_wall_unevenbrick_door_flat",
+   "name": "Wall Uneven Brick Door Flat",
+   "path": "/models/quaternius-medieval-village/Wall_UnevenBrick_Door_Flat.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "barrier",
+    "brick",
+    "door",
+    "entry",
+    "flat",
+    "masonry",
+    "medieval",
+    "portal",
+    "stone",
+    "uneven",
+    "village",
+    "wall"
+   ]
+  },
+  {
+   "id": "qmv_wall_unevenbrick_straight",
+   "name": "Wall Uneven Brick Straight",
+   "path": "/models/quaternius-medieval-village/Wall_UnevenBrick_Straight.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "barrier",
+    "brick",
+    "masonry",
+    "medieval",
+    "stone",
+    "straight",
+    "uneven",
+    "village",
+    "wall"
+   ]
+  },
+  {
+   "id": "qmv_wall_unevenbrick_window_thin_round",
+   "name": "Wall Uneven Brick Window Thin Round",
+   "path": "/models/quaternius-medieval-village/Wall_UnevenBrick_Window_Thin_Round.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "barrier",
+    "brick",
+    "glass",
+    "masonry",
+    "medieval",
+    "round",
+    "stone",
+    "thin",
+    "uneven",
+    "village",
+    "wall",
+    "window"
+   ]
+  },
+  {
+   "id": "qmv_wall_unevenbrick_window_wide_flat",
+   "name": "Wall Uneven Brick Window Wide Flat",
+   "path": "/models/quaternius-medieval-village/Wall_UnevenBrick_Window_Wide_Flat.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "barrier",
+    "brick",
+    "flat",
+    "glass",
+    "masonry",
+    "medieval",
+    "stone",
+    "uneven",
+    "village",
+    "wall",
+    "wide",
+    "window"
+   ]
+  },
+  {
+   "id": "qmv_wall_unevenbrick_window_wide_round",
+   "name": "Wall Uneven Brick Window Wide Round",
+   "path": "/models/quaternius-medieval-village/Wall_UnevenBrick_Window_Wide_Round.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "barrier",
+    "brick",
+    "glass",
+    "masonry",
+    "medieval",
+    "round",
+    "stone",
+    "uneven",
+    "village",
+    "wall",
+    "wide",
+    "window"
+   ]
+  },
+  {
+   "id": "qmv_windowshutters_thin_flat_closed",
+   "name": "Window Shutters Thin Flat Closed",
+   "path": "/models/quaternius-medieval-village/WindowShutters_Thin_Flat_Closed.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "closed",
+    "flat",
+    "glass",
+    "medieval",
+    "shutters",
+    "thin",
+    "village",
+    "window"
+   ]
+  },
+  {
+   "id": "qmv_windowshutters_thin_flat_open",
+   "name": "Window Shutters Thin Flat Open",
+   "path": "/models/quaternius-medieval-village/WindowShutters_Thin_Flat_Open.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "flat",
+    "glass",
+    "medieval",
+    "open",
+    "shutters",
+    "thin",
+    "village",
+    "window"
+   ]
+  },
+  {
+   "id": "qmv_windowshutters_thin_round_closed",
+   "name": "Window Shutters Thin Round Closed",
+   "path": "/models/quaternius-medieval-village/WindowShutters_Thin_Round_Closed.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "closed",
+    "glass",
+    "medieval",
+    "round",
+    "shutters",
+    "thin",
+    "village",
+    "window"
+   ]
+  },
+  {
+   "id": "qmv_windowshutters_thin_round_open",
+   "name": "Window Shutters Thin Round Open",
+   "path": "/models/quaternius-medieval-village/WindowShutters_Thin_Round_Open.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "glass",
+    "medieval",
+    "open",
+    "round",
+    "shutters",
+    "thin",
+    "village",
+    "window"
+   ]
+  },
+  {
+   "id": "qmv_windowshutters_wide_flat_closed",
+   "name": "Window Shutters Wide Flat Closed",
+   "path": "/models/quaternius-medieval-village/WindowShutters_Wide_Flat_Closed.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "closed",
+    "flat",
+    "glass",
+    "medieval",
+    "shutters",
+    "village",
+    "wide",
+    "window"
+   ]
+  },
+  {
+   "id": "qmv_windowshutters_wide_flat_open",
+   "name": "Window Shutters Wide Flat Open",
+   "path": "/models/quaternius-medieval-village/WindowShutters_Wide_Flat_Open.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "flat",
+    "glass",
+    "medieval",
+    "open",
+    "shutters",
+    "village",
+    "wide",
+    "window"
+   ]
+  },
+  {
+   "id": "qmv_windowshutters_wide_round_closed",
+   "name": "Window Shutters Wide Round Closed",
+   "path": "/models/quaternius-medieval-village/WindowShutters_Wide_Round_Closed.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "closed",
+    "glass",
+    "medieval",
+    "round",
+    "shutters",
+    "village",
+    "wide",
+    "window"
+   ]
+  },
+  {
+   "id": "qmv_window_roof_thin",
+   "name": "Window Roof Thin",
+   "path": "/models/quaternius-medieval-village/Window_Roof_Thin.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "glass",
+    "medieval",
+    "roof",
+    "rooftop",
+    "thin",
+    "village",
+    "window"
+   ]
+  },
+  {
+   "id": "qmv_window_roof_wide",
+   "name": "Window Roof Wide",
+   "path": "/models/quaternius-medieval-village/Window_Roof_Wide.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "glass",
+    "medieval",
+    "roof",
+    "rooftop",
+    "village",
+    "wide",
+    "window"
+   ]
+  },
+  {
+   "id": "qmv_window_thin_flat1",
+   "name": "Window Thin Flat1",
+   "path": "/models/quaternius-medieval-village/Window_Thin_Flat1.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "flat1",
+    "glass",
+    "medieval",
+    "thin",
+    "village",
+    "window"
+   ]
+  },
+  {
+   "id": "qmv_window_thin_round1",
+   "name": "Window Thin Round1",
+   "path": "/models/quaternius-medieval-village/Window_Thin_Round1.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "glass",
+    "medieval",
+    "round1",
+    "thin",
+    "village",
+    "window"
+   ]
+  },
+  {
+   "id": "qmv_window_wide_flat1",
+   "name": "Window Wide Flat1",
+   "path": "/models/quaternius-medieval-village/Window_Wide_Flat1.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "flat1",
+    "glass",
+    "medieval",
+    "village",
+    "wide",
+    "window"
+   ]
+  },
+  {
+   "id": "qmv_window_wide_round1",
+   "name": "Window Wide Round1",
+   "path": "/models/quaternius-medieval-village/Window_Wide_Round1.gltf",
+   "category": "village",
+   "defaultScale": 1,
+   "tags": [
+    "glass",
+    "medieval",
+    "round1",
+    "village",
+    "wide",
+    "window"
+   ]
+  },
+  {
+   "id": "qsc_column_large_straight",
+   "name": "Column Large Straight",
+   "path": "/models/quaternius-scifi/Columns/Column_Large_Straight.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "column",
+    "large",
+    "pillar",
+    "scifi",
+    "straight",
+    "support"
+   ]
+  },
+  {
+   "id": "qsc_column_metalsupport",
+   "name": "Column Metal Support",
+   "path": "/models/quaternius-scifi/Columns/Column_MetalSupport.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "column",
+    "iron",
+    "metal",
+    "pillar",
+    "scifi",
+    "steel",
+    "support"
+   ]
+  },
+  {
+   "id": "qsc_column_metalsupport_curve",
+   "name": "Column Metal Support Curve",
+   "path": "/models/quaternius-scifi/Columns/Column_MetalSupport_Curve.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "column",
+    "curve",
+    "iron",
+    "metal",
+    "pillar",
+    "scifi",
+    "steel",
+    "support"
+   ]
+  },
+  {
+   "id": "qsc_column_round",
+   "name": "Column Round",
+   "path": "/models/quaternius-scifi/Columns/Column_Round.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "column",
+    "pillar",
+    "round",
+    "scifi",
+    "support"
+   ]
+  },
+  {
+   "id": "qsc_column_simple",
+   "name": "Column Simple",
+   "path": "/models/quaternius-scifi/Columns/Column_Simple.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "column",
+    "pillar",
+    "scifi",
+    "simple",
+    "support"
+   ]
+  },
+  {
+   "id": "qsc_door_frame_a",
+   "name": "Door Frame A",
+   "path": "/models/quaternius-scifi/Platforms/Door_Frame_A.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "door",
+    "entry",
+    "frame",
+    "portal",
+    "scifi"
+   ]
+  },
+  {
+   "id": "qsc_door_frame_square",
+   "name": "Door Frame Square",
+   "path": "/models/quaternius-scifi/Platforms/Door_Frame_Square.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "door",
+    "entry",
+    "frame",
+    "portal",
+    "scifi",
+    "square"
+   ]
+  },
+  {
+   "id": "qsc_door_frame_squaretall",
+   "name": "Door Frame Square Tall",
+   "path": "/models/quaternius-scifi/Platforms/Door_Frame_SquareTall.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "door",
+    "entry",
+    "frame",
+    "portal",
+    "scifi",
+    "square",
+    "tall"
+   ]
+  },
+  {
+   "id": "qsc_door_frame_square_blocked",
+   "name": "Door Frame Square Blocked",
+   "path": "/models/quaternius-scifi/Platforms/Door_Frame_Square_Blocked.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "blocked",
+    "door",
+    "entry",
+    "frame",
+    "portal",
+    "scifi",
+    "square"
+   ]
+  },
+  {
+   "id": "qsc_door_simple",
+   "name": "Door Simple",
+   "path": "/models/quaternius-scifi/Platforms/Door_Simple.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "door",
+    "entry",
+    "portal",
+    "scifi",
+    "simple"
+   ]
+  },
+  {
+   "id": "qsc_platform_3plates",
+   "name": "Platform 3Plates",
+   "path": "/models/quaternius-scifi/Platforms/Platform_3Plates.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "3plates",
+    "floor",
+    "platform",
+    "scifi",
+    "tile"
+   ]
+  },
+  {
+   "id": "qsc_platform_centerplate",
+   "name": "Platform Center Plate",
+   "path": "/models/quaternius-scifi/Platforms/Platform_CenterPlate.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "center",
+    "floor",
+    "plate",
+    "platform",
+    "scifi",
+    "tile"
+   ]
+  },
+  {
+   "id": "qsc_platform_centerplate_curve",
+   "name": "Platform Center Plate Curve",
+   "path": "/models/quaternius-scifi/Platforms/Platform_CenterPlate_Curve.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "center",
+    "curve",
+    "floor",
+    "plate",
+    "platform",
+    "scifi",
+    "tile"
+   ]
+  },
+  {
+   "id": "qsc_platform_darkplates",
+   "name": "Platform Dark Plates",
+   "path": "/models/quaternius-scifi/Platforms/Platform_DarkPlates.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "dark",
+    "floor",
+    "plates",
+    "platform",
+    "scifi",
+    "tile"
+   ]
+  },
+  {
+   "id": "qsc_platform_darkplates_curves",
+   "name": "Platform Dark Plates Curves",
+   "path": "/models/quaternius-scifi/Platforms/Platform_DarkPlates_Curves.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "curves",
+    "dark",
+    "floor",
+    "plates",
+    "platform",
+    "scifi",
+    "tile"
+   ]
+  },
+  {
+   "id": "qsc_platform_metal",
+   "name": "Platform Metal",
+   "path": "/models/quaternius-scifi/Platforms/Platform_Metal.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "floor",
+    "iron",
+    "metal",
+    "platform",
+    "scifi",
+    "steel",
+    "tile"
+   ]
+  },
+  {
+   "id": "qsc_platform_metal2",
+   "name": "Platform Metal2",
+   "path": "/models/quaternius-scifi/Platforms/Platform_Metal2.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "floor",
+    "metal2",
+    "platform",
+    "scifi",
+    "tile"
+   ]
+  },
+  {
+   "id": "qsc_platform_metal2_curve",
+   "name": "Platform Metal2 Curve",
+   "path": "/models/quaternius-scifi/Platforms/Platform_Metal2_Curve.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "curve",
+    "floor",
+    "metal2",
+    "platform",
+    "scifi",
+    "tile"
+   ]
+  },
+  {
+   "id": "qsc_platform_metal_curve",
+   "name": "Platform Metal Curve",
+   "path": "/models/quaternius-scifi/Platforms/Platform_Metal_Curve.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "curve",
+    "floor",
+    "iron",
+    "metal",
+    "platform",
+    "scifi",
+    "steel",
+    "tile"
+   ]
+  },
+  {
+   "id": "qsc_platform_rails_2",
+   "name": "Platform Rails 2",
+   "path": "/models/quaternius-scifi/Platforms/Platform_Rails_2.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "floor",
+    "platform",
+    "rails",
+    "scifi",
+    "tile"
+   ]
+  },
+  {
+   "id": "qsc_platform_rails_4wide",
+   "name": "Platform Rails 4Wide",
+   "path": "/models/quaternius-scifi/Platforms/Platform_Rails_4Wide.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "4wide",
+    "floor",
+    "platform",
+    "rails",
+    "scifi",
+    "tile"
+   ]
+  },
+  {
+   "id": "qsc_platform_rails_4widetall",
+   "name": "Platform Rails 4Wide Tall",
+   "path": "/models/quaternius-scifi/Platforms/Platform_Rails_4WideTall.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "4wide",
+    "floor",
+    "platform",
+    "rails",
+    "scifi",
+    "tall",
+    "tile"
+   ]
+  },
+  {
+   "id": "qsc_platform_ramp_2",
+   "name": "Platform Ramp 2",
+   "path": "/models/quaternius-scifi/Platforms/Platform_Ramp_2.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "floor",
+    "platform",
+    "ramp",
+    "scifi",
+    "tile"
+   ]
+  },
+  {
+   "id": "qsc_platform_ramp_2short",
+   "name": "Platform Ramp 2Short",
+   "path": "/models/quaternius-scifi/Platforms/Platform_Ramp_2Short.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "2short",
+    "floor",
+    "platform",
+    "ramp",
+    "scifi",
+    "tile"
+   ]
+  },
+  {
+   "id": "qsc_platform_ramp_4wide",
+   "name": "Platform Ramp 4Wide",
+   "path": "/models/quaternius-scifi/Platforms/Platform_Ramp_4Wide.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "4wide",
+    "floor",
+    "platform",
+    "ramp",
+    "scifi",
+    "tile"
+   ]
+  },
+  {
+   "id": "qsc_platform_simple",
+   "name": "Platform Simple",
+   "path": "/models/quaternius-scifi/Platforms/Platform_Simple.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "floor",
+    "platform",
+    "scifi",
+    "simple",
+    "tile"
+   ]
+  },
+  {
+   "id": "qsc_platform_simple2",
+   "name": "Platform Simple2",
+   "path": "/models/quaternius-scifi/Platforms/Platform_Simple2.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "floor",
+    "platform",
+    "scifi",
+    "simple2",
+    "tile"
+   ]
+  },
+  {
+   "id": "qsc_platform_simple2_curve",
+   "name": "Platform Simple2 Curve",
+   "path": "/models/quaternius-scifi/Platforms/Platform_Simple2_Curve.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "curve",
+    "floor",
+    "platform",
+    "scifi",
+    "simple2",
+    "tile"
+   ]
+  },
+  {
+   "id": "qsc_platform_simple_curve",
+   "name": "Platform Simple Curve",
+   "path": "/models/quaternius-scifi/Platforms/Platform_Simple_Curve.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "curve",
+    "floor",
+    "platform",
+    "scifi",
+    "simple",
+    "tile"
+   ]
+  },
+  {
+   "id": "qsc_platform_squares",
+   "name": "Platform Squares",
+   "path": "/models/quaternius-scifi/Platforms/Platform_Squares.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "floor",
+    "platform",
+    "scifi",
+    "squares",
+    "tile"
+   ]
+  },
+  {
+   "id": "qsc_platform_squares_curve",
+   "name": "Platform Squares Curve",
+   "path": "/models/quaternius-scifi/Platforms/Platform_Squares_Curve.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "curve",
+    "floor",
+    "platform",
+    "scifi",
+    "squares",
+    "tile"
+   ]
+  },
+  {
+   "id": "qsc_platform_stairs_2",
+   "name": "Platform Stairs 2",
+   "path": "/models/quaternius-scifi/Platforms/Platform_Stairs_2.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "floor",
+    "platform",
+    "scifi",
+    "stairs",
+    "tile"
+   ]
+  },
+  {
+   "id": "qsc_platform_stairs_4wide",
+   "name": "Platform Stairs 4Wide",
+   "path": "/models/quaternius-scifi/Platforms/Platform_Stairs_4Wide.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "4wide",
+    "floor",
+    "platform",
+    "scifi",
+    "stairs",
+    "tile"
+   ]
+  },
+  {
+   "id": "qsc_platform_stairs_4widetall",
+   "name": "Platform Stairs 4Wide Tall",
+   "path": "/models/quaternius-scifi/Platforms/Platform_Stairs_4WideTall.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "4wide",
+    "floor",
+    "platform",
+    "scifi",
+    "stairs",
+    "tall",
+    "tile"
+   ]
+  },
+  {
+   "id": "qsc_platform_window_thin",
+   "name": "Platform Window Thin",
+   "path": "/models/quaternius-scifi/Platforms/Platform_Window_Thin.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "floor",
+    "glass",
+    "platform",
+    "scifi",
+    "thin",
+    "tile",
+    "window"
+   ]
+  },
+  {
+   "id": "qsc_platform_window_wide",
+   "name": "Platform Window Wide",
+   "path": "/models/quaternius-scifi/Platforms/Platform_Window_Wide.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "floor",
+    "glass",
+    "platform",
+    "scifi",
+    "tile",
+    "wide",
+    "window"
+   ]
+  },
+  {
+   "id": "qsc_platform_x",
+   "name": "Platform X",
+   "path": "/models/quaternius-scifi/Platforms/Platform_X.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "floor",
+    "platform",
+    "scifi",
+    "tile"
+   ]
+  },
+  {
+   "id": "qsc_prop_cable_1",
+   "name": "Prop Cable 1",
+   "path": "/models/quaternius-scifi/Props/Prop_Cable_1.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "cable",
+    "decor",
+    "prop",
+    "scifi"
+   ]
+  },
+  {
+   "id": "qsc_prop_cable_3",
+   "name": "Prop Cable 3",
+   "path": "/models/quaternius-scifi/Props/Prop_Cable_3.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "cable",
+    "decor",
+    "prop",
+    "scifi"
+   ]
+  },
+  {
+   "id": "qsc_prop_clamp",
+   "name": "Prop Clamp",
+   "path": "/models/quaternius-scifi/Props/Prop_Clamp.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "clamp",
+    "decor",
+    "prop",
+    "scifi"
+   ]
+  },
+  {
+   "id": "qsc_prop_crate4",
+   "name": "Prop Crate4",
+   "path": "/models/quaternius-scifi/Props/Prop_Crate4.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "crate4",
+    "decor",
+    "prop",
+    "scifi"
+   ]
+  },
+  {
+   "id": "qsc_prop_fan_small",
+   "name": "Prop Fan Small",
+   "path": "/models/quaternius-scifi/Props/Prop_Fan_Small.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "decor",
+    "fan",
+    "prop",
+    "scifi",
+    "small"
+   ]
+  },
+  {
+   "id": "qsc_prop_itemholder",
+   "name": "Prop Item Holder",
+   "path": "/models/quaternius-scifi/Props/Prop_ItemHolder.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "decor",
+    "holder",
+    "item",
+    "prop",
+    "scifi"
+   ]
+  },
+  {
+   "id": "qsc_prop_light_corner",
+   "name": "Prop Light Corner",
+   "path": "/models/quaternius-scifi/Props/Prop_Light_Corner.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "corner",
+    "decor",
+    "edge",
+    "lamp",
+    "light",
+    "lighting",
+    "prop",
+    "scifi"
+   ]
+  },
+  {
+   "id": "qsc_prop_light_small",
+   "name": "Prop Light Small",
+   "path": "/models/quaternius-scifi/Props/Prop_Light_Small.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "decor",
+    "lamp",
+    "light",
+    "lighting",
+    "prop",
+    "scifi",
+    "small"
+   ]
+  },
+  {
+   "id": "qsc_prop_light_wide",
+   "name": "Prop Light Wide",
+   "path": "/models/quaternius-scifi/Props/Prop_Light_Wide.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "decor",
+    "lamp",
+    "light",
+    "lighting",
+    "prop",
+    "scifi",
+    "wide"
+   ]
+  },
+  {
+   "id": "qsc_prop_pipeholder",
+   "name": "Prop Pipe Holder",
+   "path": "/models/quaternius-scifi/Props/Prop_PipeHolder.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "decor",
+    "holder",
+    "industrial",
+    "pipe",
+    "pipes",
+    "prop",
+    "scifi"
+   ]
+  },
+  {
+   "id": "qsc_prop_rail_2",
+   "name": "Prop Rail 2",
+   "path": "/models/quaternius-scifi/Props/Prop_Rail_2.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "decor",
+    "fence",
+    "prop",
+    "rail",
+    "railing",
+    "scifi"
+   ]
+  },
+  {
+   "id": "qsc_prop_rail_3",
+   "name": "Prop Rail 3",
+   "path": "/models/quaternius-scifi/Props/Prop_Rail_3.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "decor",
+    "fence",
+    "prop",
+    "rail",
+    "railing",
+    "scifi"
+   ]
+  },
+  {
+   "id": "qsc_prop_rail_4",
+   "name": "Prop Rail 4",
+   "path": "/models/quaternius-scifi/Props/Prop_Rail_4.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "decor",
+    "fence",
+    "prop",
+    "rail",
+    "railing",
+    "scifi"
+   ]
+  },
+  {
+   "id": "qsc_prop_rail_incline_long_l",
+   "name": "Prop Rail Incline Long L",
+   "path": "/models/quaternius-scifi/Props/Prop_Rail_Incline_Long_L.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "decor",
+    "fence",
+    "incline",
+    "long",
+    "prop",
+    "rail",
+    "railing",
+    "scifi"
+   ]
+  },
+  {
+   "id": "qsc_prop_rail_incline_long_r",
+   "name": "Prop Rail Incline Long R",
+   "path": "/models/quaternius-scifi/Props/Prop_Rail_Incline_Long_R.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "decor",
+    "fence",
+    "incline",
+    "long",
+    "prop",
+    "rail",
+    "railing",
+    "scifi"
+   ]
+  },
+  {
+   "id": "qsc_prop_rail_incline_short_l",
+   "name": "Prop Rail Incline Short L",
+   "path": "/models/quaternius-scifi/Props/Prop_Rail_Incline_Short_L.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "decor",
+    "fence",
+    "incline",
+    "prop",
+    "rail",
+    "railing",
+    "scifi",
+    "short"
+   ]
+  },
+  {
+   "id": "qsc_prop_rail_incline_short_r",
+   "name": "Prop Rail Incline Short R",
+   "path": "/models/quaternius-scifi/Props/Prop_Rail_Incline_Short_R.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "decor",
+    "fence",
+    "incline",
+    "prop",
+    "rail",
+    "railing",
+    "scifi",
+    "short"
+   ]
+  },
+  {
+   "id": "qsc_prop_rail_round_big",
+   "name": "Prop Rail Round Big",
+   "path": "/models/quaternius-scifi/Props/Prop_Rail_Round_Big.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "big",
+    "decor",
+    "fence",
+    "prop",
+    "rail",
+    "railing",
+    "round",
+    "scifi"
+   ]
+  },
+  {
+   "id": "qsc_prop_rail_round_small",
+   "name": "Prop Rail Round Small",
+   "path": "/models/quaternius-scifi/Props/Prop_Rail_Round_Small.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "decor",
+    "fence",
+    "prop",
+    "rail",
+    "railing",
+    "round",
+    "scifi",
+    "small"
+   ]
+  },
+  {
+   "id": "qsc_prop_vent_small",
+   "name": "Prop Vent Small",
+   "path": "/models/quaternius-scifi/Props/Prop_Vent_Small.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "decor",
+    "prop",
+    "scifi",
+    "small",
+    "vent"
+   ]
+  },
+  {
+   "id": "qsc_prop_vent_wide",
+   "name": "Prop Vent Wide",
+   "path": "/models/quaternius-scifi/Props/Prop_Vent_Wide.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "decor",
+    "prop",
+    "scifi",
+    "vent",
+    "wide"
+   ]
+  },
+  {
+   "id": "qsc_bottommetal_corner_round_inner",
+   "name": "Bottom Metal Corner Round Inner",
+   "path": "/models/quaternius-scifi/Walls/BottomMetal_Corner_Round_Inner.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "bottom",
+    "corner",
+    "edge",
+    "inner",
+    "iron",
+    "metal",
+    "round",
+    "scifi",
+    "steel"
+   ]
+  },
+  {
+   "id": "qsc_bottommetal_corner_round_outer",
+   "name": "Bottom Metal Corner Round Outer",
+   "path": "/models/quaternius-scifi/Walls/BottomMetal_Corner_Round_Outer.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "bottom",
+    "corner",
+    "edge",
+    "iron",
+    "metal",
+    "outer",
+    "round",
+    "scifi",
+    "steel"
+   ]
+  },
+  {
+   "id": "qsc_bottommetal_corner_square_inner",
+   "name": "Bottom Metal Corner Square Inner",
+   "path": "/models/quaternius-scifi/Walls/BottomMetal_Corner_Square_Inner.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "bottom",
+    "corner",
+    "edge",
+    "inner",
+    "iron",
+    "metal",
+    "scifi",
+    "square",
+    "steel"
+   ]
+  },
+  {
+   "id": "qsc_bottommetal_corner_square_outer_1",
+   "name": "Bottom Metal Corner Square Outer 1",
+   "path": "/models/quaternius-scifi/Walls/BottomMetal_Corner_Square_Outer_1.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "bottom",
+    "corner",
+    "edge",
+    "iron",
+    "metal",
+    "outer",
+    "scifi",
+    "square",
+    "steel"
+   ]
+  },
+  {
+   "id": "qsc_bottommetal_corner_square_outer_2",
+   "name": "Bottom Metal Corner Square Outer 2",
+   "path": "/models/quaternius-scifi/Walls/BottomMetal_Corner_Square_Outer_2.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "bottom",
+    "corner",
+    "edge",
+    "iron",
+    "metal",
+    "outer",
+    "scifi",
+    "square",
+    "steel"
+   ]
+  },
+  {
+   "id": "qsc_bottommetal_straight",
+   "name": "Bottom Metal Straight",
+   "path": "/models/quaternius-scifi/Walls/BottomMetal_Straight.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "bottom",
+    "iron",
+    "metal",
+    "scifi",
+    "steel",
+    "straight"
+   ]
+  },
+  {
+   "id": "qsc_bottomsimple_corner_round_inner",
+   "name": "Bottom Simple Corner Round Inner",
+   "path": "/models/quaternius-scifi/Walls/BottomSimple_Corner_Round_Inner.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "bottom",
+    "corner",
+    "edge",
+    "inner",
+    "round",
+    "scifi",
+    "simple"
+   ]
+  },
+  {
+   "id": "qsc_bottomsimple_corner_round_outer",
+   "name": "Bottom Simple Corner Round Outer",
+   "path": "/models/quaternius-scifi/Walls/BottomSimple_Corner_Round_Outer.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "bottom",
+    "corner",
+    "edge",
+    "outer",
+    "round",
+    "scifi",
+    "simple"
+   ]
+  },
+  {
+   "id": "qsc_bottomsimple_corner_square_inner",
+   "name": "Bottom Simple Corner Square Inner",
+   "path": "/models/quaternius-scifi/Walls/BottomSimple_Corner_Square_Inner.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "bottom",
+    "corner",
+    "edge",
+    "inner",
+    "scifi",
+    "simple",
+    "square"
+   ]
+  },
+  {
+   "id": "qsc_bottomsimple_corner_square_outer_1",
+   "name": "Bottom Simple Corner Square Outer 1",
+   "path": "/models/quaternius-scifi/Walls/BottomSimple_Corner_Square_Outer_1.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "bottom",
+    "corner",
+    "edge",
+    "outer",
+    "scifi",
+    "simple",
+    "square"
+   ]
+  },
+  {
+   "id": "qsc_bottomsimple_corner_square_outer_2",
+   "name": "Bottom Simple Corner Square Outer 2",
+   "path": "/models/quaternius-scifi/Walls/BottomSimple_Corner_Square_Outer_2.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "bottom",
+    "corner",
+    "edge",
+    "outer",
+    "scifi",
+    "simple",
+    "square"
+   ]
+  },
+  {
+   "id": "qsc_bottomsimple_straight",
+   "name": "Bottom Simple Straight",
+   "path": "/models/quaternius-scifi/Walls/BottomSimple_Straight.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "bottom",
+    "scifi",
+    "simple",
+    "straight"
+   ]
+  },
+  {
+   "id": "qsc_shortwall_accentstrip_corner_inner",
+   "name": "Short Wall Accent Strip Corner Inner",
+   "path": "/models/quaternius-scifi/Walls/ShortWall_AccentStrip_Corner_Inner.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "accent",
+    "barrier",
+    "corner",
+    "edge",
+    "inner",
+    "scifi",
+    "short",
+    "strip",
+    "wall"
+   ]
+  },
+  {
+   "id": "qsc_shortwall_accentstrip_corner_outer",
+   "name": "Short Wall Accent Strip Corner Outer",
+   "path": "/models/quaternius-scifi/Walls/ShortWall_AccentStrip_Corner_Outer.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "accent",
+    "barrier",
+    "corner",
+    "edge",
+    "outer",
+    "scifi",
+    "short",
+    "strip",
+    "wall"
+   ]
+  },
+  {
+   "id": "qsc_shortwall_accentstrip_straight",
+   "name": "Short Wall Accent Strip Straight",
+   "path": "/models/quaternius-scifi/Walls/ShortWall_AccentStrip_Straight.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "accent",
+    "barrier",
+    "scifi",
+    "short",
+    "straight",
+    "strip",
+    "wall"
+   ]
+  },
+  {
+   "id": "qsc_shortwall_band2_corner_inner",
+   "name": "Short Wall Band2 Corner Inner",
+   "path": "/models/quaternius-scifi/Walls/ShortWall_Band2_Corner_Inner.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "band2",
+    "barrier",
+    "corner",
+    "edge",
+    "inner",
+    "scifi",
+    "short",
+    "wall"
+   ]
+  },
+  {
+   "id": "qsc_shortwall_band2_corner_outer",
+   "name": "Short Wall Band2 Corner Outer",
+   "path": "/models/quaternius-scifi/Walls/ShortWall_Band2_Corner_Outer.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "band2",
+    "barrier",
+    "corner",
+    "edge",
+    "outer",
+    "scifi",
+    "short",
+    "wall"
+   ]
+  },
+  {
+   "id": "qsc_shortwall_band2_straight",
+   "name": "Short Wall Band2 Straight",
+   "path": "/models/quaternius-scifi/Walls/ShortWall_Band2_Straight.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "band2",
+    "barrier",
+    "scifi",
+    "short",
+    "straight",
+    "wall"
+   ]
+  },
+  {
+   "id": "qsc_shortwall_darkmetal2_corner_inner",
+   "name": "Short Wall Dark Metal2 Corner Inner",
+   "path": "/models/quaternius-scifi/Walls/ShortWall_DarkMetal2_Corner_Inner.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "barrier",
+    "corner",
+    "dark",
+    "edge",
+    "inner",
+    "metal2",
+    "scifi",
+    "short",
+    "wall"
+   ]
+  },
+  {
+   "id": "qsc_shortwall_darkmetal2_corner_outer",
+   "name": "Short Wall Dark Metal2 Corner Outer",
+   "path": "/models/quaternius-scifi/Walls/ShortWall_DarkMetal2_Corner_Outer.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "barrier",
+    "corner",
+    "dark",
+    "edge",
+    "metal2",
+    "outer",
+    "scifi",
+    "short",
+    "wall"
+   ]
+  },
+  {
+   "id": "qsc_shortwall_darkmetal2_straight",
+   "name": "Short Wall Dark Metal2 Straight",
+   "path": "/models/quaternius-scifi/Walls/ShortWall_DarkMetal2_Straight.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "barrier",
+    "dark",
+    "metal2",
+    "scifi",
+    "short",
+    "straight",
+    "wall"
+   ]
+  },
+  {
+   "id": "qsc_shortwall_darkplastic_corner_inner",
+   "name": "Short Wall Dark Plastic Corner Inner",
+   "path": "/models/quaternius-scifi/Walls/ShortWall_DarkPlastic_Corner_Inner.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "barrier",
+    "corner",
+    "dark",
+    "edge",
+    "inner",
+    "plastic",
+    "scifi",
+    "short",
+    "wall"
+   ]
+  },
+  {
+   "id": "qsc_shortwall_darkplastic_corner_outer",
+   "name": "Short Wall Dark Plastic Corner Outer",
+   "path": "/models/quaternius-scifi/Walls/ShortWall_DarkPlastic_Corner_Outer.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "barrier",
+    "corner",
+    "dark",
+    "edge",
+    "outer",
+    "plastic",
+    "scifi",
+    "short",
+    "wall"
+   ]
+  },
+  {
+   "id": "qsc_shortwall_darkplastic_straight",
+   "name": "Short Wall Dark Plastic Straight",
+   "path": "/models/quaternius-scifi/Walls/ShortWall_DarkPlastic_Straight.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "barrier",
+    "dark",
+    "plastic",
+    "scifi",
+    "short",
+    "straight",
+    "wall"
+   ]
+  },
+  {
+   "id": "qsc_shortwall_metal2_corner_inner",
+   "name": "Short Wall Metal2 Corner Inner",
+   "path": "/models/quaternius-scifi/Walls/ShortWall_Metal2_Corner_Inner.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "barrier",
+    "corner",
+    "edge",
+    "inner",
+    "metal2",
+    "scifi",
+    "short",
+    "wall"
+   ]
+  },
+  {
+   "id": "qsc_shortwall_metal2_corner_outer",
+   "name": "Short Wall Metal2 Corner Outer",
+   "path": "/models/quaternius-scifi/Walls/ShortWall_Metal2_Corner_Outer.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "barrier",
+    "corner",
+    "edge",
+    "metal2",
+    "outer",
+    "scifi",
+    "short",
+    "wall"
+   ]
+  },
+  {
+   "id": "qsc_shortwall_metal2_straight",
+   "name": "Short Wall Metal2 Straight",
+   "path": "/models/quaternius-scifi/Walls/ShortWall_Metal2_Straight.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "barrier",
+    "metal2",
+    "scifi",
+    "short",
+    "straight",
+    "wall"
+   ]
+  },
+  {
+   "id": "qsc_shortwall_metalplates_corner_inner",
+   "name": "Short Wall Metal Plates Corner Inner",
+   "path": "/models/quaternius-scifi/Walls/ShortWall_MetalPlates_Corner_Inner.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "barrier",
+    "corner",
+    "edge",
+    "inner",
+    "iron",
+    "metal",
+    "plates",
+    "scifi",
+    "short",
+    "steel",
+    "wall"
+   ]
+  },
+  {
+   "id": "qsc_shortwall_metalplates_corner_outer",
+   "name": "Short Wall Metal Plates Corner Outer",
+   "path": "/models/quaternius-scifi/Walls/ShortWall_MetalPlates_Corner_Outer.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "barrier",
+    "corner",
+    "edge",
+    "iron",
+    "metal",
+    "outer",
+    "plates",
+    "scifi",
+    "short",
+    "steel",
+    "wall"
+   ]
+  },
+  {
+   "id": "qsc_shortwall_metalplates_straight",
+   "name": "Short Wall Metal Plates Straight",
+   "path": "/models/quaternius-scifi/Walls/ShortWall_MetalPlates_Straight.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "barrier",
+    "iron",
+    "metal",
+    "plates",
+    "scifi",
+    "short",
+    "steel",
+    "straight",
+    "wall"
+   ]
+  },
+  {
+   "id": "qsc_shortwall_simple1_corner_inner",
+   "name": "Short Wall Simple1 Corner Inner",
+   "path": "/models/quaternius-scifi/Walls/ShortWall_Simple1_Corner_Inner.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "barrier",
+    "corner",
+    "edge",
+    "inner",
+    "scifi",
+    "short",
+    "simple1",
+    "wall"
+   ]
+  },
+  {
+   "id": "qsc_shortwall_simple1_corner_outer",
+   "name": "Short Wall Simple1 Corner Outer",
+   "path": "/models/quaternius-scifi/Walls/ShortWall_Simple1_Corner_Outer.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "barrier",
+    "corner",
+    "edge",
+    "outer",
+    "scifi",
+    "short",
+    "simple1",
+    "wall"
+   ]
+  },
+  {
+   "id": "qsc_shortwall_simple1_straight",
+   "name": "Short Wall Simple1 Straight",
+   "path": "/models/quaternius-scifi/Walls/ShortWall_Simple1_Straight.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "barrier",
+    "scifi",
+    "short",
+    "simple1",
+    "straight",
+    "wall"
+   ]
+  },
+  {
+   "id": "qsc_shortwall_simple2_corner_inner",
+   "name": "Short Wall Simple2 Corner Inner",
+   "path": "/models/quaternius-scifi/Walls/ShortWall_Simple2_Corner_Inner.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "barrier",
+    "corner",
+    "edge",
+    "inner",
+    "scifi",
+    "short",
+    "simple2",
+    "wall"
+   ]
+  },
+  {
+   "id": "qsc_shortwall_simple2_corner_outer",
+   "name": "Short Wall Simple2 Corner Outer",
+   "path": "/models/quaternius-scifi/Walls/ShortWall_Simple2_Corner_Outer.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "barrier",
+    "corner",
+    "edge",
+    "outer",
+    "scifi",
+    "short",
+    "simple2",
+    "wall"
+   ]
+  },
+  {
+   "id": "qsc_shortwall_simple2_straight",
+   "name": "Short Wall Simple2 Straight",
+   "path": "/models/quaternius-scifi/Walls/ShortWall_Simple2_Straight.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "barrier",
+    "scifi",
+    "short",
+    "simple2",
+    "straight",
+    "wall"
+   ]
+  },
+  {
+   "id": "qsc_shortwall_triangles_corner_inner",
+   "name": "Short Wall Triangles Corner Inner",
+   "path": "/models/quaternius-scifi/Walls/ShortWall_Triangles_Corner_Inner.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "barrier",
+    "corner",
+    "edge",
+    "inner",
+    "scifi",
+    "short",
+    "triangles",
+    "wall"
+   ]
+  },
+  {
+   "id": "qsc_shortwall_triangles_corner_outer",
+   "name": "Short Wall Triangles Corner Outer",
+   "path": "/models/quaternius-scifi/Walls/ShortWall_Triangles_Corner_Outer.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "barrier",
+    "corner",
+    "edge",
+    "outer",
+    "scifi",
+    "short",
+    "triangles",
+    "wall"
+   ]
+  },
+  {
+   "id": "qsc_shortwall_triangles_straight",
+   "name": "Short Wall Triangles Straight",
+   "path": "/models/quaternius-scifi/Walls/ShortWall_Triangles_Straight.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "barrier",
+    "scifi",
+    "short",
+    "straight",
+    "triangles",
+    "wall"
+   ]
+  },
+  {
+   "id": "qsc_shortwall_whiteplate2_corner_inner",
+   "name": "Short Wall White Plate2 Corner Inner",
+   "path": "/models/quaternius-scifi/Walls/ShortWall_WhitePlate2_Corner_Inner.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "barrier",
+    "corner",
+    "edge",
+    "inner",
+    "plate2",
+    "scifi",
+    "short",
+    "wall",
+    "white"
+   ]
+  },
+  {
+   "id": "qsc_shortwall_whiteplate2_corner_outer",
+   "name": "Short Wall White Plate2 Corner Outer",
+   "path": "/models/quaternius-scifi/Walls/ShortWall_WhitePlate2_Corner_Outer.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "barrier",
+    "corner",
+    "edge",
+    "outer",
+    "plate2",
+    "scifi",
+    "short",
+    "wall",
+    "white"
+   ]
+  },
+  {
+   "id": "qsc_shortwall_whiteplate2_straight",
+   "name": "Short Wall White Plate2 Straight",
+   "path": "/models/quaternius-scifi/Walls/ShortWall_WhitePlate2_Straight.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "barrier",
+    "plate2",
+    "scifi",
+    "short",
+    "straight",
+    "wall",
+    "white"
+   ]
+  },
+  {
+   "id": "qsc_topastra_corner_round_inner",
+   "name": "Top Astra Corner Round Inner",
+   "path": "/models/quaternius-scifi/Walls/TopAstra_Corner_Round_Inner.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "astra",
+    "corner",
+    "edge",
+    "inner",
+    "round",
+    "scifi",
+    "top"
+   ]
+  },
+  {
+   "id": "qsc_topastra_curve_round_outer",
+   "name": "Top Astra Curve Round Outer",
+   "path": "/models/quaternius-scifi/Walls/TopAstra_Curve_Round_Outer.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "astra",
+    "curve",
+    "outer",
+    "round",
+    "scifi",
+    "top"
+   ]
+  },
+  {
+   "id": "qsc_topastra_straight",
+   "name": "Top Astra Straight",
+   "path": "/models/quaternius-scifi/Walls/TopAstra_Straight.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "astra",
+    "scifi",
+    "straight",
+    "top"
+   ]
+  },
+  {
+   "id": "qsc_topcables_corner_round_inner",
+   "name": "Top Cables Corner Round Inner",
+   "path": "/models/quaternius-scifi/Walls/TopCables_Corner_Round_Inner.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "cables",
+    "corner",
+    "edge",
+    "inner",
+    "round",
+    "scifi",
+    "top"
+   ]
+  },
+  {
+   "id": "qsc_topcables_corner_round_outer",
+   "name": "Top Cables Corner Round Outer",
+   "path": "/models/quaternius-scifi/Walls/TopCables_Corner_Round_Outer.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "cables",
+    "corner",
+    "edge",
+    "outer",
+    "round",
+    "scifi",
+    "top"
+   ]
+  },
+  {
+   "id": "qsc_topcables_corner_square_inner",
+   "name": "Top Cables Corner Square Inner",
+   "path": "/models/quaternius-scifi/Walls/TopCables_Corner_Square_Inner.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "cables",
+    "corner",
+    "edge",
+    "inner",
+    "scifi",
+    "square",
+    "top"
+   ]
+  },
+  {
+   "id": "qsc_topcables_corner_square_outer",
+   "name": "Top Cables Corner Square Outer",
+   "path": "/models/quaternius-scifi/Walls/TopCables_Corner_Square_Outer.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "cables",
+    "corner",
+    "edge",
+    "outer",
+    "scifi",
+    "square",
+    "top"
+   ]
+  },
+  {
+   "id": "qsc_topcables_straight",
+   "name": "Top Cables Straight",
+   "path": "/models/quaternius-scifi/Walls/TopCables_Straight.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "cables",
+    "scifi",
+    "straight",
+    "top"
+   ]
+  },
+  {
+   "id": "qsc_topcables_straight_hanging",
+   "name": "Top Cables Straight Hanging",
+   "path": "/models/quaternius-scifi/Walls/TopCables_Straight_Hanging.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "cables",
+    "hanging",
+    "scifi",
+    "straight",
+    "top"
+   ]
+  },
+  {
+   "id": "qsc_topplastic_corner_outer",
+   "name": "Top Plastic Corner Outer",
+   "path": "/models/quaternius-scifi/Walls/TopPlastic_Corner_Outer.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "corner",
+    "edge",
+    "outer",
+    "plastic",
+    "scifi",
+    "top"
+   ]
+  },
+  {
+   "id": "qsc_topplastic_corner_round_inner",
+   "name": "Top Plastic Corner Round Inner",
+   "path": "/models/quaternius-scifi/Walls/TopPlastic_Corner_Round_Inner.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "corner",
+    "edge",
+    "inner",
+    "plastic",
+    "round",
+    "scifi",
+    "top"
+   ]
+  },
+  {
+   "id": "qsc_topplastic_corner_round_outer",
+   "name": "Top Plastic Corner Round Outer",
+   "path": "/models/quaternius-scifi/Walls/TopPlastic_Corner_Round_Outer.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "corner",
+    "edge",
+    "outer",
+    "plastic",
+    "round",
+    "scifi",
+    "top"
+   ]
+  },
+  {
+   "id": "qsc_topplastic_straight",
+   "name": "Top Plastic Straight",
+   "path": "/models/quaternius-scifi/Walls/TopPlastic_Straight.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "plastic",
+    "scifi",
+    "straight",
+    "top"
+   ]
+  },
+  {
+   "id": "qsc_topsimple_corner_round_inner",
+   "name": "Top Simple Corner Round Inner",
+   "path": "/models/quaternius-scifi/Walls/TopSimple_Corner_Round_Inner.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "corner",
+    "edge",
+    "inner",
+    "round",
+    "scifi",
+    "simple",
+    "top"
+   ]
+  },
+  {
+   "id": "qsc_topsimple_corner_round_outer",
+   "name": "Top Simple Corner Round Outer",
+   "path": "/models/quaternius-scifi/Walls/TopSimple_Corner_Round_Outer.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "corner",
+    "edge",
+    "outer",
+    "round",
+    "scifi",
+    "simple",
+    "top"
+   ]
+  },
+  {
+   "id": "qsc_topsimple_straight",
+   "name": "Top Simple Straight",
+   "path": "/models/quaternius-scifi/Walls/TopSimple_Straight.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "scifi",
+    "simple",
+    "straight",
+    "top"
+   ]
+  },
+  {
+   "id": "qsc_topwindow_corner_curve_inner",
+   "name": "Top Window Corner Curve Inner",
+   "path": "/models/quaternius-scifi/Walls/TopWindow_Corner_Curve_Inner.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "corner",
+    "curve",
+    "edge",
+    "glass",
+    "inner",
+    "scifi",
+    "top",
+    "window"
+   ]
+  },
+  {
+   "id": "qsc_topwindow_corner_curve_outer",
+   "name": "Top Window Corner Curve Outer",
+   "path": "/models/quaternius-scifi/Walls/TopWindow_Corner_Curve_Outer.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "corner",
+    "curve",
+    "edge",
+    "glass",
+    "outer",
+    "scifi",
+    "top",
+    "window"
+   ]
+  },
+  {
+   "id": "qsc_topwindow_straight",
+   "name": "Top Window Straight",
+   "path": "/models/quaternius-scifi/Walls/TopWindow_Straight.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "glass",
+    "scifi",
+    "straight",
+    "top",
+    "window"
+   ]
+  },
+  {
+   "id": "qsc_wallastra_corner_round_inner",
+   "name": "Wall Astra Corner Round Inner",
+   "path": "/models/quaternius-scifi/Walls/WallAstra_Corner_Round_Inner.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "astra",
+    "barrier",
+    "corner",
+    "edge",
+    "inner",
+    "round",
+    "scifi",
+    "wall"
+   ]
+  },
+  {
+   "id": "qsc_wallastra_corner_round_outer",
+   "name": "Wall Astra Corner Round Outer",
+   "path": "/models/quaternius-scifi/Walls/WallAstra_Corner_Round_Outer.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "astra",
+    "barrier",
+    "corner",
+    "edge",
+    "outer",
+    "round",
+    "scifi",
+    "wall"
+   ]
+  },
+  {
+   "id": "qsc_wallastra_corner_square_inner",
+   "name": "Wall Astra Corner Square Inner",
+   "path": "/models/quaternius-scifi/Walls/WallAstra_Corner_Square_Inner.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "astra",
+    "barrier",
+    "corner",
+    "edge",
+    "inner",
+    "scifi",
+    "square",
+    "wall"
+   ]
+  },
+  {
+   "id": "qsc_wallastra_corner_square_outer",
+   "name": "Wall Astra Corner Square Outer",
+   "path": "/models/quaternius-scifi/Walls/WallAstra_Corner_Square_Outer.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "astra",
+    "barrier",
+    "corner",
+    "edge",
+    "outer",
+    "scifi",
+    "square",
+    "wall"
+   ]
+  },
+  {
+   "id": "qsc_wallastra_straight",
+   "name": "Wall Astra Straight",
+   "path": "/models/quaternius-scifi/Walls/WallAstra_Straight.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "astra",
+    "barrier",
+    "scifi",
+    "straight",
+    "wall"
+   ]
+  },
+  {
+   "id": "qsc_wallastra_straight_broken",
+   "name": "Wall Astra Straight Broken",
+   "path": "/models/quaternius-scifi/Walls/WallAstra_Straight_Broken.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "astra",
+    "barrier",
+    "broken",
+    "scifi",
+    "straight",
+    "wall"
+   ]
+  },
+  {
+   "id": "qsc_wallastra_straight_divided",
+   "name": "Wall Astra Straight Divided",
+   "path": "/models/quaternius-scifi/Walls/WallAstra_Straight_Divided.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "astra",
+    "barrier",
+    "divided",
+    "scifi",
+    "straight",
+    "wall"
+   ]
+  },
+  {
+   "id": "qsc_wallastra_straight_flat",
+   "name": "Wall Astra Straight Flat",
+   "path": "/models/quaternius-scifi/Walls/WallAstra_Straight_Flat.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "astra",
+    "barrier",
+    "flat",
+    "scifi",
+    "straight",
+    "wall"
+   ]
+  },
+  {
+   "id": "qsc_wallastra_straight_flat_window",
+   "name": "Wall Astra Straight Flat Window",
+   "path": "/models/quaternius-scifi/Walls/WallAstra_Straight_Flat_Window.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "astra",
+    "barrier",
+    "flat",
+    "glass",
+    "scifi",
+    "straight",
+    "wall",
+    "window"
+   ]
+  },
+  {
+   "id": "qsc_wallastra_straight_window",
+   "name": "Wall Astra Straight Window",
+   "path": "/models/quaternius-scifi/Walls/WallAstra_Straight_Window.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "astra",
+    "barrier",
+    "glass",
+    "scifi",
+    "straight",
+    "wall",
+    "window"
+   ]
+  },
+  {
+   "id": "qsc_wallband_corner_round_inner",
+   "name": "Wall Band Corner Round Inner",
+   "path": "/models/quaternius-scifi/Walls/WallBand_Corner_Round_Inner.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "band",
+    "barrier",
+    "corner",
+    "edge",
+    "inner",
+    "round",
+    "scifi",
+    "wall"
+   ]
+  },
+  {
+   "id": "qsc_wallband_corner_round_outer",
+   "name": "Wall Band Corner Round Outer",
+   "path": "/models/quaternius-scifi/Walls/WallBand_Corner_Round_Outer.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "band",
+    "barrier",
+    "corner",
+    "edge",
+    "outer",
+    "round",
+    "scifi",
+    "wall"
+   ]
+  },
+  {
+   "id": "qsc_wallband_corner_square_inner",
+   "name": "Wall Band Corner Square Inner",
+   "path": "/models/quaternius-scifi/Walls/WallBand_Corner_Square_Inner.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "band",
+    "barrier",
+    "corner",
+    "edge",
+    "inner",
+    "scifi",
+    "square",
+    "wall"
+   ]
+  },
+  {
+   "id": "qsc_wallband_corner_square_outer",
+   "name": "Wall Band Corner Square Outer",
+   "path": "/models/quaternius-scifi/Walls/WallBand_Corner_Square_Outer.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "band",
+    "barrier",
+    "corner",
+    "edge",
+    "outer",
+    "scifi",
+    "square",
+    "wall"
+   ]
+  },
+  {
+   "id": "qsc_wallband_straight",
+   "name": "Wall Band Straight",
+   "path": "/models/quaternius-scifi/Walls/WallBand_Straight.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "band",
+    "barrier",
+    "scifi",
+    "straight",
+    "wall"
+   ]
+  },
+  {
+   "id": "qsc_wallband_straight_broken",
+   "name": "Wall Band Straight Broken",
+   "path": "/models/quaternius-scifi/Walls/WallBand_Straight_Broken.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "band",
+    "barrier",
+    "broken",
+    "scifi",
+    "straight",
+    "wall"
+   ]
+  },
+  {
+   "id": "qsc_wallwindow_cap_a",
+   "name": "Wall Window Cap A",
+   "path": "/models/quaternius-scifi/Walls/WallWindow_Cap_A.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "barrier",
+    "cap",
+    "glass",
+    "scifi",
+    "wall",
+    "window"
+   ]
+  },
+  {
+   "id": "qsc_wallwindow_cap_b",
+   "name": "Wall Window Cap B",
+   "path": "/models/quaternius-scifi/Walls/WallWindow_Cap_B.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "barrier",
+    "cap",
+    "glass",
+    "scifi",
+    "wall",
+    "window"
+   ]
+  },
+  {
+   "id": "qsc_wallwindow_corner_round_inner",
+   "name": "Wall Window Corner Round Inner",
+   "path": "/models/quaternius-scifi/Walls/WallWindow_Corner_Round_Inner.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "barrier",
+    "corner",
+    "edge",
+    "glass",
+    "inner",
+    "round",
+    "scifi",
+    "wall",
+    "window"
+   ]
+  },
+  {
+   "id": "qsc_wallwindow_corner_round_outer",
+   "name": "Wall Window Corner Round Outer",
+   "path": "/models/quaternius-scifi/Walls/WallWindow_Corner_Round_Outer.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "barrier",
+    "corner",
+    "edge",
+    "glass",
+    "outer",
+    "round",
+    "scifi",
+    "wall",
+    "window"
+   ]
+  },
+  {
+   "id": "qsc_wallwindow_corner_square_inner",
+   "name": "Wall Window Corner Square Inner",
+   "path": "/models/quaternius-scifi/Walls/WallWindow_Corner_Square_Inner.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "barrier",
+    "corner",
+    "edge",
+    "glass",
+    "inner",
+    "scifi",
+    "square",
+    "wall",
+    "window"
+   ]
+  },
+  {
+   "id": "qsc_wallwindow_corner_square_outer",
+   "name": "Wall Window Corner Square Outer",
+   "path": "/models/quaternius-scifi/Walls/WallWindow_Corner_Square_Outer.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "barrier",
+    "corner",
+    "edge",
+    "glass",
+    "outer",
+    "scifi",
+    "square",
+    "wall",
+    "window"
+   ]
+  },
+  {
+   "id": "qsc_wallwindow_straight",
+   "name": "Wall Window Straight",
+   "path": "/models/quaternius-scifi/Walls/WallWindow_Straight.gltf",
+   "category": "scifi",
+   "defaultScale": 1,
+   "tags": [
+    "barrier",
+    "glass",
+    "scifi",
+    "straight",
+    "wall",
+    "window"
+   ]
+  },
+  {
+   "id": "qbc_superhero_female_fullbody",
+   "name": "Superhero Female Full Body",
+   "path": "/models/quaternius-base-characters/characters/Superhero_Female_FullBody.gltf",
+   "category": "character",
+   "defaultScale": 1,
+   "tags": [
+    "base",
+    "body",
+    "character",
+    "characters",
+    "female",
+    "full",
+    "superhero"
+   ]
+  },
+  {
+   "id": "qbc_superhero_male_fullbody",
+   "name": "Superhero Male Full Body",
+   "path": "/models/quaternius-base-characters/characters/Superhero_Male_FullBody.gltf",
+   "category": "character",
+   "defaultScale": 1,
+   "tags": [
+    "base",
+    "body",
+    "character",
+    "characters",
+    "full",
+    "male",
+    "superhero"
+   ]
+  },
+  {
+   "id": "qbc_eyebrows_female",
+   "name": "Eyebrows Female",
+   "path": "/models/quaternius-base-characters/hairstyles-rigged/Eyebrows_Female.gltf",
+   "category": "character",
+   "defaultScale": 1,
+   "tags": [
+    "base",
+    "character",
+    "characters",
+    "eyebrows",
+    "female"
+   ]
+  },
+  {
+   "id": "qbc_eyebrows_regular",
+   "name": "Eyebrows Regular",
+   "path": "/models/quaternius-base-characters/hairstyles-rigged/Eyebrows_Regular.gltf",
+   "category": "character",
+   "defaultScale": 1,
+   "tags": [
+    "base",
+    "character",
+    "characters",
+    "eyebrows",
+    "regular"
+   ]
+  },
+  {
+   "id": "qbc_hair_beard",
+   "name": "Hair Beard",
+   "path": "/models/quaternius-base-characters/hairstyles-rigged/Hair_Beard.gltf",
+   "category": "character",
+   "defaultScale": 1,
+   "tags": [
+    "base",
+    "beard",
+    "character",
+    "characters",
+    "hair"
+   ]
+  },
+  {
+   "id": "qbc_hair_buns",
+   "name": "Hair Buns",
+   "path": "/models/quaternius-base-characters/hairstyles-rigged/Hair_Buns.gltf",
+   "category": "character",
+   "defaultScale": 1,
+   "tags": [
+    "base",
+    "buns",
+    "character",
+    "characters",
+    "hair"
+   ]
+  },
+  {
+   "id": "qbc_hair_buzzed",
+   "name": "Hair Buzzed",
+   "path": "/models/quaternius-base-characters/hairstyles-rigged/Hair_Buzzed.gltf",
+   "category": "character",
+   "defaultScale": 1,
+   "tags": [
+    "base",
+    "buzzed",
+    "character",
+    "characters",
+    "hair"
+   ]
+  },
+  {
+   "id": "qbc_hair_buzzedfemale",
+   "name": "Hair Buzzed Female",
+   "path": "/models/quaternius-base-characters/hairstyles-rigged/Hair_BuzzedFemale.gltf",
+   "category": "character",
+   "defaultScale": 1,
+   "tags": [
+    "base",
+    "buzzed",
+    "character",
+    "characters",
+    "female",
+    "hair"
+   ]
+  },
+  {
+   "id": "qbc_hair_long",
+   "name": "Hair Long",
+   "path": "/models/quaternius-base-characters/hairstyles-rigged/Hair_Long.gltf",
+   "category": "character",
+   "defaultScale": 1,
+   "tags": [
+    "base",
+    "character",
+    "characters",
+    "hair",
+    "long"
+   ]
+  },
+  {
+   "id": "qbc_hair_simpleparted",
+   "name": "Hair Simple Parted",
+   "path": "/models/quaternius-base-characters/hairstyles-rigged/Hair_SimpleParted.gltf",
+   "category": "character",
+   "defaultScale": 1,
+   "tags": [
+    "base",
+    "character",
+    "characters",
+    "hair",
+    "parted",
+    "simple"
+   ]
+  },
+  {
+   "id": "qbc_eyebrows_female_2",
+   "name": "Eyebrows Female",
+   "path": "/models/quaternius-base-characters/hairstyles-standalone/Eyebrows_Female.gltf",
+   "category": "character",
+   "defaultScale": 1,
+   "tags": [
+    "base",
+    "character",
+    "characters",
+    "eyebrows",
+    "female"
+   ]
+  },
+  {
+   "id": "qbc_eyebrows_regular_2",
+   "name": "Eyebrows Regular",
+   "path": "/models/quaternius-base-characters/hairstyles-standalone/Eyebrows_Regular.gltf",
+   "category": "character",
+   "defaultScale": 1,
+   "tags": [
+    "base",
+    "character",
+    "characters",
+    "eyebrows",
+    "regular"
+   ]
+  },
+  {
+   "id": "qbc_hair_beard_2",
+   "name": "Hair Beard",
+   "path": "/models/quaternius-base-characters/hairstyles-standalone/Hair_Beard.gltf",
+   "category": "character",
+   "defaultScale": 1,
+   "tags": [
+    "base",
+    "beard",
+    "character",
+    "characters",
+    "hair"
+   ]
+  },
+  {
+   "id": "qbc_hair_buns_2",
+   "name": "Hair Buns",
+   "path": "/models/quaternius-base-characters/hairstyles-standalone/Hair_Buns.gltf",
+   "category": "character",
+   "defaultScale": 1,
+   "tags": [
+    "base",
+    "buns",
+    "character",
+    "characters",
+    "hair"
+   ]
+  },
+  {
+   "id": "qbc_hair_buzzed_2",
+   "name": "Hair Buzzed",
+   "path": "/models/quaternius-base-characters/hairstyles-standalone/Hair_Buzzed.gltf",
+   "category": "character",
+   "defaultScale": 1,
+   "tags": [
+    "base",
+    "buzzed",
+    "character",
+    "characters",
+    "hair"
+   ]
+  },
+  {
+   "id": "qbc_hair_buzzedfemale_2",
+   "name": "Hair Buzzed Female",
+   "path": "/models/quaternius-base-characters/hairstyles-standalone/Hair_BuzzedFemale.gltf",
+   "category": "character",
+   "defaultScale": 1,
+   "tags": [
+    "base",
+    "buzzed",
+    "character",
+    "characters",
+    "female",
+    "hair"
+   ]
+  },
+  {
+   "id": "qbc_hair_long_2",
+   "name": "Hair Long",
+   "path": "/models/quaternius-base-characters/hairstyles-standalone/Hair_Long.gltf",
+   "category": "character",
+   "defaultScale": 1,
+   "tags": [
+    "base",
+    "character",
+    "characters",
+    "hair",
+    "long"
+   ]
+  },
+  {
+   "id": "qbc_hair_simpleparted_2",
+   "name": "Hair Simple Parted",
+   "path": "/models/quaternius-base-characters/hairstyles-standalone/Hair_SimpleParted.gltf",
+   "category": "character",
+   "defaultScale": 1,
+   "tags": [
+    "base",
+    "character",
+    "characters",
+    "hair",
+    "parted",
+    "simple"
+   ]
   }
  ]
 }

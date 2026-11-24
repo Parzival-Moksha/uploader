@@ -10,7 +10,7 @@ Tell your Claude Code (or any coding agent that can run commands):
 install the Oasis from github.com/Parzival-Moksha/uploader and open it
 ```
 
-That is all: no plugin, no slash command. It clones this repository, installs and builds it (about five minutes the first time) and opens the village in your browser. Every Claude Code session on this machine shows up there. You need Node.js 20 or later and git.
+That is all: no plugin, no slash command. It clones this repository (**about 600 MB**: every world and avatar), installs and builds it (about 7 to 10 minutes the first time on a 100 Mbit line) and opens the village in your browser. Every Claude Code session on this machine shows up there. You need Node.js 20 or later and git.
 
 By hand, the same thing:
 
@@ -20,11 +20,13 @@ cd uploader
 node scripts/oasis.mjs start
 ```
 
+On a slow or metered line, the small edition (about 32 MB: one world, 12 avatars) is on every release page as `oasis-lite-<version>.tar.gz`: unpack it and run `node scripts/oasis.mjs start` in it (with the plugin: `/oasis lite`).
+
 Start it only this way (`pnpm dev` and `npm start` run the same script): `next dev` or `next start` alone gives a page without the engine, the database or the village, an empty world where nobody can be summoned. `node scripts/oasis.mjs status` says what is running and which version, `node scripts/oasis.mjs stop` stops it. **To update:** in the Oasis folder, `node scripts/oasis.mjs update` (git pull, then a rebuild; your worlds, agents and keys stay). The version is in the main menu (M), under the Oasis's name. It works the same on Windows, macOS and Linux. (macOS: installs and opens on a clean Mac at every release, checked by machine; no person has watched a Mac install yet. Linux: written with care, not yet run by us.)
 
 ## Optional: the Claude Code plugin
 
-Not needed for anything above. It is for people who live in Claude Code and want, from any session, `/oasis`: it opens the village with that session in front of you, gives that session the world tools (look at the world, build in it), and lets you talk from the village to sessions running in the Claude Code app or a terminal. It also installs the full edition (about 570 MB: every avatar and world) instead of this repository's small one.
+Not needed for anything above. It is for people who live in Claude Code and want, from any session, `/oasis`: it opens the village with that session in front of you, gives that session the world tools (look at the world, build in it), and lets you talk from the village to sessions running in the Claude Code app or a terminal. It installs the same full Oasis as this repository, from the release.
 
 ```
 /plugin marketplace add Parzival-Moksha/uploader

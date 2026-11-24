@@ -1,0 +1,121 @@
+{
+  "generatedAt": "2026-05-19T03:04:57.993Z",
+  "designs": [
+    {
+      "id": "retrowave-rp1",
+      "label": "Retrowave RP1",
+      "variants": [
+        {
+          "model": "nano2",
+          "modelLabel": "Nano Banana 2",
+          "url": "/splash/retrowave-rp1.nano2.webp"
+        },
+        {
+          "model": "gpt2",
+          "modelLabel": "GPT Image 2",
+          "url": "/splash/retrowave-rp1.gpt2.webp"
+        }
+      ]
+    },
+    {
+      "id": "wizards-atrium",
+      "label": "Wizards Atrium",
+      "variants": [
+        {
+          "model": "nano2",
+          "modelLabel": "Nano Banana 2",
+          "url": "/splash/wizards-atrium.nano2.webp"
+        },
+        {
+          "model": "gpt2",
+          "modelLabel": "GPT Image 2",
+          "url": "/splash/wizards-atrium.gpt2.webp"
+        }
+      ]
+    },
+    {
+      "id": "agent-console",
+      "label": "Agent Console",
+      "variants": [
+        {
+          "model": "nano2",
+          "modelLabel": "Nano Banana 2",
+          "url": "/splash/agent-console.nano2.webp"
+        },
+        {
+          "model": "gpt2",
+          "modelLabel": "GPT Image 2",
+          "url": "/splash/agent-console.gpt2.webp"
+        }
+      ]
+    },
+    {
+      "id": "carbon-silicon",
+      "label": "Carbon-Silicon Unity",
+      "variants": [
+        {
+          "model": "nano2",
+          "modelLabel": "Nano Banana 2",
+          "url": "/splash/carbon-silicon.nano2.webp"
+        },
+        {
+          "model": "gpt2",
+          "modelLabel": "GPT Image 2",
+          "url": "/splash/carbon-silicon.gpt2.webp"
+        }
+      ]
+    },
+    {
+      "id": "psychedelic-genesis",
+      "label": "Psychedelic Genesis",
+      "variants": [
+        {
+          "model": "nano2",
+          "modelLabel": "Nano Banana 2",
+          "url": "/splash/psychedelic-genesis.nano2.webp"
+        },
+        {
+          "model": "gpt2",
+          "modelLabel": "GPT Image 2",
+          "url": "/splash/psychedelic-genesis.gpt2.webp"
+        }
+      ]
+    },
+    {
+      "id": "halliday-workshop",
+      "label": "Halliday Workshop",
+      "variants": [
+        {
+          "model": "nano2",
+          "modelLabel": "Nano Banana 2",
+          "url": "/splash/halliday-workshop.nano2.webp"
+        },
+        {
+          "model": "gpt2",
+          "modelLabel": "GPT Image 2",
+          "url": "/splash/halliday-workshop.gpt2.webp"
+        }
+      ]
+    },
+    {
+      "id": "living-threejs",
+      "label": "Living Three.js",
+      "variants": [
+        {
+          "model": "nano2",
+          "modelLabel": "Nano Banana 2",
+          "url": "/splash/living-threejs.nano2.webp"
+        },
+        {
+          "model": "gpt2",
+          "modelLabel": "GPT Image 2",
+          "url": "/splash/living-threejs.gpt2.webp"
+        }
+      ]
+    }
+  ],
+  "compressed": {
+    "quality": 72,
+    "targetWidth": 1920
+  }
+}

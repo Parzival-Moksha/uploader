@@ -7,6 +7,34 @@
       "file": "oasis-dusk.world.json",
       "name": "Oasis Dusk",
       "visibility": "private"
+    },
+    {
+      "slug": "zen-workshop",
+      "id": "world-1794212026554-ghi9",
+      "file": "zen-workshop.world.json",
+      "name": "Zen Workshop",
+      "visibility": "private"
+    },
+    {
+      "slug": "the-council",
+      "id": "world-1795024653273-vaax",
+      "file": "the-council.world.json",
+      "name": "The Council",
+      "visibility": "private"
+    },
+    {
+      "slug": "floating-isle",
+      "id": "world-1794211873437-g1or",
+      "file": "floating-isle.world.json",
+      "name": "Floating Isle",
+      "visibility": "private"
+    },
+    {
+      "slug": "neon-harbor",
+      "id": "world-1794212026615-ve69",
+      "file": "neon-harbor.world.json",
+      "name": "Neon Harbor",
+      "visibility": "private"
     }
   ]
 }

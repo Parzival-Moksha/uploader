@@ -6,18 +6,48 @@ Every picture, sound, animation, avatar and font in this repository, with where 
 
 | File | Name | Author | Licence |
 |---|---|---|---|
+| `public/avatars/gallery/Amazonas.vrm` | Amazonas | Polygonal Mind | CC0 1.0 |
+| `public/avatars/gallery/Anna.vrm` | Anna | 0xded150f6c599b08950919cfb0b97516b6235a36b | CC0 1.0 |
+| `public/avatars/gallery/Bruno.vrm` | Bruno | 0xded150f6c599b08950919cfb0b97516b6235a36b | CC0 1.0 |
+| `public/avatars/gallery/CaptainLobster.vrm` | Captain Lobster | PolygonalMind | CC0 1.0 |
+| `public/avatars/gallery/Cookieman.vrm` | 98_Cookieman | Polygonal Mind | CC0 1.0 |
 | `public/avatars/gallery/CoolAlien.vrm` | Cool Alien | Polygonal Mind | CC0 1.0 |
-| `public/avatars/gallery/UnicornPerson.vrm` | 110_Unicorn Persona | Polygonal Mind | CC0 1.0 |
-| `public/avatars/gallery/David.vrm` | David | Polygonal Mind | CC0 1.0 |
-| `public/avatars/gallery/Witch.vrm` | Witch | Polygonal Mind | CC0 1.0 |
-| `public/avatars/gallery/EYEWizard.vrm` | 113_EYE Wizard | Polygonal Mind | CC0 1.0 |
-| `public/avatars/gallery/HodlerKing.vrm` | 125_Holdler King | Polygonal Mind | CC0 1.0 |
-| `public/avatars/gallery/CoolGuitar.vrm` | 143_Cool_Guitar | Polygonal Mind | CC0 1.0 |
-| `public/avatars/gallery/CuteMoth.vrm` | Cute Moth | 0xded150f6c599b08950919cfb0b97516b6235a36b | CC0 1.0 |
 | `public/avatars/gallery/CoolCow.vrm` | 190_Cool Cow | Polygonal Mind | CC0 1.0 |
-| `public/avatars/gallery/Mushy.vrm` | Mushy | Polygonal Mind | CC0 1.0 |
-| `public/avatars/gallery/The_Worm.vrm` | TheWorm | ToxSam.eth Worm Disciple 46 COTW | CC0 1.0 |
+| `public/avatars/gallery/CoolCyclops.vrm` | Cool Cyclops | 0xded150f6c599b08950919cfb0b97516b6235a36b | CC0 1.0 |
+| `public/avatars/gallery/CoolGuitar.vrm` | 143_Cool_Guitar | Polygonal Mind | CC0 1.0 |
+| `public/avatars/gallery/CoolRadish.vrm` | Cool Radish | [VIPEDeployer / 0xded150f6c599b08950919cfb0b97516b6235a36b] | CC0 1.0 |
+| `public/avatars/gallery/CoolSpaguetti.vrm` | Cool Spaguetti | [VIPEDeployer / 0xded150f6c599b08950919cfb0b97516b6235a36b] | CC0 1.0 |
+| `public/avatars/gallery/CosmicBot.vrm` | Cosmic Bot | 0xded150f6c599b08950919cfb0b97516b6235a36b | CC0 1.0 |
+| `public/avatars/gallery/Crustybutt_da_king.vrm` | Crustybutt da gobblin king | ToxSam | CC0 1.0 |
+| `public/avatars/gallery/CuteMoth.vrm` | Cute Moth | 0xded150f6c599b08950919cfb0b97516b6235a36b | CC0 1.0 |
+| `public/avatars/gallery/Cyberpal.vrm` | Cyberpal | [VIPEDeployer / 0xded150f6c599b08950919cfb0b97516b6235a36b] | CC0 1.0 |
+| `public/avatars/gallery/David.vrm` | David | Polygonal Mind | CC0 1.0 |
+| `public/avatars/gallery/DreamEater.vrm` | Dream Eater | 0xded150f6c599b08950919cfb0b97516b6235a36b | CC0 1.0 |
+| `public/avatars/gallery/DreamFighter.vrm` | Dream Fighter | 0xded150f6c599b08950919cfb0b97516b6235a36b | CC0 1.0 |
 | `public/avatars/gallery/EYECleric.vrm` | 148_EYE Cleric | PolygonalMind | CC0 1.0 |
+| `public/avatars/gallery/EYEWizard.vrm` | 113_EYE Wizard | Polygonal Mind | CC0 1.0 |
+| `public/avatars/gallery/EYE_Diviner.vrm` | EYE Diviner | ToxSam | CC0 1.0 |
+| `public/avatars/gallery/Eugenia.vrm` | Eugenia | [VIPEDeployer / 0xded150f6c599b08950919cfb0b97516b6235a36b] | CC0 1.0 |
+| `public/avatars/gallery/EvilPendra.vrm` | Evil Pendra | 0xded150f6c599b08950919cfb0b97516b6235a36b | CC0 1.0 |
+| `public/avatars/gallery/GARY_GRIFTER_1_0.vrm` | GARY GRIFTER | NEONGLITCH86 | CC0 1.0 |
+| `public/avatars/gallery/GoodKnight.vrm` | Good Knight | [VIPEDeployer / 0xded150f6c599b08950919cfb0b97516b6235a36b] | CC0 1.0 |
+| `public/avatars/gallery/Grifter_Squaddie__764.vrm` | Grifter Squaddie #764 | ToxSam | CC0 1.0 |
+| `public/avatars/gallery/HodlerKing.vrm` | 125_Holdler King | Polygonal Mind | CC0 1.0 |
+| `public/avatars/gallery/Juanita.vrm` | Juanita | 0xded150f6c599b08950919cfb0b97516b6235a36b | CC0 1.0 |
+| `public/avatars/gallery/King_Mutatio.vrm` | King Mutatio | 0xfec33a90737254dcf9aa33188a11f32797197f93 | CC0 1.0 |
+| `public/avatars/gallery/LadyFawn.vrm` | Lady Fawn | 0xded150f6c599b08950919cfb0b97516b6235a36b | CC0 1.0 |
+| `public/avatars/gallery/Mr.vrm` | Mr. Receipt | [VIPEDeployer / 0xded150f6c599b08950919cfb0b97516b6235a36b] | CC0 1.0 |
+| `public/avatars/gallery/MushroomFairy.vrm` | Mushroom Fairy | [VIPEDeployer / 0xded150f6c599b08950919cfb0b97516b6235a36b] | CC0 1.0 |
+| `public/avatars/gallery/Mushy.vrm` | Mushy | Polygonal Mind | CC0 1.0 |
+| `public/avatars/gallery/Orion.vrm` | Orion | Polygonal Mind | CC0 1.0 |
+| `public/avatars/gallery/PitcherDude.vrm` | Pitcher Dude | 0xded150f6c599b08950919cfb0b97516b6235a36b | CC0 1.0 |
+| `public/avatars/gallery/RippedJimbo.vrm` | Ripped Jimbo | 0xded150f6c599b08950919cfb0b97516b6235a36b | CC0 1.0 |
+| `public/avatars/gallery/SportTV.vrm` | Sport TV | 0xded150f6c599b08950919cfb0b97516b6235a36b | CC0 1.0 |
+| `public/avatars/gallery/Stingcake.vrm` | Stingcake | 0xded150f6c599b08950919cfb0b97516b6235a36b | CC0 1.0 |
+| `public/avatars/gallery/StitchWitch.vrm` | Stitch Witch | [VIPEDeployer / 0xded150f6c599b08950919cfb0b97516b6235a36b] | CC0 1.0 |
+| `public/avatars/gallery/The_Worm.vrm` | TheWorm | ToxSam.eth Worm Disciple 46 COTW | CC0 1.0 |
+| `public/avatars/gallery/UnicornPerson.vrm` | 110_Unicorn Persona | Polygonal Mind | CC0 1.0 |
+| `public/avatars/gallery/Witch.vrm` | Witch | Polygonal Mind | CC0 1.0 |
 
 The CC0 avatars state that licence inside the file (VRM metadata); the cut checks it each time.
 
@@ -33,64 +63,49 @@ The CC0 avatars state that licence inside the file (VRM metadata); the cut check
 | `public/fonts/helvetiker_` | 2 | Magenta Ltd, MgOpen Moderna as "helvetiker" (three.js typeface files) | MgOpen licence (free to use, copy and distribute) |
 | `public/fonts/inter-` | 1 | Rasmus Andersson, Inter | SIL Open Font License 1.1 |
 | `public/fonts/ui/` | 17 | Google Fonts subsets of Cinzel, Cormorant Garamond, Space Grotesk and JetBrains Mono (their project authors) | SIL Open Font License 1.1 (OFL.txt beside the files) |
-| `public/ground/` | 5 | Poly Haven (polyhaven.com) | CC0 1.0 |
-| `public/ground/sbs2/` | 1 | Screaming Brain Studios, Tiny Texture Pack 2 | CC0 1.0 |
+| `public/ground/` | 19 | Poly Haven (polyhaven.com) | CC0 1.0 |
+| `public/ground/sbs1/` | 125 | Screaming Brain Studios, Tiny Texture Pack | CC0 1.0 |
+| `public/ground/sbs2/` | 160 | Screaming Brain Studios, Tiny Texture Pack 2 | CC0 1.0 |
+| `public/hdri/` | 13 | Poly Haven (polyhaven.com) and ambientCG night skies | CC0 1.0 |
 | `public/icons/` | 6 | the Oasis | Made for the Oasis; MIT with the code |
 | `public/lipsync/wlipsync/` | 4 | mrxz, wLipSync (browser runtime and starter profile) | MIT |
-| `public/models/stylized-nature/` | 12 | Quaternius, Stylized Nature MegaKit | CC0 1.0 |
+| `public/models/cyberpunk/` | 74 | Quaternius, Cyberpunk Game Kit | CC0 1.0 |
+| `public/models/fantasy-props/` | 201 | Quaternius, Fantasy RPG Pack | CC0 1.0 |
+| `public/models/kenney-` | 149 | Kenney (kenney.nl) | CC0 1.0 |
+| `public/models/quaternius-animations` | 5 | Quaternius, Universal Animation Library | CC0 1.0 |
+| `public/models/quaternius-base-characters/` | 58 | Quaternius, Ultimate Modular Characters | CC0 1.0 |
+| `public/models/quaternius-medieval-village/` | 374 | Quaternius, Medieval Village MegaKit | CC0 1.0 |
+| `public/models/quaternius-scifi/` | 377 | Quaternius, Sci-Fi Essentials Kit | CC0 1.0 |
+| `public/models/scifi-essentials/` | 106 | Quaternius, Sci-Fi Essentials Kit | CC0 1.0 |
+| `public/models/scifi-megakit/` | 400 | Quaternius, Modular Sci-Fi MegaKit | CC0 1.0 |
+| `public/models/stylized-nature/` | 156 | Quaternius, Stylized Nature MegaKit | CC0 1.0 |
+| `public/models/trains/` | 30 | Quaternius, Train Pack | CC0 1.0 |
 | `public/oasislogo.jpg` | 1 | the Oasis | Made for the Oasis; MIT with the code |
+| `public/portal-thumbs/` | 10 | the Oasis | Made for the Oasis; MIT with the code |
 | `public/skies/` | 15 | the Oasis | Made for the Oasis (generated panoramas, 2026-11-09); MIT with the code |
-| `public/ui/` | 89 | the Oasis | Made for the Oasis (generated art); MIT with the code |
+| `public/splash/` | 15 | the Oasis | Made for the Oasis (generated art); MIT with the code |
+| `public/thumbs/` | 1012 | the Oasis | Made for the Oasis (pictures of the models above); MIT with the code |
+| `public/ui/` | 107 | the Oasis | Made for the Oasis (generated art); MIT with the code |
 | `public/voice/` | 1 | the Oasis | Made for the Oasis; MIT with the code |
 
 ## What is not here, and why
 
 The main Oasis repository holds more than this package. Each file below stays out, for the reason given. Nothing is deleted from the main repository: these files are only not passed on.
 
-### avatars whose metadata is not CC0 (40 files, 247.7 MiB)
+### avatars whose metadata is not CC0 (10 files, 68.7 MiB)
 
 Why: CC BY for named licensees only, "Other", "Redistribution Prohibited", or made with a 3D generation service.
 
-- `public/avatars/gallery/Amazonas.vrm`
-- `public/avatars/gallery/Anna.vrm`
-- `public/avatars/gallery/Bruno.vrm`
-- `public/avatars/gallery/CaptainLobster.vrm`
-- `public/avatars/gallery/Cookieman.vrm`
-- `public/avatars/gallery/CoolCyclops.vrm`
-- `public/avatars/gallery/CoolRadish.vrm`
-- `public/avatars/gallery/CoolSpaguetti.vrm`
-- `public/avatars/gallery/CosmicBot.vrm`
-- `public/avatars/gallery/Crustybutt_da_king.vrm`
-- `public/avatars/gallery/Cyberpal.vrm`
-- `public/avatars/gallery/DreamEater.vrm`
-- `public/avatars/gallery/DreamFighter.vrm`
-- `public/avatars/gallery/EYE_Diviner.vrm`
-- `public/avatars/gallery/Esktix__Magma.vrm`
-- `public/avatars/gallery/Eugenia.vrm`
-- `public/avatars/gallery/EvilPendra.vrm`
-- `public/avatars/gallery/GARY_GRIFTER_1_0.vrm`
-- `public/avatars/gallery/GoodKnight.vrm`
-- `public/avatars/gallery/Grifter_Squaddie__764.vrm`
-- `public/avatars/gallery/Hacker.vrm`
-- `public/avatars/gallery/Harvester__Summer.vrm`
-- `public/avatars/gallery/Juanita.vrm`
-- `public/avatars/gallery/King_Mutatio.vrm`
-- `public/avatars/gallery/LadyFawn.vrm`
-- `public/avatars/gallery/Mimic_Slime__Classic.vrm`
-- `public/avatars/gallery/Mocking_Spit__Sea_Sick.vrm`
-- `public/avatars/gallery/Mr.vrm`
-- `public/avatars/gallery/MushroomFairy.vrm`
-- `public/avatars/gallery/Orion.vrm`
-- `public/avatars/gallery/PitcherDude.vrm`
-- `public/avatars/gallery/RippedJimbo.vrm`
-- `public/avatars/gallery/SportTV.vrm`
-- `public/avatars/gallery/Stingcake.vrm`
-- `public/avatars/gallery/StitchWitch.vrm`
-- `public/avatars/gallery/VIPE_Hero__2723.vrm`
-- `public/avatars/gallery/VIPE_Hero__2770.vrm`
-- `public/avatars/gallery/VIPE_Hero__2784.vrm`
-- `public/avatars/gallery/VIPE_Hero__2799.vrm`
-- `public/avatars/gallery/VIPE_Hero__2902.vrm`
+- `public/avatars/gallery/Esktix__Magma.vrm`: the file says Other
+- `public/avatars/gallery/Hacker.vrm`: the file says https://vrm.dev/licenses/1.0/
+- `public/avatars/gallery/Harvester__Summer.vrm`: the file says Other
+- `public/avatars/gallery/Mimic_Slime__Classic.vrm`: the file says Other
+- `public/avatars/gallery/Mocking_Spit__Sea_Sick.vrm`: the file says Other
+- `public/avatars/gallery/VIPE_Hero__2723.vrm`: the file says CC_BY
+- `public/avatars/gallery/VIPE_Hero__2770.vrm`: the file says CC_BY
+- `public/avatars/gallery/VIPE_Hero__2784.vrm`: the file says CC_BY
+- `public/avatars/gallery/VIPE_Hero__2799.vrm`: the file says CC_BY
+- `public/avatars/gallery/VIPE_Hero__2902.vrm`: the file says CC_BY
 
 ### the Mixamo animations (.fbx) (24 files, 16.5 MiB)
 

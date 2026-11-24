@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-label="Clockwork portal">
+  <defs>
+    <radialGradient id="core-clockwork-iris" cx="50%" cy="45%" r="58%">
+      <stop offset="0%" stop-color="#facc15" stop-opacity="0.95"/>
+      <stop offset="42%" stop-color="#422006" stop-opacity="0.72"/>
+      <stop offset="100%" stop-color="#fef3c7" stop-opacity="0.94"/>
+    </radialGradient>
+    <linearGradient id="rim-clockwork-iris" x1="0%" x2="100%" y1="0%" y2="100%">
+      <stop offset="0%" stop-color="#facc15"/>
+      <stop offset="48%" stop-color="#facc15"/>
+      <stop offset="100%" stop-color="#422006"/>
+    </linearGradient>
+    <filter id="glow-clockwork-iris" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="5" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="glow-smoke" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="9"/>
+    </filter>
+  </defs>
+  <rect width="256" height="256" rx="22" fill="#020617"/>
+  <circle cx="54" cy="46" r="82" fill="#facc15" opacity="0.12"/>
+  <circle cx="205" cy="203" r="92" fill="#facc15" opacity="0.1"/>
+  <circle cx="128" cy="126" r="63" fill="url(#core-clockwork-iris)" filter="url(#glow-clockwork-iris)"/>
+  <circle cx="128" cy="126" r="82" fill="none" stroke="url(#rim-clockwork-iris)" stroke-width="12"/>
+  <g fill="#facc15">
+    <rect x="124" y="30" width="8" height="20" rx="2" transform="rotate(0 128 126)" opacity="0.86"/><rect x="124" y="30" width="8" height="20" rx="2" transform="rotate(12.857142857142858 128 126)" opacity="0.52"/><rect x="124" y="30" width="8" height="20" rx="2" transform="rotate(25.714285714285715 128 126)" opacity="0.86"/><rect x="124" y="30" width="8" height="20" rx="2" transform="rotate(38.57142857142857 128 126)" opacity="0.52"/><rect x="124" y="30" width="8" height="20" rx="2" transform="rotate(51.42857142857143 128 126)" opacity="0.86"/><rect x="124" y="30" width="8" height="20" rx="2" transform="rotate(64.28571428571429 128 126)" opacity="0.52"/><rect x="124" y="30" width="8" height="20" rx="2" transform="rotate(77.14285714285714 128 126)" opacity="0.86"/><rect x="124" y="30" width="8" height="20" rx="2" transform="rotate(90 128 126)" opacity="0.52"/><rect x="124" y="30" width="8" height="20" rx="2" transform="rotate(102.85714285714286 128 126)" opacity="0.86"/><rect x="124" y="30" width="8" height="20" rx="2" transform="rotate(115.71428571428572 128 126)" opacity="0.52"/><rect x="124" y="30" width="8" height="20" rx="2" transform="rotate(128.57142857142858 128 126)" opacity="0.86"/><rect x="124" y="30" width="8" height="20" rx="2" transform="rotate(141.42857142857144 128 126)" opacity="0.52"/><rect x="124" y="30" width="8" height="20" rx="2" transform="rotate(154.28571428571428 128 126)" opacity="0.86"/><rect x="124" y="30" width="8" height="20" rx="2" transform="rotate(167.14285714285714 128 126)" opacity="0.52"/><rect x="124" y="30" width="8" height="20" rx="2" transform="rotate(180 128 126)" opacity="0.86"/><rect x="124" y="30" width="8" height="20" rx="2" transform="rotate(192.85714285714286 128 126)" opacity="0.52"/><rect x="124" y="30" width="8" height="20" rx="2" transform="rotate(205.71428571428572 128 126)" opacity="0.86"/><rect x="124" y="30" width="8" height="20" rx="2" transform="rotate(218.57142857142858 128 126)" opacity="0.52"/><rect x="124" y="30" width="8" height="20" rx="2" transform="rotate(231.42857142857144 128 126)" opacity="0.86"/><rect x="124" y="30" width="8" height="20" rx="2" transform="rotate(244.2857142857143 128 126)" opacity="0.52"/><rect x="124" y="30" width="8" height="20" rx="2" transform="rotate(257.14285714285717 128 126)" opacity="0.86"/><rect x="124" y="30" width="8" height="20" rx="2" transform="rotate(270 128 126)" opacity="0.52"/><rect x="124" y="30" width="8" height="20" rx="2" transform="rotate(282.8571428571429 128 126)" opacity="0.86"/><rect x="124" y="30" width="8" height="20" rx="2" transform="rotate(295.7142857142857 128 126)" opacity="0.52"/><rect x="124" y="30" width="8" height="20" rx="2" transform="rotate(308.57142857142856 128 126)" opacity="0.86"/><rect x="124" y="30" width="8" height="20" rx="2" transform="rotate(321.42857142857144 128 126)" opacity="0.52"/><rect x="124" y="30" width="8" height="20" rx="2" transform="rotate(334.2857142857143 128 126)" opacity="0.86"/><rect x="124" y="30" width="8" height="20" rx="2" transform="rotate(347.14285714285717 128 126)" opacity="0.52"/>
+  </g>
+  <g fill="#fef3c7" opacity="0.78">
+    <path d="M128 126l45-12-12 51z" transform="rotate(0 128 126)"/><path d="M128 126l45-12-12 51z" transform="rotate(51.42857142857143 128 126)"/><path d="M128 126l45-12-12 51z" transform="rotate(102.85714285714286 128 126)"/><path d="M128 126l45-12-12 51z" transform="rotate(154.28571428571428 128 126)"/><path d="M128 126l45-12-12 51z" transform="rotate(205.71428571428572 128 126)"/><path d="M128 126l45-12-12 51z" transform="rotate(257.14285714285717 128 126)"/><path d="M128 126l45-12-12 51z" transform="rotate(308.57142857142856 128 126)"/>
+  </g>
+  <g opacity="0.86">
+    <circle cx="48" cy="54" r="2" fill="#fff"/>
+    <circle cx="205" cy="49" r="1.6" fill="#fff"/>
+    <circle cx="222" cy="139" r="2.4" fill="#fff"/>
+    <circle cx="42" cy="165" r="1.8" fill="#fff"/>
+    <circle cx="108" cy="31" r="1.4" fill="#fff"/>
+    <circle cx="154" cy="220" r="1.7" fill="#fff"/>
+    <circle cx="194" cy="206" r="1.2" fill="#fff"/>
+  </g>
+  <text x="128" y="232" text-anchor="middle" fill="#dbeafe" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="13" font-weight="700" letter-spacing="0">Clockwork</text>
+  <text x="128" y="247" text-anchor="middle" fill="#64748b" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="8" letter-spacing="0">clockwork-iris</text>
+</svg>
