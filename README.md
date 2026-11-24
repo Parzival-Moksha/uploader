@@ -10,20 +10,9 @@ Tell your Claude Code (or any coding agent that can run commands):
 install the Oasis from github.com/Parzival-Moksha/uploader and open it
 ```
 
-It clones this repository, installs and builds it (about five minutes the first time) and opens the village in your browser. You need Node.js 20 or later and git.
+That is all: no plugin, no slash command. It clones this repository, installs and builds it (about five minutes the first time) and opens the village in your browser. Every Claude Code session on this machine shows up there. You need Node.js 20 or later and git.
 
-## Or with the Claude Code plugin
-
-```
-/plugin marketplace add Parzival-Moksha/uploader
-/plugin install oasis@oasis
-```
-
-Then type `/oasis` in a new session. The plugin also lets you talk from the village to sessions running in the Claude Code app or a terminal. The first time it downloads this repository's release, installs its packages and builds it (a few minutes, once). After that it starts in seconds and opens the village in your browser.
-
-## Or by hand
-
-You need Node.js 20 or later and Claude Code.
+By hand, the same thing:
 
 ```
 git clone --depth 1 https://github.com/Parzival-Moksha/uploader.git
@@ -31,7 +20,18 @@ cd uploader
 node scripts/oasis.mjs start
 ```
 
-Start it only this way (`pnpm dev` and `npm start` run the same script): `next dev` or `next start` alone gives a page without the engine, the database or the village, an empty world where nobody can be summoned. `node scripts/oasis.mjs status` says what is running and which version, `node scripts/oasis.mjs stop` stops it. **To update:** with the plugin, `/oasis update` in Claude Code; in a clone, `node scripts/oasis.mjs update` (git pull, then a rebuild; your worlds, agents and keys stay). The version is in the main menu (M), under the Oasis's name. It works the same on Windows, macOS and Linux. (macOS: installs and opens on a clean Mac at every release, checked by machine; no person has watched a Mac install yet. Linux: written with care, not yet run by us.)
+Start it only this way (`pnpm dev` and `npm start` run the same script): `next dev` or `next start` alone gives a page without the engine, the database or the village, an empty world where nobody can be summoned. `node scripts/oasis.mjs status` says what is running and which version, `node scripts/oasis.mjs stop` stops it. **To update:** in the Oasis folder, `node scripts/oasis.mjs update` (git pull, then a rebuild; your worlds, agents and keys stay). The version is in the main menu (M), under the Oasis's name. It works the same on Windows, macOS and Linux. (macOS: installs and opens on a clean Mac at every release, checked by machine; no person has watched a Mac install yet. Linux: written with care, not yet run by us.)
+
+## Optional: the Claude Code plugin
+
+Not needed for anything above. It is for people who live in Claude Code and want, from any session, `/oasis`: it opens the village with that session in front of you, gives that session the world tools (look at the world, build in it), and lets you talk from the village to sessions running in the Claude Code app or a terminal. It also installs the full edition (about 570 MB: every avatar and world) instead of this repository's small one.
+
+```
+/plugin marketplace add Parzival-Moksha/uploader
+/plugin install oasis@oasis
+```
+
+Then type `/oasis` in a new session (the first time it downloads the release and builds it, a few minutes). To update an Oasis the plugin installed: `/oasis update` (plain `/oasis` never updates; it says when a newer one is ready).
 
 ## What runs on your machine
 
