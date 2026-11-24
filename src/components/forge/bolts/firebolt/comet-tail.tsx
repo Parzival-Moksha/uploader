@@ -8,6 +8,7 @@
 import { Html } from '@react-three/drei'
 import { useMemo } from 'react'
 import * as THREE from 'three'
+import { WORLD_Z_RANGE } from '@/lib/ui-kit/layers'
 
 export type CometTailProjectile = {
   id: string
@@ -171,7 +172,7 @@ export function CometTailHitMarkerMesh({ marker }: { marker: CometTailHitMarker 
   const yOffset = isXpMarker ? 2.25 + t * 0.9 : 1.55 + t * 0.55
   return (
     <group position={[marker.position[0], marker.position[1] + yOffset, marker.position[2]]}>
-      <Html transform sprite center distanceFactor={isXpMarker ? 5 : 7} style={{ pointerEvents: 'none' }}>
+      <Html zIndexRange={WORLD_Z_RANGE} transform sprite center distanceFactor={isXpMarker ? 5 : 7} style={{ pointerEvents: 'none' }}>
         <div
           className={
             isXpMarker

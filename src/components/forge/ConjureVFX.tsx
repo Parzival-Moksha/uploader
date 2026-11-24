@@ -24,6 +24,7 @@ import { useFrame } from '@react-three/fiber'
 import { Html } from '@react-three/drei'
 import * as THREE from 'three'
 import { CataclysmConjureEffect, RealityStormConjureEffect, RiftstormConjureEffect } from './AdvancedSpellVFX'
+import { WORLD_Z_RANGE } from '@/lib/ui-kit/layers'
 
 type VfxType = 'textswirl' | 'arcane' | 'vortex' | 'quantumassembly' | 'primordialcauldron' | 'stellarnursery' | 'chronoforge' | 'abyssalemergence' | 'realitystorm' | 'riftstorm' | 'cataclysm'
 
@@ -124,7 +125,7 @@ function TextSwirlEffect({ position, prompt, progress }: Omit<ConjureVFXProps, '
     <group position={position} ref={groupRef}>
       {tokens.map((char, i) => (
         <group key={i} position={[0, 1, 0]}>
-          <Html center>
+          <Html zIndexRange={WORLD_Z_RANGE} center>
             <span
               className="select-none pointer-events-none font-mono font-bold"
               style={{
@@ -278,7 +279,7 @@ function ArcaneCircleEffect({ position, progress }: Omit<ConjureVFXProps, 'vfxTy
       </points>
 
       {/* Progress text */}
-      <Html position={[0, 0.3, 2.5]} center>
+      <Html zIndexRange={WORLD_Z_RANGE} position={[0, 0.3, 2.5]} center>
         <div className="text-xs font-mono select-none pointer-events-none"
           style={{ color: color1, textShadow: `0 0 10px ${color1}` }}
         >
@@ -652,7 +653,7 @@ function QuantumAssemblyEffect({ position, progress }: Omit<ConjureVFXProps, 'vf
       </mesh>
 
       {/* Progress text */}
-      <Html position={[0, 0.3, 2.3]} center>
+      <Html zIndexRange={WORLD_Z_RANGE} position={[0, 0.3, 2.3]} center>
         <div className="text-xs font-mono select-none pointer-events-none"
           style={{ color: '#00FF66', textShadow: '0 0 10px #00FF66, 0 0 20px #00CCFF44' }}
         >
@@ -924,7 +925,7 @@ function PrimordialCauldronEffect({ position, progress }: Omit<ConjureVFXProps, 
       </mesh>
 
       {/* Progress text */}
-      <Html position={[0, 0.3, 1.8]} center>
+      <Html zIndexRange={WORLD_Z_RANGE} position={[0, 0.3, 1.8]} center>
         <div className="text-xs font-mono select-none pointer-events-none"
           style={{ color: '#00FF88', textShadow: '0 0 10px #00FF8888, 0 0 20px #44FFCC44' }}
         >
@@ -1203,7 +1204,7 @@ function StellarNurseryEffect({ position, progress }: Omit<ConjureVFXProps, 'vfx
       </mesh>
 
       {/* Progress text */}
-      <Html position={[0, -0.2, 3.2]} center>
+      <Html zIndexRange={WORLD_Z_RANGE} position={[0, -0.2, 3.2]} center>
         <div className="text-xs font-mono select-none pointer-events-none"
           style={{ color: '#FF88AA', textShadow: '0 0 10px #FF88AA88, 0 0 20px #6633CC44' }}
         >
@@ -1473,7 +1474,7 @@ function ChronoForgeEffect({ position, progress }: Omit<ConjureVFXProps, 'vfxTyp
       </mesh>
 
       {/* Progress text */}
-      <Html position={[0, -0.1, 2.0]} center>
+      <Html zIndexRange={WORLD_Z_RANGE} position={[0, -0.1, 2.0]} center>
         <div className="text-xs font-mono select-none pointer-events-none"
           style={{ color: '#FFD700', textShadow: '0 0 10px #FFD70088, 0 0 20px #4488FF44' }}
         >
@@ -1768,7 +1769,7 @@ function AbyssalEmergenceEffect({ position, progress }: Omit<ConjureVFXProps, 'v
       </mesh>
 
       {/* Progress text */}
-      <Html position={[0, -0.2, 1.8]} center>
+      <Html zIndexRange={WORLD_Z_RANGE} position={[0, -0.2, 1.8]} center>
         <div className="text-xs font-mono select-none pointer-events-none"
           style={{ color: '#6600AA', textShadow: '0 0 10px #6600AA88, 0 0 20px #FF000044' }}
         >

@@ -51,7 +51,7 @@ export function GlobalNotice() {
   return (
     <div
       key={notice.id}
-      className={`pointer-events-none fixed left-1/2 top-1/3 z-[400] -translate-x-1/2 rounded-lg border-2 px-6 py-4 text-center text-sm font-black uppercase tracking-[0.16em] backdrop-blur-md max-[700px]:top-1/2 max-[700px]:max-w-[88vw] max-[700px]:px-4 max-[700px]:py-3 max-[700px]:text-xs ${toneClasses[notice.tone]}`}
+      className={`pointer-events-none fixed left-1/2 top-1/3 z-[var(--z-notice)] -translate-x-1/2 rounded-lg border-2 px-6 py-4 text-center text-sm font-black uppercase tracking-[0.16em] backdrop-blur-md max-[700px]:top-1/2 max-[700px]:max-w-[88vw] max-[700px]:px-4 max-[700px]:py-3 max-[700px]:text-xs ${toneClasses[notice.tone]}`}
       style={{
         animation: 'oasisNoticeIn 220ms ease-out',
       }}

@@ -186,7 +186,7 @@ export function QuestProgressTracker({ activeWorldId }: { activeWorldId: string 
 
   return (
     <>
-      <div className="pointer-events-none fixed right-4 top-20 z-[184] flex w-[min(330px,calc(100vw-2rem))] select-none flex-col items-end gap-2 text-white">
+      <div className="pointer-events-none fixed right-4 top-20 z-[calc(var(--z-hud)_+_14)] flex w-[min(330px,calc(100vw-2rem))] select-none flex-col items-end gap-2 text-white">
         <button
           type="button"
           className="pointer-events-auto rounded-md border border-orange-200/35 bg-black/72 px-3 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-orange-100 shadow-[0_0_28px_rgba(249,115,22,0.16)] backdrop-blur-md"
@@ -244,7 +244,7 @@ export function QuestProgressTracker({ activeWorldId }: { activeWorldId: string 
       `}</style>
       {burst && (
         <div
-          className="pointer-events-none fixed left-1/2 top-[42%] z-[236] w-[min(520px,calc(100vw-2rem))] select-none rounded-lg border border-amber-100/70 bg-orange-500/86 px-5 py-4 text-center text-black shadow-[0_0_78px_rgba(251,191,36,0.62)]"
+          className="pointer-events-none fixed left-1/2 top-[42%] z-[calc(var(--z-hud)_+_26)] w-[min(520px,calc(100vw-2rem))] select-none rounded-lg border border-amber-100/70 bg-orange-500/86 px-5 py-4 text-center text-black shadow-[0_0_78px_rgba(251,191,36,0.62)]"
           style={{ animation: 'oasisQuestBurst 1750ms ease-out forwards' }}
         >
           <div className="text-[10px] font-black uppercase tracking-[0.26em] text-black/70">Objective Complete</div>
@@ -254,7 +254,7 @@ export function QuestProgressTracker({ activeWorldId }: { activeWorldId: string 
       )}
       {toast && (
         <div
-          className="pointer-events-none fixed left-1/2 top-8 z-[230] w-[min(360px,calc(100vw-2rem))] select-none rounded-lg border border-orange-200/35 bg-black/82 p-3 text-center text-white shadow-[0_0_42px_rgba(249,115,22,0.28)] backdrop-blur-md"
+          className="pointer-events-none fixed left-1/2 top-8 z-[calc(var(--z-hud)_+_25)] w-[min(360px,calc(100vw-2rem))] select-none rounded-lg border border-orange-200/35 bg-black/82 p-3 text-center text-white shadow-[0_0_42px_rgba(249,115,22,0.28)] backdrop-blur-md"
           style={{ animation: 'oasisQuestToastPop 2200ms ease-out forwards' }}
         >
           <div className="text-[10px] font-black uppercase tracking-[0.22em] text-orange-100">{toast.title}</div>

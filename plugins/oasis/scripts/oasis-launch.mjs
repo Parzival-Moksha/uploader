@@ -112,8 +112,33 @@ function alive(pid) {
   try { process.kill(pid, 0); return true } catch (error) { return error.code === 'EPERM' }
 }
 
+/**
+ * The start script's latest progress in the install log, as { step, of, words, left }, or null. Its lines:
+ * "Step 5 of 5: building the Oasis (about 3 minutes left in all) …" and, every 25 s,
+ * "  … step 5 of 5, building the Oasis: 1 min 15 s so far, about 2 minutes left in all".
+ */
+export function lastProgress(logText) {
+  let found = null
+  for (const line of String(logText || '').split(/\r?\n/)) {
+    const head = /^Step (\d+) of (\d+): (.+?) \((.+?) left in all\)/.exec(line)
+    const tick = /^\s+… step (\d+) of (\d+), (.+?): .+? so far, (.+?)(?: left in all)?$/.exec(line)
+    const m = head || tick
+    if (m) found = { step: Number(m[1]), of: Number(m[2]), words: m[3], left: /longer than usual/.test(m[4]) ? 'longer than usual, still working' : `${m[4]} left` }
+  }
+  return found
+}
+
+function readLogTail(file) {
+  try {
+    const text = fs.readFileSync(file, 'utf8')
+    return text.slice(-20000)
+  } catch {
+    return ''
+  }
+}
+
 /** One plain line on a running or finished install; '' when there is none to speak of. */
-export function describeState(state, now = Date.now()) {
+export function describeState(state, now = Date.now(), logText = state?.log ? readLogTail(state.log) : '') {
   if (!state) return ''
   const minutes = Math.max(0, Math.round((now - (state.startedAt || now)) / 60000))
   const since = minutes ? `, ${minutes} minute${minutes === 1 ? '' : 's'} so far` : ''
@@ -124,8 +149,10 @@ export function describeState(state, now = Date.now()) {
     const of = state.total ? ` of ${Math.round(state.total / MB)}` : ''
     return `Installing the Oasis: downloading, ${got}${of} MB${since}. The browser opens by itself when it is ready.`
   }
+  const progress = state.step === 'setup' ? lastProgress(logText) : null
+  if (progress) return `Installing the Oasis${since}: step ${progress.step} of ${progress.of}, ${progress.words}, ${progress.left}. The browser opens by itself when it is ready; /oasis again in a minute or two says how far it is.`
   const steps = { unpack: 'unpacking', setup: 'installing its packages and building (the long part, a few minutes)', start: 'starting' }
-  return `Installing the Oasis: ${steps[state.step] || state.step}${since}. The browser opens by itself when it is ready.`
+  return `Installing the Oasis: ${steps[state.step] || state.step}${since}. The browser opens by itself when it is ready; /oasis again in a minute or two says how far it is.`
 }
 
 // --- install -----------------------------------------------------------------------------------------------
@@ -275,7 +302,7 @@ export async function main() {
       // said by the worker
     }
     installInBackground()
-    say(`Installing the Oasis in the background${size}. The browser opens by itself when it is ready; /oasis again says how far it is.`)
+    say(`Installing the Oasis in the background${size}. The browser opens by itself when it is ready. Type /oasis again in two minutes to see how far it is.`)
     return 7
   }
   // Installed, but the first build may still be running in the background.

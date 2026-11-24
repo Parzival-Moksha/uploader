@@ -37,7 +37,7 @@ export function ForkWelcomeModal() {
 
   return (
     <div
-      className="pointer-events-auto fixed inset-0 z-[450] flex items-center justify-center bg-black/55 backdrop-blur-sm"
+      className="pointer-events-auto fixed inset-0 z-[var(--z-dialog)] flex items-center justify-center bg-black/55 backdrop-blur-sm"
       onClick={() => setOpen(false)}
     >
       <div

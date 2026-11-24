@@ -529,7 +529,7 @@ export function CombatBoltLayer({ enabled, settings }: { enabled: boolean; setti
   useEffect(() => {
     const el = document.createElement('div')
     el.setAttribute('data-thunderbolt-flash', '')
-    el.style.cssText = 'position:fixed;inset:0;background:rgba(255,255,240,1);opacity:0;pointer-events:none;z-index:80;mix-blend-mode:screen;'
+    el.style.cssText = 'position:fixed;inset:0;background:rgba(255,255,240,1);opacity:0;pointer-events:none;z-index:var(--z-hud);mix-blend-mode:screen;'
     document.body.appendChild(el)
     flashRef.current.el = el
     return () => { el.remove(); flashRef.current.el = null }

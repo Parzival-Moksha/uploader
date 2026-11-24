@@ -71,7 +71,7 @@ export function VillageVoiceWidget() {
   const nameOf = (id: string) => agents[id]?.name || 'an agent'
 
   return (
-    <div data-voice-widget className="oasis-voice-widget pointer-events-none fixed bottom-[76px] left-3 z-[171] flex w-[236px] flex-col gap-1.5 max-[700px]:bottom-auto max-[700px]:left-2 max-[700px]:top-[124px]">
+    <div data-voice-widget className="oasis-voice-widget pointer-events-none fixed bottom-[76px] left-3 z-[calc(var(--z-hud)_+_11)] flex w-[236px] flex-col gap-1.5 max-[700px]:bottom-auto max-[700px]:left-2 max-[700px]:top-[124px]">
       {dictations.map(d => {
         const name = nameOf(d.agentId)
         const settling = d.phase === 'stopping'

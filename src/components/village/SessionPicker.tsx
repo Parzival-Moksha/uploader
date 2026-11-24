@@ -28,6 +28,7 @@ import { getKeychainState, keyStates, openKeychain, refreshKeychain, subscribeKe
 import { showNotice } from '../forge/GlobalNotice'
 import { KitButton, KitPanel, KitSelectField, KitTabs, KitTextField, KitTileButton, kitConfirm } from '@/components/ui-kit'
 import { CUSTOM_MODEL_VALUE, cleanModelId, mergeModelLists, type ModelOption } from '../../lib/village/village-models'
+import { useLayer, zFor } from '@/lib/ui-kit/layers'
 
 const PAGE = 40
 const FETCH_STEP = 300
@@ -175,7 +176,7 @@ function SummonFrame({ onClose, tall, children }: { onClose: () => void; tall: b
       data-ui-panel="village-picker"
       data-summon-menu
       className="kit-dialog-backdrop max-[700px]:!p-0"
-      style={{ zIndex: 9600, padding: 16 }}
+      style={{ zIndex: zFor('village-picker', 'panel'), padding: 16 }}
       onPointerDown={event => { if (event.target === event.currentTarget) onClose() }}
     >
       <KitPanel
@@ -698,6 +699,9 @@ export function SessionPicker() {
   useUILayer(VILLAGE_PICKER_LAYER, open)
   const loader = useSessionLoader(open)
   const close = useCallback(() => openVillagePicker(false), [])
+  // The panel layer (src/lib/ui-kit/layers.ts). Esc closes it when it is the topmost, except while the folder
+  // browser is open over it: that Esc is the browser's.
+  useLayer('village-picker', 'panel', open, browsing ? undefined : close)
 
   // On open: the remembered choices, and the kind a spell asked for.
   useEffect(() => {

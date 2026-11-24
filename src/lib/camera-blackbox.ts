@@ -53,7 +53,9 @@ export function detectSpin(frames: Array<Pick<BlackboxFrame, 'yaw'> & { input?: 
     turned += step
     if (step > maxStep) maxStep = step
   }
-  return { spin: turned > SPIN_TURN_RAD || maxStep > SPIN_STEP_RAD, turned, maxStep }
+  // One big step alone is a cut (a teleport, a world switch, a new camera mode): seen 10 times in two days of the
+  // owner's use after the fix, never a spin. A spin keeps turning; a throw far out is trapped separately (notes).
+  return { spin: turned > SPIN_TURN_RAD, turned, maxStep }
 }
 
 interface Box {

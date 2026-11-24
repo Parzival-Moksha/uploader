@@ -1,7 +1,7 @@
 ---
 name: enter-the-oasis
 description: "Install and open the Oasis: a 3D village on this machine where coding agents (Hermes, Claude Code) are characters the user walks up to and talks to."
-version: 0.6.11
+version: 0.6.12
 author: Parzival-Moksha
 license: MIT
 platforms: [windows, macos, linux]
@@ -37,13 +37,13 @@ It starts what is not running, opens the village in the browser and prints its a
 
 If that file does not exist, say what will happen and ask the user to confirm first:
 
-- one `git clone` of the tag `v0.6.11` (about 30 MB; the small edition) into the install folder;
+- one `git clone` of the tag `v0.6.12` (about 30 MB; the small edition) into the install folder;
 - then its start script installs its npm packages from its lockfile and builds it: a few minutes, once.
 
 After they confirm:
 
 ```
-git clone --depth 1 --branch v0.6.11 https://github.com/Parzival-Moksha/uploader.git "<install folder>"
+git clone --depth 1 --branch v0.6.12 https://github.com/Parzival-Moksha/uploader.git "<install folder>"
 node "<install folder>/scripts/oasis.mjs" start
 ```
 
@@ -60,9 +60,10 @@ node "<install folder>/scripts/oasis.mjs" stop      stop what it started
 
 ## In the village
 
-- The Agents button, or standing in the circle and pressing E, opens "Summon": the user picks one of their sessions, or starts a new agent in a folder. Hermes agents appear there when Hermes is installed on this machine.
+- In an empty village, the Agents list (top left) offers **Summon a guide**: a first Claude Code agent that greets the user and shows the keys. Otherwise **Agents → Summon an agent**, the spell book (B) → Agents, or E in the circle on the plaza opens the summon menu: a new session (name, model, permissions, avatar, folder) or one of the user's existing sessions. Hermes agents appear there when Hermes is installed on this machine.
 - Each agent's permission questions are shown to the user in the village. Nothing is approved for them.
 - Agents can speak with the browser's built-in voices; an ElevenLabs voice needs the user's own key in the Oasis's `.env` file.
+- The user's guide is at `/docs` in the Oasis (for example `http://localhost:4516/docs`); the page for coding agents is `AGENTS.md` in the install folder.
 
 ## Rules
 

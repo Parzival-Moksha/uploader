@@ -26,6 +26,9 @@ import { AgentWindowSurface } from './AgentWindowSurface'
 import { useInputManager } from '../../lib/input-manager'
 import { isProbablyMobileDevice } from '../../lib/mobile-controls'
 import { getViewerUserIdClient } from '../../lib/viewer-identity-client'
+import { WORLD_Z_RANGE, layerZ } from '@/lib/ui-kit/layers'
+/** Phones: above the full-screen look surface (hud + 10) so a window can be tapped, under the rail (hud + 50). */
+const MOBILE_WINDOW_Z_RANGE: [number, number] = [layerZ('hud', 16), layerZ('hud', 11)]
 import {
   FourBarFrame,
   NeonFrame,
@@ -57,7 +60,7 @@ function stopSceneBridgeEvent(
 function FocusPrompt({ visible, label }: { visible: boolean; label: string }) {
   if (!visible) return null
   return (
-    <Html position={[0, 2.2, 0]} center style={{ pointerEvents: 'none' }}>
+    <Html zIndexRange={WORLD_Z_RANGE} position={[0, 2.2, 0]} center style={{ pointerEvents: 'none' }}>
       <div
         className="select-none font-mono font-bold text-sm tracking-wider"
         style={{
@@ -396,7 +399,7 @@ export const AgentWindow3D = memo(function AgentWindow3D({ window: win }: { wind
              * the canvas always; no depth interaction. Ship-critical fix is
              * out of scope for today's Hermes-skill push. */
             distanceFactor={DISTANCE_FACTOR}
-            zIndexRange={[7800, 0]}
+            zIndexRange={isProbablyMobileDevice() ? MOBILE_WINDOW_Z_RANGE : WORLD_Z_RANGE}
             style={{ pointerEvents: 'auto' }}
           >
             <div

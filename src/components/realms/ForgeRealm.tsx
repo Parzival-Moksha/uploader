@@ -18,6 +18,7 @@ import { GROUND_PRESETS } from '../../lib/forge/ground-textures'
 import { useThumbnailGenerator } from '../../hooks/useThumbnailGenerator'
 import { PlayerAvatar } from '../forge/PlayerAvatar'
 import { PortalGateLayer } from '../forge/PortalGateLayer'
+import { WorldTravelDirector } from '../forge/WorldTravelDirector'
 import { MultiplayerPresenceLayer } from '../forge/MultiplayerPresenceLayer'
 import { PartyCombatLayer } from '../forge/PartyCombatLayer'
 import { PaintCursor } from '../forge/PaintCursor'
@@ -118,6 +119,8 @@ export function ForgeRealm() {
       <WorldObjectsRenderer />
 
       <PortalGateLayer />
+      {/* World menu trips: a portal a step ahead, the walk in, the travel view, the roll out (WorldTravelDirector). */}
+      <WorldTravelDirector />
       {/* The village profile is single-player for now: no room connection, no remote avatars. */}
       {!villageProfile && <MultiplayerPresenceLayer />}
       {/* Party combat: hits on players (gore, flinch, knock-down) broadcast by the room under party rules. */}

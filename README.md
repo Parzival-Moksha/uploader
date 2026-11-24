@@ -31,7 +31,7 @@ cd uploader
 node scripts/oasis.mjs start
 ```
 
-Start it only this way (`pnpm dev` and `npm start` run the same script): `next dev` or `next start` alone gives a page without the engine, the database or the village, an empty world where nobody can be summoned. `node scripts/oasis.mjs status` says what is running, `node scripts/oasis.mjs stop` stops it. It works the same on Windows, macOS and Linux. (macOS and Linux: written with care, not yet run by us on a Mac.)
+Start it only this way (`pnpm dev` and `npm start` run the same script): `next dev` or `next start` alone gives a page without the engine, the database or the village, an empty world where nobody can be summoned. `node scripts/oasis.mjs status` says what is running, `node scripts/oasis.mjs stop` stops it. It works the same on Windows, macOS and Linux. (macOS: installs and opens on a clean Mac at every release, checked by machine; no person has watched a Mac install yet. Linux: written with care, not yet run by us.)
 
 ## What runs on your machine
 
@@ -41,10 +41,16 @@ Start it only this way (`pnpm dev` and `npm start` run the same script): `next d
 - **Only when you press "Host a party" (World menu):** a party server on this computer's address in your Wi-Fi, port 4680, and an answer to "who has a party?" on UDP port 4599, until you stop the party. Anyone on the same network can join, without a password. They get a separate copy of one world, run from its own folder (`~/.oasis/party`): no agents, none of your worlds, uploads or generated files, and none of your keys unless you switch paid spells on for the evening (then the four spell keys, with a budget). They do see the models in your catalog, to build with. The first time, Windows may ask whether Node.js may use the network.
 - Both servers listen on this machine only; only a party you host can be reached from your network. Nothing is sent to us: no account, no telemetry.
 
+## Once it runs
+
+- **Summon a guide** (Agents, top left) starts a first agent that greets you and shows the keys.
+- **/docs** in the Oasis (for example `http://localhost:4516/docs`): your first minutes, the keys, agents, building, voice, and what to do when something is wrong.
+- A coding agent should read [AGENTS.md](./AGENTS.md): install, start, open, summon, build, report a problem, in one page.
+
 ## Voice
 
 - Agents can speak. By default they use your browser's built-in voices: free, no key.
-- You can talk instead of typing where your browser offers speech recognition.
+- You can talk instead of typing (T next to an agent): on this machine with the local helper above, or with your browser's speech recognition until it is ready.
 - Optional: an ElevenLabs voice with your own key (`ELEVENLABS_API_KEY` in `.env`). Then the text to be spoken goes to ElevenLabs under your account.
 
 ## About this repository
@@ -56,7 +62,7 @@ This is the packaged Oasis: the village, the agent engine, the Claude Code plugi
 - Your own body and every agent stand, idle, walk, jog, sprint, roll, talk with moving hands, cast, flinch and fall. These come from the Quaternius Universal Animation Library (CC0).
 - They do not dance, sit, wave or emote yet. The dances and some walks in the authors' own Oasis are Mixamo files, which Adobe does not allow to be passed on as files, so they are not in this package. A free set is being added.
 - With an ElevenLabs voice, an agent's mouth follows its words. With the browser's built-in voice it speaks, but the mouth does not move yet.
-- 41 avatars in the full Oasis, 12 in the lite one. All state CC0 in their own files.
+- 42 avatars in the full Oasis, 12 in the lite one. All state CC0 in their own files.
 
 ## Something broke?
 

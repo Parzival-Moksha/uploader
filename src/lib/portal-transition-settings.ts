@@ -24,6 +24,8 @@ export interface PortalTransitionSettings {
   particleSpeed: number
   shake: number
   rollReveal: boolean
+  /** World menu and "Go there": walk through a conjured portal instead of a cut (world-travel.ts). */
+  walkThroughPortal: boolean
   // ─── WebGL wormhole tuning ──────────────────────────────────────────────
   // Apply only to bobbyroe / infinite-tubes / wormhole-extreme / tsl-vortex.
   // CSS variants (wireframe/cosmic/plasma/datawave) ignore them.
@@ -58,6 +60,7 @@ export const DEFAULT_PORTAL_TRANSITION_SETTINGS: PortalTransitionSettings = {
   particleSpeed: 1.5,
   shake: 0.18,
   rollReveal: true,
+  walkThroughPortal: true,
   wormholeHue: 0.55,
   wormholeNoiseAmp: 0.5,
   wormholeRadius: 3,
@@ -69,6 +72,8 @@ export const PORTAL_TRANSITION_SETTINGS_EVENT = 'oasis:portal-transition-setting
 export const PORTAL_TRANSITION_START_EVENT = 'oasis:portal-transition:start'
 export const PORTAL_TRANSITION_READY_EVENT = 'oasis:portal-transition:ready'
 export const PORTAL_REVEAL_ROLL_EVENT = 'oasis:portal-reveal-roll'
+/** Ends the travel overlay at once, whatever phase it is in (a skipped or failed trip must never leave it up). */
+export const PORTAL_TRANSITION_ABORT_EVENT = 'oasis:portal-transition:abort'
 
 const EFFECT_IDS = new Set(PORTAL_TRANSITION_EFFECTS.map(effect => effect.id))
 
@@ -100,6 +105,7 @@ export function normalizePortalTransitionSettings(input?: Partial<PortalTransiti
     particleSpeed: clamp(input?.particleSpeed, 0.25, 3.5, defaults.particleSpeed),
     shake: clamp(input?.shake, 0, 0.7, defaults.shake),
     rollReveal: typeof input?.rollReveal === 'boolean' ? input.rollReveal : defaults.rollReveal,
+    walkThroughPortal: typeof input?.walkThroughPortal === 'boolean' ? input.walkThroughPortal : defaults.walkThroughPortal,
     wormholeHue: clamp(input?.wormholeHue, 0, 1, defaults.wormholeHue),
     wormholeNoiseAmp: clamp(input?.wormholeNoiseAmp, 0, 1.5, defaults.wormholeNoiseAmp),
     wormholeRadius: clamp(input?.wormholeRadius, 1, 6, defaults.wormholeRadius),

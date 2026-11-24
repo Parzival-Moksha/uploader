@@ -9,6 +9,7 @@
 
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import { useOasisStore } from '../../store/oasisStore'
+import { useLayer } from '@/lib/ui-kit/layers'
 import { useInputManager, useUILayer } from '../../lib/input-manager'
 import { getAgentEngineClient } from '../../lib/agent-engine-client'
 import {
@@ -83,7 +84,8 @@ function Label({ children }: { children: string }) {
 }
 
 export function AcademySheet({ skill, content, trainee, trainees }: { skill: AcademySkill; content: AcademyContent; trainee: AcademyTraineeView | null; trainees: AcademyTraineeView[] }) {
-  const zIndex = useOasisStore(s => s.getPanelZIndex('village-academy', 9400))
+  // The place layer (src/lib/ui-kit/layers.ts), opened after the Character menu: over it, and Esc closes the sheet first.
+  const zIndex = useLayer('village-academy', 'place', true, closeAcademyReader)
   const [viewport, setViewport] = useState(() => ({ width: window.innerWidth, height: window.innerHeight }))
   const [busy, setBusy] = useState(false)
   const [copied, setCopied] = useState(false)

@@ -94,7 +94,7 @@ export function GameTooltip() {
         left: tip.x,
         top: tip.y,
         transform: `translate(-50%, ${tip.below ? '0' : '-100%'})`,
-        zIndex: 100000,
+        zIndex: 'var(--z-tip)',
         maxWidth: MAX_WIDTH,
         pointerEvents: 'none',
         padding: '7px 12px 8px',

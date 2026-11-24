@@ -181,3 +181,21 @@ export function derivePlayerCastSpawn(distance = DEFAULT_CAST_DISTANCE): CastSpa
     rotation: [0, 0, 0],
   }
 }
+
+// ── Cinematic: the page walks the avatar (world travel through a portal, world-travel.ts) ──
+// While set, the keys and mouse-look do nothing; with a target, the avatar walks to it at `speed` (metres a second).
+
+export interface PlayerCinematic {
+  target: [number, number] | null
+  speed: number
+}
+
+let cinematic: PlayerCinematic | null = null
+
+export function setPlayerCinematic(next: PlayerCinematic | null): void {
+  cinematic = next
+}
+
+export function getPlayerCinematic(): PlayerCinematic | null {
+  return cinematic
+}

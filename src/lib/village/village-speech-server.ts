@@ -10,7 +10,7 @@ import path from 'node:path'
 import type { ElevenLabsAlignment } from '@/lib/lip-sync-lab'
 import { SPOKEN_MAX_CHARS, cleanSpoken } from '@/lib/village/village-spoken'
 import { defaultModelSpeaks, detectSpokenLanguage } from '@/lib/village/spoken-language'
-import { DEFAULT_VOICE_OUT, FAST_MODEL, isVoiceOutQuality, type VoiceOutQuality } from '@/lib/village/voice-out'
+import { VOICE_OUT_MODEL, voiceOutFrom, type VoiceOutQuality } from '@/lib/village/voice-out'
 import { VILLAGE_VOICES, clampModelSpeed, villageVoice } from '@/lib/village/village-voices'
 
 /** Voices from before each agent had its own (same ids as /api/media/voice): clips asked for by these names still resolve. */
@@ -122,12 +122,12 @@ export class SpeechError extends Error {
  * `speed`: ElevenLabs' own voice speed (0.7 to 1.2; the page plays the rest of a faster setting itself).
  */
 /**
- * The model for a line at a quality (voice-out.ts): fast is ElevenLabs' flash model for every language it speaks
- * (told the language when it is not English); best is the default model, or eleven_v4 for a language that one lacks.
+ * The model for a line at a quality (voice-out.ts): eleven_v4 or eleven_v4_turbo, for every language (told the
+ * language when it is not English: Hungarian and the rest through language_code). OASIS_VILLAGE_VOICE_MODEL
+ * still overrides both (a machine that wants another model).
  */
 export function speechModelForQuality(quality: VoiceOutQuality, language: string | null, env: EnvLike = process.env): { model: string; languageCode: string | null } {
-  if (quality === 'fast') return { model: env.OASIS_VILLAGE_VOICE_MODEL_FAST || FAST_MODEL, languageCode: language }
-  return speechModelFor(language, env)
+  return { model: env.OASIS_VILLAGE_VOICE_MODEL || VOICE_OUT_MODEL[quality], languageCode: language }
 }
 
 export async function speak(rawText: unknown, voice: unknown, options: { env?: EnvLike; fetcher?: typeof fetch; speed?: unknown; language?: unknown; quality?: unknown } = {}): Promise<SpokenClip> {
@@ -139,7 +139,8 @@ export async function speak(rawText: unknown, voice: unknown, options: { env?: E
   const asked = typeof options.language === 'string' && /^[a-z]{2,3}$/.test(options.language) ? options.language : null
   // Its quality: the page's Settings > Sound > Voice out; else this machine's default (fast since 2026-11-23).
   const fallback = env.OASIS_VILLAGE_VOICE_QUALITY
-  const quality: VoiceOutQuality = isVoiceOutQuality(options.quality) ? options.quality : isVoiceOutQuality(fallback) ? fallback : DEFAULT_VOICE_OUT
+  // A page from before 24 Nov sends 'best' or 'fast': Turbo now.
+  const quality: VoiceOutQuality = voiceOutFrom(options.quality ?? fallback)
   const { model, languageCode } = speechModelForQuality(quality, asked ?? detectSpokenLanguage(text), env)
   const modelSpeed = clampModelSpeed(options.speed)
   const id = speechClipId(text, voiceId, model, modelSpeed)

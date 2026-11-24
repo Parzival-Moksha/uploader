@@ -594,7 +594,7 @@ export function ClaudeCodePanel({ isOpen, onClose }: { isOpen: boolean; onClose:
   return createPortal(
     <div
       data-menu-portal="claude-code-panel"
-      className="fixed z-[9999] rounded-xl flex flex-col overflow-hidden"
+      className="fixed z-[var(--z-panel)] rounded-xl flex flex-col overflow-hidden"
       style={{
         left: position.x,
         top: position.y,

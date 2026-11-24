@@ -5,6 +5,7 @@ import { Html } from '@react-three/drei'
 import { QUEST_ZERO_WORLD_ID } from '@/lib/portal-gates'
 import { getLiveObjectTransform } from '@/lib/live-object-transforms'
 import { useOasisStore } from '@/store/oasisStore'
+import { WORLD_Z_RANGE } from '@/lib/ui-kit/layers'
 
 const FIRE_GUARDIAN_AVATAR_ID = 'agent-avatar-npc-fire-guardian'
 const FIRE_GUARDIAN_NPC_ID = 'quest-zero-fire-guardian'
@@ -64,7 +65,7 @@ export function QuestZeroNpcExclamation({ activeWorldId }: { activeWorldId: stri
 
   return (
     <group position={[position[0], position[1] + 2.65, position[2]]}>
-      <Html transform sprite center distanceFactor={8} style={{ pointerEvents: 'none' }}>
+      <Html zIndexRange={WORLD_Z_RANGE} transform sprite center distanceFactor={8} style={{ pointerEvents: 'none' }}>
         <div className="relative select-none">
           <style>{`
             @keyframes oasisNpcExclaimPop {

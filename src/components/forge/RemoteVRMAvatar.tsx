@@ -30,6 +30,7 @@ import { VRMLoaderPlugin, VRM, VRMUtils } from '@pixiv/three-vrm'
 import { AnimationController } from '../../lib/animation-state-machine'
 import { normalizeProfileAvatarUrl } from '../../lib/profile-avatar-url'
 import { VillageCorpseDrop, useVillageCombatPose } from '../village/VillageCombatHud'
+import { WORLD_Z_RANGE } from '@/lib/ui-kit/layers'
 
 // ═══════════════════════════════════════════════════════════════════════════
 // PROPS
@@ -146,7 +147,7 @@ function NameTag({ displayName, profileAvatarUrl, height = 1.86, bubble }: { dis
   return (
     <Billboard position={[0, height, 0]}>
       {bubble && (
-        <Html position={[0, 0.34, 0]} center distanceFactor={9} style={{ pointerEvents: 'none' }} zIndexRange={[40, 0]}>
+        <Html position={[0, 0.34, 0]} center distanceFactor={9} style={{ pointerEvents: 'none' }} zIndexRange={WORLD_Z_RANGE}>
           <div style={{ maxWidth: 260, width: 'max-content', padding: '6px 10px', borderRadius: 10, background: 'rgba(2,6,23,0.86)', border: '1px solid rgba(245,201,106,0.55)', color: '#fff7e0', font: '600 13px/1.35 system-ui, sans-serif', textAlign: 'center', boxShadow: '0 4px 14px rgba(0,0,0,0.45)' }}>
             {bubble.length > 160 ? `${bubble.slice(0, 157)}…` : bubble}
           </div>
@@ -154,6 +155,7 @@ function NameTag({ displayName, profileAvatarUrl, height = 1.86, bubble }: { dis
       )}
       {profileAvatarUrl && (
         <Html
+          zIndexRange={WORLD_Z_RANGE}
           transform
           position={[-0.22, 0, 0]}
           distanceFactor={7}

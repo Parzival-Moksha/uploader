@@ -263,9 +263,11 @@ export function reportWorkBeat(input: Omit<WorkBeat, 'focus'> & { release?: bool
 }
 
 /** Start working on a mission (its title and priority are read from its file), or stop with null. */
-export function switchWorkMission(file: string | null, now = Date.now()): Promise<{ ok: true; snapshot: WorkSnapshot } | { ok: false; status: number; error: string }> {
+export function switchWorkMission(file: string | null, now = Date.now(), mayEndOwnRun = true): Promise<{ ok: true; snapshot: WorkSnapshot } | { ok: false; status: number; error: string }> {
   return serial(async () => {
     const book = await readBook()
+    // A request from outside the Oasis page does not end his own running mission (Merge Goat's note, 2026-11-23).
+    if (!mayEndOwnRun && book.active?.run && book.active.file !== file) return { ok: false as const, status: 409, error: 'his own mission is running: only the Oasis page can end it' }
     let mission: { file: string; title: string; priority: number } | null = null
     if (file !== null) {
       if (!isMissionFile(file) || file !== path.basename(file)) return { ok: false as const, status: 400, error: 'not a mission file' }

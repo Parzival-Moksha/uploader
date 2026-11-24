@@ -119,6 +119,18 @@ export function PortalTransitionSettingsPanel() {
         <KitToggle checked={settings.enabled} onChange={next => patch({ enabled: next })} label="Enabled" data-setting="portal-transition" />
       </div>
 
+      <div className="flex items-center justify-between gap-2 rounded-md border border-cyan-500/15 bg-black/20 px-2 py-1.5">
+        <div>
+          <div className="text-[10px] text-gray-200">Change worlds through a portal</div>
+          <div className="text-[9px] text-gray-500">
+            {settings.walkThroughPortal
+              ? 'World menu: a portal opens a step ahead, you walk in, roll out in the new world. Escape skips.'
+              : 'World menu: a plain cut to the new world.'}
+          </div>
+        </div>
+        <KitToggle checked={settings.walkThroughPortal} onChange={next => patch({ walkThroughPortal: next })} label="Walk through" data-setting="portal-walk-through" />
+      </div>
+
       <div className="grid grid-cols-3 gap-1.5">
         <EffectSelect label="Swallow" value={settings.swallowEffect} onChange={value => patch({ swallowEffect: value })} />
         <EffectSelect label="Tunnel" value={settings.tunnelEffect} onChange={value => patch({ tunnelEffect: value })} />

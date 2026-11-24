@@ -51,6 +51,7 @@ import {
   isFocusInputState,
   isVillageFocusBlocked,
   openVillagePicker,
+  pressVillageView,
   registerVillageCamera,
   setVillageLiveStation,
   setVillagePlaza,
@@ -112,19 +113,21 @@ import {
 import { SettingsContext } from '../scene-lib/contexts'
 import { clipForPose, holdSeconds, type AgentPose } from '../../lib/village/agent-idles'
 import { CAST_CLIPS } from '../../lib/village/agent-cast'
+import { claimCompanionExit, companionRollAt, getCompanionsVersion, isCompanionRolling, subscribeCompanions } from '../../lib/village/travel-companions'
 import { useCastPhase, useVillageCastWatcher } from './village-cast'
 import { DESK_SCREENS_DEFAULT, DESK_SCREEN_LIMIT, isDeskScreensMode, pickDeskScreens, type DeskDistance } from '../../lib/village/desk-screens'
 import { useKitStyle } from '@/components/ui-kit'
+import { WORLD_Z_RANGE, layerZ, useLayer } from '@/lib/ui-kit/layers'
 
 /** Helper labels show for the agents near the camera (the rule desk screens had before the setting). */
 const NEAR_AGENTS_MAX = 6
-/** Village overlays stay under the HUD and panels (drei's default z-range is ~16M). */
-const OVERLAY_Z: [number, number] = [80, 0]
+/** Village overlays stay in the world layer, under the HUD and panels (drei's default z-range is ~16M). */
+const OVERLAY_Z: [number, number] = WORLD_Z_RANGE
 /**
- * Phones: MobileOasisControls lays a full-screen look surface at z 180 over the canvas. Desk windows
- * and the plaza sign go just above it so they can be tapped (still under the rail at 190).
+ * Phones: MobileOasisControls lays a full-screen look surface at hud + 10 over the canvas. Desk windows
+ * and the plaza sign go just above it so they can be tapped (still under the rail at hud + 50).
  */
-const OVERLAY_Z_MOBILE: [number, number] = [186, 181]
+const OVERLAY_Z_MOBILE: [number, number] = [layerZ('hud', 16), layerZ('hud', 11)]
 
 /** Humanoid bodies that read well at a desk; the rest of the gallery is the fallback pool. */
 const PREFERRED_BODIES = [
@@ -330,6 +333,9 @@ function DeskWindow({ agentId, nearby, mode, size: sizeFor }: { agentId: string;
   // The one menu style (ui-kit): Glass keeps this agent's own look; a textured style dresses the screen like every menu.
   const menuStyle = useKitStyle()
   const textured = menuStyle !== 'glass'
+  // The full screen (F) is drawn in the 3D view, but counts on the panel layer for Esc (src/lib/ui-kit/layers.ts):
+  // a dialog, the main menu or Mindcraft over it closes first.
+  useLayer(`village-screen-${agentId}`, 'panel', mode === 'screen' && Boolean(agent), () => pressVillageView('Esc'))
   if (!agent) return null
   const color = agent.readOnly ? VILLAGE_OBSERVED_COLOR : statusColor(effectiveStatus(agent))
   // The full screen's height follows the view (village-layout.ts fullScreenWindow); the desk's is fixed.
@@ -388,7 +394,7 @@ function DeskWindow({ agentId, nearby, mode, size: sizeFor }: { agentId: string;
       </div>
       {screen && (agent.owned || agent.bridged
         ? <VillageComposer key={agentId} agentId={agentId} large />
-        : <div className="shrink-0 border-t border-white/10 pt-2 text-[12px] text-cyan-100/90">Watching only: this session runs somewhere else. Press F to go back, then &ldquo;Move it here&rdquo; to talk to it.</div>)}
+        : <div className="shrink-0 border-t border-white/10 pt-2 text-[12px] text-cyan-100/90">One of your Claude Code sessions, as it was last. Press F to go back, then &ldquo;Talk to it here&rdquo; to carry it on.</div>)}
     </div>
   )
 }
@@ -578,6 +584,29 @@ function useVillageFollower(agentId: string, placement: VillageStationPlacement,
 
   useFrameWhen(away, (_, delta) => {
     const follow = state.current as FollowState
+    // Following him into another world: it comes out of the portal he came out of, a moment after him, and rolls
+    // out the way he did (travel-companions.ts); its usual following starts once the roll is over.
+    if (follow.mode === 'follow') {
+      const now = performance.now()
+      const exit = claimCompanionExit(agentId, now)
+      if (exit) {
+        console.info(`[WorldTravel] ${agentId} comes out of the portal after him`)
+        follow.yaw = exit.yaw
+        follow.act = 'stand'
+        if (walkingRef.current) { walkingRef.current = false; setWalking(false) }
+      }
+      const rolling = companionRollAt(agentId, now)
+      if (rolling) {
+        follow.x = rolling.x
+        follow.z = rolling.z
+        follow.goalX = rolling.x
+        follow.goalZ = rolling.z
+        spot.current.x = rolling.x
+        spot.current.z = rolling.z
+        writePose(follow, true)
+        return
+      }
+    }
     const pose = getPlayerAvatarPose()
     const to = target.current
     if (pose) {
@@ -746,6 +775,8 @@ function VillageStation({ agentId, placement, avatarUrl, windowVisible, helperLa
   const sent = sentSeq !== 0 && !staged && !visiting && !stone && !isCouncilOn()
   // Casting a world change (village-cast.ts): it stays where it stands until the spell is done.
   const castPhase = useCastPhase(agentId)
+  // Coming out of the portal after him (travel-companions.ts): the roll.
+  const companionRolling = useSyncExternalStore(subscribeCompanions, () => { void getCompanionsVersion(); return isCompanionRolling(agentId) }, () => false)
   const follower = useVillageFollower(agentId, placement, isVillageFollowOn(followKey, name) && !stone, visiting, staged ? Boolean(combatPose) : focused || Boolean(combatPose) || castPhase !== null, ownerBusy, staged || sent)
   // Its voice (village-companion.ts): the clip plays from its head, and it gestures while it talks.
   const speaking = useSyncExternalStore(subscribeVillageSpeech, () => {
@@ -825,9 +856,9 @@ function VillageStation({ agentId, placement, avatarUrl, windowVisible, helperLa
                 path={`${avatarUrl}#village`}
                 scale={1}
                 displayName={name}
-                activityAnimationId={combatPose ? combatPose.animationId : castPhase ? CAST_CLIPS[castPhase] : poseClip}
-                activityOnce={Boolean(combatPose) || (castPhase !== null && castPhase !== 'charge')}
-                activityFade={castPhase ? 0.12 : undefined}
+                activityAnimationId={combatPose ? combatPose.animationId : companionRolling ? 'ual-roll' : castPhase ? CAST_CLIPS[castPhase] : poseClip}
+                activityOnce={Boolean(combatPose) || companionRolling || (castPhase !== null && castPhase !== 'charge')}
+                activityFade={companionRolling ? 0.1 : castPhase ? 0.12 : undefined}
                 moving={follower.walking && !combatPose}
                 lipSyncId={villageLipSyncId(agentId)}
               />

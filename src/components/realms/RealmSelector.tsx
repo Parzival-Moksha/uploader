@@ -223,8 +223,8 @@ export function RealmSelector({
     <div
       ref={dropdownRef}
       className={toolbarPlacement
-        ? 'relative z-[230] select-none'
-        : 'ui-overlay fixed top-4 left-1/2 -translate-x-1/2 z-[100] select-none'}
+        ? 'relative z-[calc(var(--z-hud)_+_25)] select-none'
+        : 'ui-overlay fixed top-4 left-1/2 -translate-x-1/2 z-[calc(var(--z-hud)_+_3)] select-none'}
       style={toolbarPlacement ? undefined : { pointerEvents: 'auto' }}
     >
       {/* ─═̷─ Current world indicator ─═̷─ */}

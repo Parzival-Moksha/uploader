@@ -49,7 +49,7 @@ export function PlaceMenu() {
           ref={menuRef}
           data-ui-panel
           data-place-menu-panel
-          className="fixed left-1/2 top-4 z-[9200] max-h-[min(78vh,720px)] w-[min(92vw,980px)] -translate-x-1/2 overflow-y-auto rounded-lg border border-emerald-200/18 bg-black/[0.92] p-3 font-mono text-white shadow-[0_0_54px_rgba(0,0,0,0.68),0_0_38px_rgba(52,211,153,0.14)] backdrop-blur-md max-[700px]:left-2 max-[700px]:right-2 max-[700px]:top-[58px] max-[700px]:max-h-[calc(100vh-70px)] max-[700px]:w-auto max-[700px]:translate-x-0 max-[700px]:p-1.5"
+          className="fixed left-1/2 top-4 z-[var(--z-panel)] max-h-[min(78vh,720px)] w-[min(92vw,980px)] -translate-x-1/2 overflow-y-auto rounded-lg border border-emerald-200/18 bg-black/[0.92] p-3 font-mono text-white shadow-[0_0_54px_rgba(0,0,0,0.68),0_0_38px_rgba(52,211,153,0.14)] backdrop-blur-md max-[700px]:left-2 max-[700px]:right-2 max-[700px]:top-[58px] max-[700px]:max-h-[calc(100vh-70px)] max-[700px]:w-auto max-[700px]:translate-x-0 max-[700px]:p-1.5"
           onMouseDown={event => event.stopPropagation()}
         >
           <button

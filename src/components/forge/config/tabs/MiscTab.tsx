@@ -15,10 +15,10 @@ import { ServicesSettings } from './ServicesSettings'
 export function MiscTab({ consoleControl }: SharedTabProps) {
   const { settings, effectiveRp1Mode, rp1Locked, updateSetting } = useContext(SettingsContext)
   const docsHref = useMemo(() => {
-    if (typeof window === 'undefined') return '/docs/getting-started/quickstart'
+    if (typeof window === 'undefined') return '/docs/getting-started/first-minutes'
     const host = window.location.host
     const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-    return isLocal ? `http://${host}/docs/getting-started/quickstart` : '/docs/getting-started/quickstart'
+    return isLocal ? `http://${host}/docs/getting-started/first-minutes` : '/docs/getting-started/first-minutes'
   }, [])
 
   return (

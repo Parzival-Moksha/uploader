@@ -95,7 +95,7 @@ export function AwayOverlay() {
   return (
     <div
       data-testid="oasis-away-overlay"
-      className="fixed inset-0 z-[400] flex items-center justify-center pointer-events-none select-none"
+      className="fixed inset-0 z-[calc(var(--z-notice)_+_10)] flex items-center justify-center pointer-events-none select-none"
       style={{ background: 'rgba(2, 6, 23, 0.55)' }}
     >
       <span

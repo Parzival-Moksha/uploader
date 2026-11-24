@@ -69,7 +69,7 @@ export const KIT_CSS = `
 .kit-field { display: block; }
 .kit-field input, .kit-field textarea, .kit-field select { width: 100%; padding: 8px 10px; font-size: 13px; outline: none; font-family: inherit; }
 .kit-close { flex: none; cursor: pointer; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 800; }
-.kit-dialog-backdrop { position: fixed; inset: 0; z-index: 30000; display: flex; align-items: center; justify-content: center; background: radial-gradient(ellipse at center, rgba(4,6,14,0.45), rgba(4,6,14,0.82)); -webkit-backdrop-filter: blur(5px); backdrop-filter: blur(5px); animation: kitFade 160ms ease-out both; }
+.kit-dialog-backdrop { position: fixed; inset: 0; z-index: var(--z-dialog); display: flex; align-items: center; justify-content: center; background: radial-gradient(ellipse at center, rgba(4,6,14,0.45), rgba(4,6,14,0.82)); -webkit-backdrop-filter: blur(5px); backdrop-filter: blur(5px); animation: kitFade 160ms ease-out both; }
 .kit-dialog { width: min(460px, calc(100vw - 32px)); animation: kitPop 260ms cubic-bezier(0.2, 1.3, 0.4, 1) both; }
 .kit-dialog-body { font-size: 14px; line-height: 1.45; padding: 4px 16px 6px; }
 .kit-dialog-actions { display: flex; justify-content: flex-end; gap: 8px; padding: 10px 16px 14px; }

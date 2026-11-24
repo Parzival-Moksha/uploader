@@ -12,6 +12,7 @@ import { hasActiveUILayer, getInputState } from '@/lib/input-manager'
 import { getPlayerAvatarPose } from '@/lib/player-avatar-runtime'
 import { useIsHostedOasis } from '@/lib/oasis-mode-client'
 import { WELCOME_HUB_WORLD_ID } from '@/lib/portal-gates'
+import { WORLD_Z_RANGE } from '@/lib/ui-kit/layers'
 
 const BUTTON_POSITION: [number, number, number] = [2.35, 0.18, 2.15]
 const INTERACTION_RADIUS = 3
@@ -210,7 +211,7 @@ export function PortalZeroCanonicalButton() {
         <meshBasicMaterial color={buttonColor} transparent opacity={canInteract ? 0.78 : 0.34} />
       </mesh>
       <pointLight color={buttonColor} intensity={canInteract ? 0.95 : 0.35} distance={4} position={[0, 0.8, 0]} />
-      <Html position={[0, 1.1, 0]} center transform distanceFactor={4.5} style={{ pointerEvents: 'none' }}>
+      <Html zIndexRange={WORLD_Z_RANGE} position={[0, 1.1, 0]} center transform distanceFactor={4.5} style={{ pointerEvents: 'none' }}>
         <div
           style={{
             minWidth: 132,

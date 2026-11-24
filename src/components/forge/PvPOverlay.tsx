@@ -119,7 +119,7 @@ export function PvPOverlay({ visible }: { visible: boolean }) {
     <>
       {/* Party knock-down: a line at the top, the world stays visible (you watch yourself get up). */}
       {dead?.soft && (
-        <div className="pointer-events-none fixed left-1/2 top-16 z-[260] -translate-x-1/2 rounded-md border border-rose-300/40 bg-black/70 px-4 py-2 text-center text-[13px] font-black uppercase tracking-[0.16em] text-rose-100 shadow-[0_0_18px_rgba(248,113,113,0.35)]">
+        <div className="pointer-events-none fixed left-1/2 top-16 z-[calc(var(--z-hud)_+_30)] -translate-x-1/2 rounded-md border border-rose-300/40 bg-black/70 px-4 py-2 text-center text-[13px] font-black uppercase tracking-[0.16em] text-rose-100 shadow-[0_0_18px_rgba(248,113,113,0.35)]">
           Knocked down by {dead.slainBy} · up in <span className="font-mono text-amber-200">{remainingSec}</span>
         </div>
       )}
@@ -127,7 +127,7 @@ export function PvPOverlay({ visible }: { visible: boolean }) {
       {/* Blackout overlay — fades in over 0.4s via CSS animation. */}
       {dead && !dead.soft && (
         <div
-          className="pointer-events-none fixed inset-0 z-[260] flex items-center justify-center"
+          className="pointer-events-none fixed inset-0 z-[calc(var(--z-hud)_+_30)] flex items-center justify-center"
           style={{
             background: 'radial-gradient(ellipse at center, rgba(80,0,0,0.55) 0%, rgba(0,0,0,0.92) 70%)',
             animation: 'pvpDeathFadeIn 400ms ease-out forwards',
@@ -163,7 +163,7 @@ export function PvPOverlay({ visible }: { visible: boolean }) {
 
       {/* Kill toasts — bottom-center stack, fade in/out. */}
       {killToasts.length > 0 && (
-        <div className="pointer-events-none fixed bottom-32 left-1/2 z-[259] flex -translate-x-1/2 flex-col items-center gap-2">
+        <div className="pointer-events-none fixed bottom-32 left-1/2 z-[calc(var(--z-hud)_+_29)] flex -translate-x-1/2 flex-col items-center gap-2">
           {killToasts.map(toast => (
             <div
               key={toast.id}

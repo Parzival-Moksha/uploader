@@ -35,6 +35,7 @@ import { getVoiceTypingEngine } from '../../lib/voice/voice-typing-engine'
 import { PictureChips, useComposerPictures } from './ComposerPictures'
 import { subscribeVillageSend, subscribeVillageVoiceStop, subscribeVillageVoiceToggle, takeVillageVoiceRequest } from './village-actions'
 import { VoiceSetupLine } from './VoiceSetupLine'
+import { micErrorLine, micStatusLine } from '../../lib/voice/mic-wait'
 
 function describeError(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
@@ -245,11 +246,19 @@ export function VillageComposer({ agentId, large = false, containerHeight }: {
   }
 
   const micColor = voice.listening ? '#f87171' : voice.error ? '#fbbf24' : '#a5f3fc'
+  // What the mic waits for, in one line with how long; a failed press says what to do instead (mic-wait.ts).
   const voiceNote = voice.error
-    ? voice.error
+    ? micErrorLine(voice.error)
     : voice.listening
-      ? (voice.backendMessage || 'listening… T stops · Enter sends · Esc leaves, the mic stays on')
+      ? (voice.backendMessage ? micStatusLine(voice.backendMessage) : 'listening… T stops · Enter sends · Esc leaves, the mic stays on')
       : voice.transcribing ? 'settling the last words…' : ''
+  // Waiting (the helper starts, sets up, downloads) or failed: typing is offered at once (Hustler's trip point 5).
+  const micWaiting = Boolean(voice.error) || (voice.listening && Boolean(voice.backendMessage))
+  const typeInstead = () => {
+    if (voice.listening) stopDictation(agentId)
+    clearDictationError(agentId)
+    window.setTimeout(() => textareaRef.current?.focus(), 30)
+  }
 
   return (
     <div className={`flex shrink-0 flex-col gap-1.5 border-t border-white/10 pt-1 ${VILLAGE_TYPE_CLASS}`} style={{ fontFamily: VILLAGE_FONT_BODY }} {...pictures.dropProps}>
@@ -301,7 +310,14 @@ export function VillageComposer({ agentId, large = false, containerHeight }: {
         </button>
       </div>
       {voiceNote && (
-        <div className={`text-[11px] leading-snug ${voice.error ? 'text-amber-200' : 'text-rose-100/90'}`}>{voiceNote}</div>
+        <div data-mic-note={voice.error ? 'error' : micWaiting ? 'waiting' : 'listening'} className={`flex flex-wrap items-baseline gap-x-2 text-[11px] leading-snug ${voice.error ? 'text-amber-200' : 'text-rose-100/90'}`}>
+          <span>{voiceNote}</span>
+          {micWaiting && (
+            <button type="button" data-mic-type-instead onClick={typeInstead} className="shrink-0 underline decoration-dotted underline-offset-2 hover:text-white">
+              Type instead
+            </button>
+          )}
+        </div>
       )}
       {/* Voice typing's local helper setting itself up: one plain line (VoiceSetupLine.tsx). */}
       <VoiceSetupLine />

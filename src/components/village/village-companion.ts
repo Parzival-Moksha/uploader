@@ -189,9 +189,9 @@ export function warmVillageSpeech(text: string, settings: AgentVoiceSettings): v
   const listener = getAudioListener()
   const clean = cleanSpoken(text, SPOKEN_MAX_CHARS)
   if (!clean || councilOnly || listener?.context.state !== 'running' || !isVillageVoiceOn() || document.visibilityState !== 'visible') return
-  // Made ahead only on best (slow to make): a fast clip is ready in about 0.3 s, and one made for an agent he walks
-  // past without opening would be bought for nothing.
-  if (getVoiceOutQuality() === 'fast') return
+  // Made ahead only on v4 (about 2 s to make): a Turbo clip is ready in about a second, and one made for an agent he
+  // walks past without opening would be bought for nothing.
+  if (getVoiceOutQuality() === 'turbo') return
   fetchClip(clean, settings.voice, speechSpeedPlan(settings.speed).modelSpeed).catch(() => {})
 }
 

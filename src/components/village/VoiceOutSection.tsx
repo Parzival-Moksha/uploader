@@ -1,10 +1,11 @@
 'use client'
 
-// ░▒▓ VOICE OUT — Settings > Sound: how the agents' spoken lines are made, and the month's ElevenLabs credits ▓▒░
+// ░▒▓ VOICE OUT — Settings > Sound: which ElevenLabs model speaks, and the month's ElevenLabs credits ▓▒░
 // The owner (2026-11-23): "the Oasis sound settings definitely will need voice out", with the fuel shown where he
-// sets the burn. Best (eleven_multilingual_v2), Fast (eleven_flash_v2_5: the same voices at half the credits,
-// measured on his account: 24 credits for 100 characters against 48), or Off (the agent voices' mute). No free
-// voice on this PC: Windows here has only its robotic English voices (David, Mark, Zira), not worth hearing.
+// sets the burn; (2026-11-24) "make selector v4 and v4 turbo... and set turbo default". v4 (eleven_v4), v4 Turbo
+// (eleven_v4_turbo: half the credits, measured on his account: 24 credits for 100 characters against 48), or Off
+// (the agent voices' mute). Flash went: no cheaper than Turbo. No free voice on this PC: Windows here has only its
+// robotic English voices (David, Mark, Zira), not worth hearing.
 
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import { KitProgress, KitTabs } from '@/components/ui-kit'
@@ -12,13 +13,13 @@ import { isVillageVoiceOn, setVillageVoiceOn, subscribeVillageVoice } from './vi
 import { getVoiceOutQuality, setVoiceOutQuality, subscribeVoiceOutQuality } from './voice-out-setting'
 import { DEFAULT_VOICE_OUT } from '../../lib/village/voice-out'
 
-type Choice = 'best' | 'fast' | 'off'
+type Choice = 'v4' | 'turbo' | 'off'
 
 interface Credits { used: number; limit: number; resetAt: number | null }
 
 const HINT: Record<Choice, string> = {
-  best: 'ElevenLabs at its best: the richest voices, twice the credits of Fast.',
-  fast: 'ElevenLabs fast: the same voices (each agent keeps its own), a little flatter, half the credits. Hungarian too.',
+  v4: 'ElevenLabs v4: the richest delivery, twice the credits of Turbo, about 2 s to make a line.',
+  turbo: 'ElevenLabs v4 Turbo: the same voices (each agent keeps its own), half the credits of v4, about a second per line. Hungarian too.',
   off: 'No spoken lines at all: nothing is made or bought. The replies still come as text.',
 }
 
@@ -77,8 +78,8 @@ export function VoiceOutSection() {
       <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-1.5 font-mono">Voice out</div>
       <KitTabs<Choice>
         tabs={[
-          { id: 'best', label: 'ElevenLabs best', title: HINT.best },
-          { id: 'fast', label: 'ElevenLabs fast · ½', title: HINT.fast },
+          { id: 'v4', label: 'ElevenLabs v4', title: HINT.v4 },
+          { id: 'turbo', label: 'v4 Turbo · ½', title: HINT.turbo },
           { id: 'off', label: 'Off', title: HINT.off },
         ]}
         active={choice}

@@ -36,6 +36,7 @@ import {
 import { GameMenuTileArt, MENU_TILES, type MenuTileId } from './GameMenuTileArt'
 import { ServicesLights } from '@/components/village/ServicesLights'
 import { requestConfigTab } from '@/components/forge/config/config-tab-request'
+import { useLayer } from '@/lib/ui-kit/layers'
 
 export const OPEN_PROFILE_EVENT = 'oasis:open-profile'
 export const OPEN_CONFIG_EVENT = 'oasis:open-config'
@@ -527,10 +528,21 @@ function GameMenuScreen({ closing }: { closing: boolean }) {
   )
 }
 
+/** Esc on the open main menu (through the layer order): its close sound, then close. */
+function closeMainMenuWithSound() {
+  const menu = useGameMenu.getState()
+  if (menu.phase !== 'open') return
+  playMenuSound(menu.prefs.sound, 'close')
+  menu.closeMenu()
+}
+
 export function GameMenu() {
   useMenuTriggers()
   const phase = useGameMenu(s => s.phase)
   const openCount = useGameMenu(s => s.openCount)
+  // The menu layer (src/lib/ui-kit/layers.ts): above Mindcraft, Settings and the panels, below dialogs. Esc closes it
+  // when it is the topmost thing (a dialog over it closes first); with nothing open, Esc opens it (useMenuTriggers).
+  useLayer('main-menu', 'menu', phase !== 'closed', phase === 'open' ? closeMainMenuWithSound : undefined)
   // Keep the screen for the short fade while the camera comes back.
   const [shown, setShown] = useState(false)
   useLayoutEffect(() => {
@@ -543,7 +555,7 @@ export function GameMenu() {
 }
 
 const MENU_CSS = `
-.ogm-root { position: fixed; inset: 0; z-index: 20000; outline: none; font-family: inherit; color: #fff; user-select: none; }
+.ogm-root { position: fixed; inset: 0; z-index: var(--z-menu); outline: none; font-family: inherit; color: #fff; user-select: none; }
 .ogm-root[data-closing="1"] { pointer-events: none; }
 .ogm-backdrop {
   position: absolute; inset: 0;

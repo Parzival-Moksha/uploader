@@ -182,7 +182,7 @@ function CopyToastItem({ toast }: { toast: CopyToast }) {
   })
   return (
     <group ref={groupRef} position={toast.position}>
-      <Html center style={{ pointerEvents: 'none' }}>
+      <Html zIndexRange={WORLD_Z_RANGE} center style={{ pointerEvents: 'none' }}>
         <div style={{
           color: '#22d3ee', fontFamily: 'monospace', fontWeight: 900, fontSize: '14px',
           textShadow: '0 0 8px #06b6d4, 0 0 20px #0891b2, 0 0 40px #06b6d4',
@@ -530,7 +530,7 @@ class CatalogModelErrorBoundary extends React.Component<
             <boxGeometry args={[0.3, 0.3, 0.3]} />
             <meshBasicMaterial color="#ff6600" wireframe transparent opacity={0.5} />
           </mesh>
-          <Html position={[0, 0.5, 0]} center style={{ pointerEvents: 'none' }}>
+          <Html zIndexRange={WORLD_Z_RANGE} position={[0, 0.5, 0]} center style={{ pointerEvents: 'none' }}>
             <div className="text-[9px] text-orange-400 font-mono bg-black/80 px-1.5 py-0.5 rounded whitespace-nowrap">
               {(this.props.name || 'model').slice(0, 25)} (missing)
             </div>
@@ -549,6 +549,7 @@ class CatalogModelErrorBoundary extends React.Component<
 
 // ─═̷─ FRAME STYLE DEFINITIONS — re-exported from FrameComponents.tsx ─═̷─
 import { FRAME_STYLES as _FRAME_STYLES, FourBarFrame, NeonFrame, HologramFrame, VoidFrame, SpaghettiFrame, TriangleFrame, InfernoFrame, MatrixFrame, PlasmaFrame, BrutalistFrame } from './FrameComponents'
+import { WORLD_Z_RANGE } from '@/lib/ui-kit/layers'
 export { FourBarFrame, NeonFrame, HologramFrame, VoidFrame, SpaghettiFrame, TriangleFrame, InfernoFrame, MatrixFrame, PlasmaFrame, BrutalistFrame }
 export const FRAME_STYLES = _FRAME_STYLES
 export type { FrameStyleDef } from './FrameComponents'
@@ -3115,7 +3116,7 @@ function PlacementOverlay() {
       )}
 
       {/* Placement mode HUD */}
-      <Html position={[0, 3, 0]} center style={{ pointerEvents: 'none' }}>
+      <Html zIndexRange={WORLD_Z_RANGE} position={[0, 3, 0]} center style={{ pointerEvents: 'none' }}>
         <div className="text-[11px] font-mono text-yellow-400/80 bg-black/70 px-3 py-1 rounded whitespace-nowrap select-none animate-pulse">
           Click to place {placementPending.name} | ESC or R-click to cancel
         </div>
@@ -3339,7 +3340,7 @@ function LightHelperOrb({ light }: { light: WorldLight }) {
       )}
       {/* Light type label — hover-only, styled to match Forge aesthetic */}
       {hovered && (
-        <Html position={[0, orbSize + 0.4, 0]} center style={{ pointerEvents: 'none' }}>
+        <Html zIndexRange={WORLD_Z_RANGE} position={[0, orbSize + 0.4, 0]} center style={{ pointerEvents: 'none' }}>
           <div
             className="text-[10px] font-mono px-2 py-1 rounded-md whitespace-nowrap select-none"
             style={{

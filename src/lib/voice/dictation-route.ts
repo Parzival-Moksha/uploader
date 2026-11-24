@@ -82,7 +82,15 @@ function noticeOnce(): void {
 /** What the village's mic calls: the engine's ears when it has some, else the browser's. */
 export async function startVillageDictation(handlers: LiveDictationHandlers): Promise<LiveDictation> {
   const { open, ears } = await engineEars()
-  const route = chooseDictationRoute({ engineOpen: open, engineEars: ears, browser: isBrowserDictationSupported() })
+  const browser = isBrowserDictationSupported()
+  const route = chooseDictationRoute({ engineOpen: open, engineEars: ears, browser })
+  if (route === 'engine' && !ears && !browser) {
+    // No ears anywhere yet: say why at once rather than after a minute of setting up (Hustler's trip point 5,
+    // 2026-11-24). The words for a newcomer are mic-wait.ts's.
+    if (!open) throw new Error("Can't reach the voice helper: the agent engine is not running")
+    const setup = await getAgentEngineClient().earsSetup().catch(() => null) // an older engine has no earsSetup
+    if (setup?.state === 'unsupported') throw new Error(setup.error || 'The local voice-typing helper cannot run on this computer')
+  }
   if (route === 'engine') return startLiveDictation(handlers)
   noticeOnce()
   return startBrowserDictation(handlers)

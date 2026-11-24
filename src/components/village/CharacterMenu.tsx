@@ -47,6 +47,8 @@ import { AvatarGallery } from '../forge/AvatarGallery'
 import { ClaudeTokenScore } from '../forge/ClaudeTokenScore'
 import { DEFAULT_PROFILE_AVATAR_3D_URL } from '../../lib/profile-defaults'
 import { getWorkVowState, subscribeWorkVow } from './work-vow-client'
+import { topmostLayer, useLayer } from '@/lib/ui-kit/layers'
+import { useRailMenuExclusion } from '@/hooks/useRailMenuExclusion'
 
 interface Profile {
   xp: number
@@ -259,7 +261,7 @@ function Menu() {
     <div
       // Clear of the HUD rail (Menu, World, Spells, Agents) down the left edge.
       className="fixed inset-0 flex items-center justify-center p-[3vh] md:pl-[180px]"
-      style={{ zIndex: 9300, background: 'radial-gradient(ellipse at center, rgba(5,8,18,0.5) 0%, rgba(2,4,10,0.8) 100%)', backdropFilter: 'blur(9px) saturate(0.8)', WebkitBackdropFilter: 'blur(9px) saturate(0.8)', animation: 'characterMenuIn 220ms ease-out' }}
+      style={{ zIndex: 'var(--z-place)', background: 'radial-gradient(ellipse at center, rgba(5,8,18,0.5) 0%, rgba(2,4,10,0.8) 100%)', backdropFilter: 'blur(9px) saturate(0.8)', WebkitBackdropFilter: 'blur(9px) saturate(0.8)', animation: 'characterMenuIn 220ms ease-out' }}
       onMouseDown={event => { if (event.target === event.currentTarget) closeCharacter() }}
       onContextMenu={event => event.preventDefault()}
     >
@@ -311,11 +313,25 @@ function Menu() {
 }
 
 /** Mounted once in the Scene: the keys, and the menu while it is open. */
+/** The topmost open thing is one of the rail's menus, which K replaces. */
+function railMenuOnTop(): boolean {
+  const top = topmostLayer()
+  return Boolean(top && ['spellbook', 'settings', 'world-menu'].includes(top.id))
+}
+
 export function CharacterMenu() {
   const { open } = useCharacterState()
   const academy = useAcademyEnabled()
   const focusedAgentId = useOasisStore(s => s.agentEngine.focusedAgentId)
   useUILayer(CHARACTER_MENU_LAYER, open)
+  // The place layer (src/lib/ui-kit/layers.ts). Esc when it is the topmost: an open sheet first, then the menu.
+  // One of the rail's menus: opening it (K) closes the spell book, Settings or World, as they close each other.
+  useRailMenuExclusion('character', open, closeCharacter)
+  useLayer('character-menu', 'place', open, () => {
+    const reader = getAcademyState()
+    if (reader.reader && reader.readerMap) closeAcademyReader()
+    else closeCharacter()
+  })
 
   // The menu needs a free mouse.
   useEffect(() => {
@@ -347,7 +363,8 @@ export function CharacterMenu() {
         tab: character.tab,
         readerOpen: Boolean(reader.reader && reader.readerMap),
         agentOpen: Boolean(useOasisStore.getState().agentEngine.focusedAgentId),
-        worldKeysFree: useInputManager.getState().can().enterFocuses,
+        // K also works over another rail menu (the spell book, Settings, World): it replaces it (Hustler, 23 Nov).
+        worldKeysFree: useInputManager.getState().can().enterFocuses || railMenuOnTop(),
       })
       // Esc with a sheet from the map open: the sheet goes (the village's reader does this too; elsewhere it is us).
       if (!action && event.code === 'Escape' && character.open && reader.reader && reader.readerMap && !isTypingTarget(event.target)) {

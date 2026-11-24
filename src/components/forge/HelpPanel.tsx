@@ -25,43 +25,48 @@ function normalizeHelpPosition(value: unknown): { x: number; y: number } {
 interface ShortcutRow {
   keys: string[]
   action: string
-  category: 'mouse' | 'camera' | 'building' | 'general'
+  category: 'moving' | 'agents' | 'menus' | 'building'
 }
 
+// The keys as the code has them (checked 2026-11-23 with the agents who own input; the same list as /docs, Keys,
+// website/docs/user-guide/keys.md: change both).
 const SHORTCUTS: ShortcutRow[] = [
-  { keys: ['Left Click'], action: 'Select object', category: 'mouse' },
-  { keys: ['Left Drag'], action: 'Orbit camera', category: 'mouse' },
-  { keys: ['Right Click'], action: 'Secondary action', category: 'mouse' },
-  { keys: ['Scroll'], action: 'Zoom in / out', category: 'mouse' },
-  { keys: ['WASD'], action: 'Move', category: 'camera' },
-  { keys: ['Q', 'E'], action: 'Up / Down', category: 'camera' },
-  { keys: ['Shift'], action: 'Sprint', category: 'camera' },
-  { keys: ['Space'], action: 'Slow movement', category: 'camera' },
-  { keys: ['C'], action: 'Cycle camera view', category: 'camera' },
-  { keys: ['X'], action: 'Dance', category: 'camera' },
-  { keys: ['F'], action: 'Interact nearby', category: 'camera' },
-  { keys: ['N'], action: 'Next agent window', category: 'camera' },
-  { keys: ['PgUp', 'PgDn'], action: 'Previous / next picture', category: 'camera' },
-  { keys: ['R'], action: 'Translate mode', category: 'building' },
-  { keys: ['T'], action: 'Rotate mode', category: 'building' },
-  { keys: ['Y'], action: 'Scale mode', category: 'building' },
-  { keys: ['Delete'], action: 'Delete selected object', category: 'building' },
-  { keys: ['Ctrl', 'C'], action: 'Copy selected object', category: 'building' },
-  { keys: ['Ctrl', 'V'], action: 'Paste / enter placement', category: 'building' },
-  { keys: ['Ctrl', 'Z'], action: 'Undo', category: 'building' },
-  { keys: ['Ctrl', 'Shift', 'Z'], action: 'Redo', category: 'building' },
-  { keys: ['Esc'], action: 'Unlock pointer / cancel / close', category: 'general' },
-  { keys: ['Ctrl', 'Shift', 'P'], action: 'Panorama screenshot', category: 'general' },
+  { keys: ['W', 'A', 'S', 'D'], action: 'Walk (or the arrows)', category: 'moving' },
+  { keys: ['Shift'], action: 'Run (hold)', category: 'moving' },
+  { keys: ['Space'], action: 'Walk slowly (hold)', category: 'moving' },
+  { keys: ['Left Click'], action: 'On the world: the mouse turns the view; Esc gives it back', category: 'moving' },
+  { keys: ['Scroll'], action: 'Camera nearer / farther', category: 'moving' },
+  { keys: ['C'], action: 'Camera: around a point, flying free, behind you', category: 'moving' },
+  { keys: ['Q', 'E'], action: 'Up / down while flying free', category: 'moving' },
+  { keys: ['E'], action: "Nearest agent's panel; again to close", category: 'agents' },
+  { keys: ['F'], action: "Agent's full screen; again to close", category: 'agents' },
+  { keys: ['T'], action: 'Next to an agent: talk (microphone on / off)', category: 'agents' },
+  { keys: ['Ctrl', 'Space'], action: "Dictate into the open agent's box", category: 'agents' },
+  { keys: ['Enter'], action: 'Send what is in the box', category: 'agents' },
+  { keys: ['N'], action: 'Next agent that needs you', category: 'agents' },
+  { keys: ['Delete'], action: 'Dismiss the open or selected agent (asks first)', category: 'agents' },
+  { keys: ['Right Click'], action: 'On the ground: the selected agent walks there', category: 'agents' },
+  { keys: ['M'], action: 'Main menu', category: 'menus' },
+  { keys: ['Esc'], action: 'Close the topmost thing; with nothing open, the menu', category: 'menus' },
+  { keys: ['B'], action: 'Spell book', category: 'menus' },
+  { keys: ['F8'], action: 'Rest (away); any key wakes', category: 'menus' },
+  { keys: ['Double Click'], action: 'An object: select it and open its fields', category: 'building' },
+  { keys: ['R', 'T', 'Y'], action: 'Handles: move / turn / scale', category: 'building' },
+  { keys: ['Delete'], action: 'Delete the selected object', category: 'building' },
+  { keys: ['Ctrl', 'Z'], action: 'Undo (Ctrl+Y redo)', category: 'building' },
+  { keys: ['Ctrl', 'C'], action: 'Copy (Ctrl+V pastes, then click where it goes)', category: 'building' },
+  { keys: ['PgUp', 'PgDn'], action: 'Previous / next picture in the world', category: 'building' },
+  { keys: ['Ctrl', 'Shift', 'P'], action: 'Panorama screenshot', category: 'building' },
 ]
 
 const CATEGORY_LABELS: Record<ShortcutRow['category'], string> = {
-  mouse: 'Mouse',
-  camera: 'Camera',
+  moving: 'Moving and the camera',
+  agents: 'Agents',
+  menus: 'Menus',
   building: 'Building',
-  general: 'General',
 }
 
-const CATEGORY_ORDER: ShortcutRow['category'][] = ['mouse', 'camera', 'building', 'general']
+const CATEGORY_ORDER: ShortcutRow['category'][] = ['moving', 'agents', 'menus', 'building']
 
 function Kbd({ children }: { children: string }) {
   return (
@@ -345,7 +350,7 @@ export function HelpPanel({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
 
   return createPortal(
     <div
-      className="fixed z-[9995] select-none"
+      className="fixed z-[calc(var(--z-menu)_+_10)] select-none"
       style={{
         left: isMobile ? 12 : position.x,
         top: isMobile ? 58 : position.y,

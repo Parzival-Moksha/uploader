@@ -5,6 +5,7 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { useAudioManager } from '@/lib/audio-manager'
 import { useUILayer } from '@/lib/input-manager'
 import { sendWorldChatMessage, useWorldChat } from '@/lib/world-chat'
+import { useWizardDockVersion, wizardDockInset } from '@/lib/forge/wizard-dock'
 
 function isTypingTarget(target: EventTarget | null): boolean {
   const el = target as HTMLElement | null
@@ -24,6 +25,10 @@ export function WorldChatOverlay({ visible = true }: { visible?: boolean }) {
   const setOpen = useWorldChat(state => state.setOpen)
   const localSessionId = useWorldChat(state => state.localSessionId)
   const talkTarget = useWorldChat(state => state.talkTarget)
+  // The docked Wizard console covers the right edge: the chat sits left of it while it is open.
+  useWizardDockVersion()
+  const dockInset = typeof window === 'undefined' ? 0 : wizardDockInset(window.innerWidth)
+  const rightOfDock = dockInset > 0 ? { right: dockInset + 16 } : undefined
   const [draft, setDraft] = useState('')
   const [now, setNow] = useState(Date.now())
   const inputRef = useRef<HTMLInputElement | null>(null)
@@ -107,7 +112,7 @@ export function WorldChatOverlay({ visible = true }: { visible?: boolean }) {
 
   return (
     <>
-      <div className="pointer-events-none fixed right-4 top-20 z-[185] flex w-[min(360px,calc(100vw-2rem))] flex-col items-end gap-1 font-mono max-[700px]:left-2 max-[700px]:right-2 max-[700px]:top-[226px] max-[700px]:w-auto">
+      <div className="pointer-events-none fixed right-4 top-20 z-[calc(var(--z-hud)_+_15)] flex w-[min(360px,calc(100vw-2rem))] flex-col items-end gap-1 font-mono max-[700px]:left-2 max-[700px]:right-2 max-[700px]:top-[226px] max-[700px]:w-auto" style={rightOfDock}>
         {visibleMessages.map(message => {
           const own = message.sessionId === localSessionId
           return (
@@ -125,7 +130,7 @@ export function WorldChatOverlay({ visible = true }: { visible?: boolean }) {
       </div>
 
       {talkTarget && !open && (
-        <div className="pointer-events-none fixed bottom-24 left-1/2 z-[230] -translate-x-1/2 rounded-lg border border-amber-200/40 bg-black/80 px-4 py-2 font-mono text-[13px] text-amber-50 shadow-[0_0_24px_rgba(245,201,106,0.3)] backdrop-blur-md" data-talk-hint>
+        <div className="pointer-events-none fixed bottom-24 left-1/2 z-[calc(var(--z-hud)_+_25)] -translate-x-1/2 rounded-lg border border-amber-200/40 bg-black/80 px-4 py-2 font-mono text-[13px] text-amber-50 shadow-[0_0_24px_rgba(245,201,106,0.3)] backdrop-blur-md" data-talk-hint>
           <span className="mr-2 rounded border border-amber-200/60 px-1.5 py-0.5 text-[11px] font-black">E</span>
           talk to the {talkTarget.name}
         </div>
@@ -135,7 +140,8 @@ export function WorldChatOverlay({ visible = true }: { visible?: boolean }) {
         <form
           data-ui-panel
           onSubmit={submit}
-          className="fixed bottom-4 right-4 z-[320] flex w-[min(420px,calc(100vw-2rem))] items-center gap-2 rounded-lg border border-cyan-200/25 bg-black/90 p-2 font-mono text-white shadow-[0_0_40px_rgba(34,211,238,0.18)] backdrop-blur-md max-[700px]:bottom-[178px] max-[700px]:left-2 max-[700px]:right-2 max-[700px]:w-auto"
+          className="fixed bottom-4 right-4 z-[calc(var(--z-hud)_+_40)] flex w-[min(420px,calc(100vw-2rem))] items-center gap-2 rounded-lg border border-cyan-200/25 bg-black/90 p-2 font-mono text-white shadow-[0_0_40px_rgba(34,211,238,0.18)] backdrop-blur-md max-[700px]:bottom-[178px] max-[700px]:left-2 max-[700px]:right-2 max-[700px]:w-auto"
+          style={rightOfDock}
         >
           <button
             type="button"
@@ -167,7 +173,8 @@ export function WorldChatOverlay({ visible = true }: { visible?: boolean }) {
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="fixed bottom-4 right-4 z-[220] rounded-md border border-cyan-200/25 bg-black/75 px-3 py-2 font-mono text-[10px] font-black uppercase tracking-[0.14em] text-cyan-50 shadow-lg backdrop-blur-md transition hover:bg-cyan-300/15 max-[700px]:bottom-[178px] max-[700px]:right-3"
+          className="fixed bottom-4 right-4 z-[calc(var(--z-hud)_+_22)] rounded-md border border-cyan-200/25 bg-black/75 px-3 py-2 font-mono text-[10px] font-black uppercase tracking-[0.14em] text-cyan-50 shadow-lg backdrop-blur-md transition hover:bg-cyan-300/15 max-[700px]:bottom-[178px] max-[700px]:right-3"
+          style={rightOfDock}
         >
           Chat
         </button>

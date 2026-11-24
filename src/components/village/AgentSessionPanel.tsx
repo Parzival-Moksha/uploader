@@ -44,6 +44,7 @@ import { AgentMissionsPage } from './AgentMissionsPage'
 import { KitSelectField, KitChip } from '@/components/ui-kit'
 import { VILLAGE_FONT_BODY, VILLAGE_FONT_DISPLAY, VILLAGE_TYPE_CLASS, agentDisplayName, canTalkTo, cwdLabel, formatCost, modelLabel, statusColor, statusLabel } from './village-status'
 import { useKitStyle } from '@/components/ui-kit'
+import { raiseLayer, useLayer } from '@/lib/ui-kit/layers'
 
 const PERMISSION_MODES = ['default', 'acceptEdits', 'auto', 'plan', 'bypassPermissions']
 /** What each mode means, in one line (the restart confirm says it). */
@@ -102,7 +103,8 @@ function describeError(error: unknown): string {
 }
 
 /**
- * Watching a session that runs somewhere else. "Move it here" makes it yours: the same session, not a copy.
+ * Watching a session (one found on this machine, or open in the desktop app or a terminal). "Talk to it here" makes it
+ * yours: the same session, not a copy.
  * If it is still open elsewhere (the desktop app, a terminal), the engine stops that idle process first; when the
  * owner types there again, the engine lets go and the Oasis goes back to watching.
  */
@@ -120,14 +122,11 @@ function ObservedFooter({ agentId }: { agentId: string }) {
     try {
       const live = await client.listLive().catch(() => [])
       const openElsewhere = live.some(entry => entry.sessionId === agent.sessionId)
-      if (openElsewhere && !window.confirm(
-        `Move "${agentDisplayName(agent)}" here?
-
-` +
-        'Same conversation, not a copy. It is open in the desktop app or a terminal, so that window stops holding it. ' +
-        'When you type there again, it moves back and the Oasis goes to watching. ' +
-        'The desktop app may only show what you said here after you reopen the session there.',
-      )) return
+      if (openElsewhere && !await kitConfirm({
+        title: `Talk to "${agentDisplayName(agent)}" here?`,
+        body: 'Same conversation, not a copy. It is open in the desktop app or a terminal, so that window stops holding it. When you type there again, it moves back and the Oasis goes to watching. The desktop app may only show what you said here after you reopen the session there.',
+        confirm: 'Talk to it here',
+      })) return
       const spawned = await client.spawnAgent({ name: agentDisplayName(agent).slice(0, 32), cwd: agent.cwd, sessionId: agent.sessionId, move: openElsewhere })
       await client.unobserve(agent.id).catch(() => {})
       focusVillageAgent(spawned.id)
@@ -140,7 +139,7 @@ function ObservedFooter({ agentId }: { agentId: string }) {
   return (
     <div className="flex shrink-0 flex-col gap-1.5 border-t border-white/10 pt-2 text-[11.5px] leading-snug text-cyan-100/90">
       <div>
-        Watching only: this session runs somewhere else (desktop app, terminal), so you can read along but not type here.
+        One of your Claude Code sessions, as it was last. You can read it here; to carry it on, talk to it here (on your own plan, in its own folder).
       </div>
       <button
         type="button"
@@ -148,7 +147,7 @@ function ObservedFooter({ agentId }: { agentId: string }) {
         onClick={() => { void takeOver() }}
         className="self-start rounded-md border border-emerald-300/45 bg-emerald-400/20 px-3 py-1 text-[11.5px] font-black text-emerald-50 transition hover:bg-emerald-400/35 disabled:opacity-40"
       >
-        {busy ? 'moving it here…' : 'Move it here'}
+        {busy ? 'one moment…' : 'Talk to it here'}
       </button>
     </div>
   )
@@ -157,12 +156,15 @@ function ObservedFooter({ agentId }: { agentId: string }) {
 export function AgentSessionPanel() {
   const agentId = useOasisStore(s => s.agentEngine.focusedAgentId)
   const agent = useOasisStore(s => (s.agentEngine.focusedAgentId ? s.agentEngine.agents[s.agentEngine.focusedAgentId] : undefined))
-  const zIndex = useOasisStore(s => s.getPanelZIndex('village-session', 9400))
-  const bringToFront = useOasisStore(s => s.bringPanelToFront)
   const viewport = useViewport()
   useUILayer(VILLAGE_SESSION_LAYER, Boolean(agentId))
   const [busy, setBusy] = useState(false)
   const screenAgentId = useSyncExternalStore(subscribeVillageScreen, getVillageScreen, () => null)
+  // On the panel layer (src/lib/ui-kit/layers.ts), with Mindcraft and the Wizard console: the later opened or clicked
+  // is on top; Esc closes it when it is the topmost. Another agent opened (from Mindcraft, N) comes to the front.
+  const shown = Boolean(agentId && agent && screenAgentId !== agentId)
+  const zIndex = useLayer('village-session', 'panel', shown, () => pressVillageView('Esc'))
+  useEffect(() => { if (agentId && shown) raiseLayer('village-session', 'panel') }, [agentId, shown])
   // The remembered width (the owner drags the left edge); geometry reads it, this re-renders on a change.
   useSyncExternalStore(subscribeSessionPanelWidth, getSessionPanelWidth, () => null)
   // Every agent's model list merged (village-models.ts): an agent started before a release still offers the new model.
@@ -226,7 +228,7 @@ export function AgentSessionPanel() {
       style={textured
         ? { ...style, boxShadow: `0 24px 70px rgba(0,0,0,0.55)` }
         : { ...style, ...panelLook, borderColor: `${color}88`, boxShadow: `inset 0 3px 0 ${panelAccent}, 0 24px 70px rgba(0,0,0,0.55)`, fontFamily: VILLAGE_FONT_BODY }}
-      onPointerDown={() => bringToFront('village-session')}
+      onPointerDown={() => raiseLayer('village-session', 'panel')}
     >
       {geometry.side === 'right' && (
         <div

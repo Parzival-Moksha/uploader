@@ -11,13 +11,13 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useMindcraftLook } from './mindcraft-look'
-import { useOasisStore } from '../../store/oasisStore'
 import { ManualTimeForm } from './ManualTimeForm'
 import { CarbonMissions } from './CarbonMissions'
 import { HoursChart, type RebuiltDays } from './MindcraftChart'
 import { runningClock } from './OwnMissionPanel'
 import { useLiveWork } from './useLiveWork'
 import { useKitStyle } from '@/components/ui-kit'
+import { layerZ, raiseLayer, useLayer } from '@/lib/ui-kit/layers'
 import { setWorkInMindcraft } from './work-vow-client'
 import { addDays, formatClock, type MindcraftBook, type MindcraftDay, type WorkSnapshot, type WorkUnit } from '../../lib/village/work-vow'
 
@@ -345,9 +345,10 @@ export function MindcraftView({ carbonFile }: { carbonFile?: string | null } = {
   )
 }
 
-const WINDOW_Z = 9395
-/** On top: above the agent panels (9400 and up) and the game rail (10400: the owner, 2026-11-23, "draw over the World and Spells buttons"), below dialogs and the main menu (20000). */
-const WINDOW_Z_TOP = 10450
+// Its layer (Hipster's one order, src/lib/ui-kit/layers.ts): the panel layer, with the agent panels, so whichever
+// opened last is on top (the owner, 2026-11-22: Mindcraft opened over an agent panel is above it; an agent opened from
+// Mindcraft is above Mindcraft). Above the HUD, so over the rail's World and Spells buttons (the owner, 2026-11-23);
+// below the spell book, Settings, the main menu and dialogs. Esc closes it when it is the topmost.
 // Nearly full screen (the owner: "honestly, that could be full screen somehow"), between the always-on buttons.
 // The same margin on all four sides (the owner, 2026-11-23: "horizontally 95 percent, vertically only about 90").
 const WINDOW_MAX_WIDTH = 1800
@@ -372,7 +373,7 @@ export function clearBand(viewportWidth: number, obstacles: Array<{ left: number
 }
 
 /** Fixed, narrow overlays at an edge that stand above `minZ` (the game rail, the key hints). */
-export function overlayObstacles(minZ = WINDOW_Z, ignore = '[data-ui-panel="mindcraft"]'): Array<{ left: number; right: number }> {
+export function overlayObstacles(minZ = layerZ('panel'), ignore = '[data-ui-panel="mindcraft"]'): Array<{ left: number; right: number }> {
   const out: Array<{ left: number; right: number }> = []
   const vw = window.innerWidth
   const vh = window.innerHeight
@@ -390,67 +391,31 @@ export function overlayObstacles(minZ = WINDOW_Z, ignore = '[data-ui-panel="mind
   return out
 }
 
-/**
- * Esc for the Mindcraft window. Listened for once, when this code loads, so it comes before the listeners an agent
- * panel adds when it opens: with Mindcraft on top, Esc closes Mindcraft, not the panel underneath.
- */
-let escapeHandler: ((event: KeyboardEvent) => void) | null = null
-const escapeHolder = globalThis as unknown as { __oasisMindcraftEsc?: boolean }
-if (typeof window !== 'undefined' && !escapeHolder.__oasisMindcraftEsc) {
-  escapeHolder.__oasisMindcraftEsc = true
-  window.addEventListener('keydown', event => {
-    if (event.key === 'Escape') (globalThis as unknown as { __oasisMindcraftEscHandler?: (e: KeyboardEvent) => void }).__oasisMindcraftEscHandler?.(event)
-  }, { capture: true })
-}
-
 /** The view as a window over the world. Esc or a click outside closes it. */
 export function MindcraftWindow() {
   const kitStyle = useKitStyle()
   const [open, setOpen] = useState(false)
   const [carbonFile, setCarbonFile] = useState<string | null>(null)
-  // Whichever opened last is on top (until Hipster's one layer order for the Oasis): Mindcraft opened over an agent
-  // panel draws above it (the owner, 2026-11-22); an agent opened from Mindcraft (Talk to, N, a click) draws above Mindcraft.
-  const [onTop, setOnTop] = useState(true)
-  useEffect(() => useOasisStore.subscribe((state, prev) => {
-    const now = state.agentEngine.focusedAgentId
-    if (now === prev.agentEngine.focusedAgentId) return
-    setOnTop(!now)
-  }), [])
+  // On the panel layer: the later opened (or clicked) of Mindcraft and an agent panel is on top; Esc closes the topmost.
+  const z = useLayer('mindcraft', 'panel', open, () => setOpen(false))
+  const zRef = useRef(z)
+  zRef.current = z
   useEffect(() => {
     const onOpen = (event: Event) => {
       const file = (event as CustomEvent<{ carbon?: string }>).detail?.carbon
       setCarbonFile(typeof file === 'string' ? file : null)
-      setOnTop(true)
+      raiseLayer('mindcraft', 'panel')
       setOpen(true)
     }
     window.addEventListener(MINDCRAFT_EVENT, onOpen)
     return () => window.removeEventListener(MINDCRAFT_EVENT, onOpen)
   }, [])
-  useEffect(() => {
-    if (!open) return
-    const handler = (event: KeyboardEvent) => {
-      // An agent's panel opened from a mission is on top: Esc closes that, and Mindcraft stays on the mission.
-      if (useOasisStore.getState().agentEngine.focusedAgentId && !onTopRef.current) return
-      event.stopImmediatePropagation()
-      setOpen(false)
-    }
-    escapeHandler = handler
-    ;(globalThis as unknown as { __oasisMindcraftEscHandler?: (e: KeyboardEvent) => void }).__oasisMindcraftEscHandler = handler
-    return () => {
-      escapeHandler = null
-      const g = globalThis as unknown as { __oasisMindcraftEscHandler?: (e: KeyboardEvent) => void }
-      if (g.__oasisMindcraftEscHandler === handler) g.__oasisMindcraftEscHandler = undefined
-    }
-  }, [open])
-  const onTopRef = useRef(onTop)
-  onTopRef.current = onTop
-  const z = onTop ? WINDOW_Z_TOP : WINDOW_Z
   // Beside the always-on buttons, not under them: measured on open and on every resize.
   const [band, setBand] = useState<{ left: number; right: number } | null>(null)
   useLayoutEffect(() => {
     if (!open) return
-    // Only what stands above Mindcraft's own layer is in its way (on top: the game rail, not an agent panel).
-    const measure = () => setBand(clearBand(window.innerWidth, overlayObstacles(onTopRef.current ? WINDOW_Z_TOP : WINDOW_Z)))
+    // Only what stands above Mindcraft is in its way (the HUD and its rail are below it).
+    const measure = () => setBand(clearBand(window.innerWidth, overlayObstacles(zRef.current)))
     measure()
     const late = window.setTimeout(measure, 300) // overlays that settle after the first paint
     window.addEventListener('resize', measure)
@@ -458,7 +423,7 @@ export function MindcraftWindow() {
       window.clearTimeout(late)
       window.removeEventListener('resize', measure)
     }
-  }, [open, onTop])
+  }, [open, z])
   if (!open) return null
   const vw = typeof window === 'undefined' ? 1280 : window.innerWidth
   const area = band || { left: 0, right: vw }
@@ -468,13 +433,14 @@ export function MindcraftWindow() {
   const margin = Math.min(WINDOW_GAP * 2, Math.max(WINDOW_GAP, left - area.left))
   return (
     <>
-      <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm" style={{ zIndex: z - 5 }} onClick={() => setOpen(false)} />
+      <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm" style={{ zIndex: z - 1 }} onClick={() => setOpen(false)} />
       <div
         data-ui-panel="mindcraft"
         // A kit panel (Hipster's UI kit), so the one menu-style switch reaches Mindcraft too.
         data-kit-style={kitStyle}
         className="kit-panel fixed flex flex-col px-2 pb-1 pt-0"
         style={{ left, width, top: margin, bottom: margin, zIndex: z }}
+        onPointerDown={() => raiseLayer('mindcraft', 'panel')}
       >
         <button type="button" onClick={() => setOpen(false)} title="Close (Esc)" className="mc-scope absolute right-1 top-1 z-10"><span className="mc-close flex items-center justify-center">✕</span></button>
         <MindcraftView carbonFile={carbonFile} />

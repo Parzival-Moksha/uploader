@@ -589,7 +589,7 @@ export function MediaBubble({
 
       {gallery && activeGalleryEntry && typeof document !== 'undefined' && createPortal(
         <div
-          className="fixed inset-0 z-[100000] bg-black/95 flex items-center justify-center p-4"
+          className="fixed inset-0 z-[calc(var(--z-place)_+_80)] bg-black/95 flex items-center justify-center p-4"
           onClick={() => setGallery(null)}
         >
           <button

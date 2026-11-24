@@ -6,6 +6,7 @@
 // ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
 
 import * as THREE from 'three'
+import { layerZ } from '@/lib/ui-kit/layers'
 
 interface OffscreenWindow {
   container: HTMLDivElement
@@ -184,7 +185,7 @@ class OffscreenUIManager {
       // Make interactive — container will be positioned by CSS 3D transform
       win.container.style.opacity = '1'
       win.container.style.pointerEvents = 'auto'
-      win.container.style.zIndex = '10000'
+      win.container.style.zIndex = String(layerZ('panel', 800)) // the panel layer (src/lib/ui-kit/layers.ts)
     } else {
       // Back to hidden — capture one final snapshot, then hide
       win.container.style.pointerEvents = 'none'

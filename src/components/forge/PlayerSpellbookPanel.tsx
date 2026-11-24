@@ -9,6 +9,7 @@ import { SettingsContext } from '@/components/scene-lib/contexts'
 import { resolveFontFamily } from '@/lib/fonts'
 import { useFeatureKeys } from '@/lib/feature-keys-client'
 import { openKeychain } from '@/components/village/keychain-store'
+import { useLayer } from '@/lib/ui-kit/layers'
 import {
   SPELLBOOK_PAGE_IDS,
   SPELLBOOK_PAGES,
@@ -78,6 +79,8 @@ export function PlayerSpellbookPanel({
   // closes the spellbook; opening the spellbook closes them.
   const closeSpellbook = useCallback(() => onOpenChange(false), [onOpenChange])
   useRailMenuExclusion('spellbook', isOpen, closeSpellbook)
+  // The place layer (src/lib/ui-kit/layers.ts): Esc closes the spell book when it is the topmost thing.
+  useLayer('spellbook', 'place', Boolean(visible && isOpen), closeSpellbook)
 
   const playMenuHover = useCallback(() => {
     useAudioManager.getState().play('buttonHover')
@@ -142,7 +145,7 @@ export function PlayerSpellbookPanel({
     <div
       data-ui-panel
       data-spellbook-menu-panel
-      className="fixed left-[10.25rem] top-4 z-[285] w-[min(760px,calc(100vw-11.5rem))] max-h-[calc(100vh-2rem)] overflow-hidden bg-[#050403]/82 text-white max-[700px]:bottom-[170px] max-[700px]:left-2 max-[700px]:right-2 max-[700px]:top-[58px] max-[700px]:w-auto max-[700px]:max-h-none"
+      className="fixed left-[10.25rem] top-4 z-[var(--z-place)] w-[min(760px,calc(100vw-11.5rem))] max-h-[calc(100vh-2rem)] overflow-hidden bg-[#050403]/82 text-white max-[700px]:bottom-[170px] max-[700px]:left-2 max-[700px]:right-2 max-[700px]:top-[58px] max-[700px]:w-auto max-[700px]:max-h-none"
       style={{
         fontFamily: spellbookFont,
         // No border (the owner, 2026-11-19 and 20): the page fades into the world over its last 16 px.

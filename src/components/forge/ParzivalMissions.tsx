@@ -263,7 +263,7 @@ function MissionDetail({ mission, onClose, onRefetch, fontSize }: {
 
   return (
     <div style={{
-      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 9999,
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 'var(--z-place)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
     }} onClick={onClose}>
       <div style={{

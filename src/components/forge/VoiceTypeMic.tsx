@@ -186,7 +186,7 @@ export function VoiceTypeMic() {
           top,
           width: SIZE,
           height: SIZE,
-          zIndex: 100000,
+          zIndex: 'var(--z-tip)',
           opacity: listening ? 1 : 0.72,
           borderColor: listening ? 'rgba(253,164,175,0.7)' : 'rgba(165,243,252,0.35)',
           background: listening ? 'rgba(127,29,29,0.75)' : 'rgba(2,6,23,0.72)',
@@ -203,7 +203,7 @@ export function VoiceTypeMic() {
       {errorShown && (
         <div
           className="pointer-events-none fixed max-w-[260px] rounded-md border border-amber-300/40 bg-slate-950/90 px-2 py-1 text-[10.5px] leading-snug text-amber-100 shadow-lg"
-          style={{ left: Math.max(8, left - 230), top: top + SIZE + 6, zIndex: 100000 }}
+          style={{ left: Math.max(8, left - 230), top: top + SIZE + 6, zIndex: 'var(--z-tip)' }}
         >
           {errorShown}
         </div>

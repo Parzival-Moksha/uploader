@@ -274,7 +274,7 @@ export function MobileOasisControls({
   }
 
   return (
-    <div className="pointer-events-none fixed inset-0 z-[180] touch-none select-none">
+    <div className="pointer-events-none fixed inset-0 z-[calc(var(--z-hud)_+_10)] touch-none select-none">
       {/* Full-canvas look surface — covers the entire viewport so any finger
           drag rotates the camera (mobile feel). Joystick + action buttons are
           siblings later in DOM order with their own pointer-events-auto, so

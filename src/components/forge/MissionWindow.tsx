@@ -141,7 +141,7 @@ export function MissionWindow({ mission, onClose, onRefetch }: {
     <div ref={containerRef} style={{
       position: 'fixed', left: pos.x, top: pos.y, width: size.w, height: size.h,
       background: '#080a0f', opacity: 0.95, border: `3px solid ${accent}`, borderRadius: 10,
-      boxShadow: `0 0 30px ${accent}40, 0 8px 32px rgba(0,0,0,0.6)`, zIndex: 10000,
+      boxShadow: `0 0 30px ${accent}40, 0 8px 32px rgba(0,0,0,0.6)`, zIndex: 'calc(var(--z-panel) + 40)',
       display: 'flex', flexDirection: 'column', overflow: 'hidden',
       fontFamily: 'monospace', color: '#ddd', fontSize: 12,
       userSelect: dragging || resizing ? 'none' : 'auto',

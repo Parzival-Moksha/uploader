@@ -302,7 +302,7 @@ export function ConsolePanel({ isOpen, onClose }: { isOpen: boolean; onClose: ()
 
   return createPortal(
     <div
-      className="fixed z-[500] flex flex-col"
+      className="fixed z-[var(--z-panel)] flex flex-col"
       style={{
         left: position.x,
         top: position.y,

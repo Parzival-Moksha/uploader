@@ -26,6 +26,7 @@ import {
   type PlayerSkillSet,
 } from '@/lib/player-progression'
 import { withProfileAvatarBust } from '@/lib/profile-avatar-url'
+import { useLayer } from '@/lib/ui-kit/layers'
 
 interface ProfileData {
   credits: number
@@ -69,6 +70,9 @@ export function ProfileButton({ hideRailButton = false }: { hideRailButton?: boo
   const [isOpen, setIsOpen] = useState(false)
   const [showAvatarGallery, setShowAvatarGallery] = useState(false)
   useUILayer('profile', isOpen || showAvatarGallery)
+  // The place layer (src/lib/ui-kit/layers.ts): Esc closes the gallery, then the profile, when they are the topmost.
+  useLayer('profile', 'place', isOpen, () => setIsOpen(false))
+  useLayer('avatar-gallery', 'place', showAvatarGallery, () => setShowAvatarGallery(false))
   // The main menu's Profile tile.
   useEffect(() => {
     const open = () => setIsOpen(true)
@@ -266,7 +270,7 @@ export function ProfileButton({ hideRailButton = false }: { hideRailButton?: boo
       {isOpen && (
         <div
           data-ui-panel
-          className="absolute left-full top-0 z-[260] ml-2 max-h-[calc(100vh-24px)] w-80 overflow-y-auto rounded-lg max-[700px]:fixed max-[700px]:left-2 max-[700px]:right-2 max-[700px]:top-[58px] max-[700px]:ml-0 max-[700px]:max-h-[calc(100vh-70px)] max-[700px]:w-auto"
+          className="absolute left-full top-0 z-[calc(var(--z-hud)_+_30)] ml-2 max-h-[calc(100vh-24px)] w-80 overflow-y-auto rounded-lg max-[700px]:fixed max-[700px]:left-2 max-[700px]:right-2 max-[700px]:top-[58px] max-[700px]:ml-0 max-[700px]:max-h-[calc(100vh-70px)] max-[700px]:w-auto"
           onMouseDown={(e) => e.stopPropagation()}
           style={{
             backgroundColor: `rgba(0, 0, 0, ${Math.max(0.92, settings.uiOpacity)})`,

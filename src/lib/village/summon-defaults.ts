@@ -74,3 +74,19 @@ export function spotInFront(position: [number, number, number], forward: [number
   const dz = position[2] - z
   return { x, z, yaw: Math.hypot(dx, dz) < 1e-6 ? 0 : Math.atan2(dx, dz) }
 }
+
+/**
+ * A first run's sessions, in an arc in front of the newcomer so they are the first thing seen: `count` spots at
+ * `distance`, spread over `spread` radians, each facing the newcomer.
+ */
+export function arcInFront(position: [number, number, number], forward: [number, number, number], count: number, distance = 4.5, spread = 1.1): Array<{ x: number; z: number; yaw: number }> {
+  const base = Math.atan2(forward[0], forward[2])
+  const out: Array<{ x: number; z: number; yaw: number }> = []
+  for (let i = 0; i < count; i++) {
+    const angle = base + (count === 1 ? 0 : -spread / 2 + (spread * i) / (count - 1))
+    const x = position[0] + Math.sin(angle) * distance
+    const z = position[2] + Math.cos(angle) * distance
+    out.push({ x, z, yaw: Math.atan2(position[0] - x, position[2] - z) })
+  }
+  return out
+}

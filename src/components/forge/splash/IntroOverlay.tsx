@@ -6,7 +6,10 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
+  ASCII_CELL,
   INTRO_CHANGED_EVENT,
+  INTRO_EMBLEM_SIZE,
+  INTRO_EMBLEM_URL,
   INTRO_FADE_IN_MS,
   INTRO_FADE_OUT_MS,
   INTRO_PREVIEW_EVENT,
@@ -15,6 +18,8 @@ import {
   INTRO_VIEW,
   SUBTITLE_CELL,
   TITLE_CELL,
+  asciiTitle,
+  createEmblemLoader,
   cellsPath,
   introLayout,
   introPhase,
@@ -37,10 +42,8 @@ interface VariantLook {
 
 const LOOKS: Record<IntroVariantId, VariantLook> = {
   pixels: { titleShape: 'square', titleFill: 0.84, subtitleShape: 'square' },
-  scanline: { titleShape: 'bars', titleFill: 0.92, subtitleShape: 'square' },
-  sigil: { titleShape: 'diamond', titleFill: 1, subtitleShape: 'diamond' },
-  ghost: { titleShape: 'square', titleFill: 0.8, subtitleShape: 'square' },
-  sunrise: { titleShape: 'dot', titleFill: 0.86, subtitleShape: 'square' },
+  ascii: { titleShape: 'square', titleFill: 0.84, subtitleShape: 'square' },
+  emblem: { titleShape: 'square', titleFill: 0.84, subtitleShape: 'square' },
 }
 
 function usePaths(variant: IntroVariantId) {
@@ -69,117 +72,8 @@ function Title({ paths, ...rest }: { paths: string[] } & React.SVGProps<SVGPathE
   )
 }
 
-function Pixels({ title, subtitle }: { title: string[]; subtitle: string }) {
-  const ruleY = L.titleY + L.titleH + 29
-  return (
-    <>
-      <defs>
-        <linearGradient id="oasisIntroRule" x1="0" x2="1" y1="0" y2="0">
-          <stop offset="0" stopColor="#7de3ff" stopOpacity="0" />
-          <stop offset="0.5" stopColor="#7de3ff" stopOpacity="0.9" />
-          <stop offset="1" stopColor="#7de3ff" stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      <g transform="translate(4 4)"><Title paths={title} fill="rgba(4,10,24,0.38)" /></g>
-      <Title paths={title} fill="rgba(255,255,255,0.66)" />
-      <rect className="oasis-intro-late" x={L.titleX} y={ruleY - 1.5} width={L.titleW} height={3} fill="url(#oasisIntroRule)" />
-      <path className="oasis-intro-late" d={subtitle} fill="rgba(4,10,24,0.4)" transform="translate(2 2)" />
-      <path className="oasis-intro-late" d={subtitle} fill="rgba(125,227,255,0.92)" />
-    </>
-  )
-}
-
-function Scanline({ title, subtitle }: { title: string[]; subtitle: string }) {
-  const top = L.titleY - 46
-  const bottom = L.subtitleY + L.subtitleH + 46
-  const left = L.titleX - 60
-  const right = L.titleX + L.titleW + 60
-  const arm = 54
-  const brackets =
-    `M${left + arm} ${top}H${left}V${top + arm}` +
-    `M${right - arm} ${top}H${right}V${top + arm}` +
-    `M${left + arm} ${bottom}H${left}V${bottom - arm}` +
-    `M${right - arm} ${bottom}H${right}V${bottom - arm}`
-  return (
-    <>
-      <g transform="translate(3 3)"><Title paths={title} fill="rgba(0,16,6,0.45)" /></g>
-      <Title paths={title} fill="rgba(93,255,155,0.86)" />
-      <path className="oasis-intro-late" d={subtitle} fill="rgba(170,255,205,0.9)" />
-      <path className="oasis-intro-late" d={brackets} fill="none" stroke="rgba(93,255,155,0.75)" strokeWidth={3} />
-      <rect
-        className="oasis-intro-sweep"
-        x={left}
-        y={top}
-        width={right - left}
-        height={4}
-        fill="rgba(190,255,215,0.6)"
-        style={{ ['--oasis-intro-sweep' as string]: `${bottom - top}px` }}
-      />
-    </>
-  )
-}
-
-function Sigil({ title, subtitle }: { title: string[]; subtitle: string }) {
-  const cx = L.centerX
-  const cy = L.centerY - 10
-  const ring = 392
-  const diamond = 430
-  const tick = (x: number, y: number) => `M${x} ${y - 13}l13 13l-13 13l-13 -13z`
-  return (
-    <>
-      <circle
-        className="oasis-intro-draw"
-        cx={cx}
-        cy={cy}
-        r={ring}
-        pathLength={1}
-        fill="none"
-        stroke="rgba(255,205,105,0.72)"
-        strokeWidth={3}
-        transform={`rotate(-90 ${cx} ${cy})`}
-      />
-      <circle cx={cx} cy={cy} r={ring - 16} fill="none" stroke="rgba(255,205,105,0.3)" strokeWidth={1.5} strokeDasharray="2 14" />
-      <path
-        className="oasis-intro-late"
-        d={`M${cx} ${cy - diamond}L${cx + diamond} ${cy}L${cx} ${cy + diamond}L${cx - diamond} ${cy}Z`}
-        fill="none"
-        stroke="rgba(255,225,160,0.34)"
-        strokeWidth={2}
-      />
-      <path
-        className="oasis-intro-late"
-        d={tick(cx, cy - ring) + tick(cx, cy + ring)}
-        fill="rgba(255,225,160,0.85)"
-      />
-      <g transform="translate(3 4)"><Title paths={title} fill="rgba(30,14,0,0.42)" /></g>
-      <Title paths={title} fill="rgba(255,214,128,0.9)" />
-      <path className="oasis-intro-late" d={subtitle} fill="rgba(255,240,205,0.95)" />
-    </>
-  )
-}
-
-function Ghost({ title, subtitle }: { title: string[]; subtitle: string }) {
-  const m = 56
-  const arm = 70
-  const w = INTRO_VIEW.width
-  const h = INTRO_VIEW.height
-  const corners =
-    `M${m + arm} ${m}H${m}V${m + arm}` +
-    `M${w - m - arm} ${m}H${w - m}V${m + arm}` +
-    `M${m + arm} ${h - m}H${m}V${h - m - arm}` +
-    `M${w - m - arm} ${h - m}H${w - m}V${h - m - arm}`
-  return (
-    <>
-      <Title paths={title} fill="rgba(255,255,255,0.13)" stroke="rgba(8,12,24,0.5)" strokeWidth={5} />
-      <Title paths={title} fill="none" stroke="rgba(255,255,255,0.9)" strokeWidth={2} />
-      <path className="oasis-intro-late" d={subtitle} fill="rgba(8,12,24,0.4)" transform="translate(2 2)" />
-      <path className="oasis-intro-late" d={subtitle} fill="rgba(255,255,255,0.88)" />
-      <path className="oasis-intro-late" d={corners} fill="none" stroke="rgba(255,255,255,0.55)" strokeWidth={2.5} />
-    </>
-  )
-}
-
-function Sunrise({ title, subtitle }: { title: string[]; subtitle: string }) {
+/** Sunrise's striped sun (the owner, 19 Nov: keep its sun, in Pixels), rising behind the title to the horizon line. */
+function Sun() {
   const cx = L.centerX
   const horizon = L.titleY + L.titleH + 29
   const radius = 330
@@ -204,22 +98,113 @@ function Sunrise({ title, subtitle }: { title: string[]; subtitle: string }) {
           <stop offset="1" stopColor="#ff4fb8" stopOpacity="0.42" />
         </linearGradient>
         <linearGradient id="oasisIntroHorizon" x1="0" x2="1" y1="0" y2="0">
-          <stop offset="0" stopColor="#6fe8ff" stopOpacity="0" />
-          <stop offset="0.5" stopColor="#6fe8ff" stopOpacity="0.9" />
-          <stop offset="1" stopColor="#6fe8ff" stopOpacity="0" />
+          <stop offset="0" stopColor="#7de3ff" stopOpacity="0" />
+          <stop offset="0.5" stopColor="#7de3ff" stopOpacity="0.9" />
+          <stop offset="1" stopColor="#7de3ff" stopOpacity="0" />
         </linearGradient>
       </defs>
       <g clipPath="url(#oasisIntroSun)" className="oasis-intro-rise">
-        {bands.map((b, k) => (
-          <rect key={k} x={cx - radius} y={b.y} width={radius * 2} height={b.h} fill="url(#oasisIntroSunFill)" />
+        {bands.map((band, k) => (
+          <rect key={k} x={cx - radius} y={band.y} width={radius * 2} height={band.h} fill="url(#oasisIntroSunFill)" />
         ))}
       </g>
       <rect className="oasis-intro-late" x={L.titleX - 120} y={horizon - 1.5} width={L.titleW + 240} height={3} fill="url(#oasisIntroHorizon)" />
-      <g transform="translate(4 4)"><Title paths={title} fill="rgba(30,0,40,0.45)" /></g>
-      <Title paths={title} fill="rgba(255,255,255,0.9)" />
-      <path className="oasis-intro-late" d={subtitle} fill="rgba(30,0,40,0.4)" transform="translate(2 2)" />
-      <path className="oasis-intro-late" d={subtitle} fill="rgba(111,232,255,0.95)" />
     </>
+  )
+}
+
+function Subtitle({ d }: { d: string }) {
+  return (
+    <>
+      <path className="oasis-intro-late" d={d} fill="rgba(4,10,24,0.4)" transform="translate(2 2)" />
+      <path className="oasis-intro-late" d={d} fill="rgba(125,227,255,0.92)" />
+    </>
+  )
+}
+
+function Pixels({ title, subtitle }: { title: string[]; subtitle: string }) {
+  return (
+    <>
+      <Sun />
+      <g transform="translate(4 4)"><Title paths={title} fill="rgba(4,10,24,0.38)" /></g>
+      <Title paths={title} fill="rgba(255,255,255,0.72)" />
+      <Subtitle d={subtitle} />
+    </>
+  )
+}
+
+const ASCII_FONT = "Consolas, 'Cascadia Mono', Menlo, 'DejaVu Sans Mono', 'Courier New', monospace"
+
+/** The title in dense characters (intro-overlay.ts, asciiTitle), each row stretched to the title's width so the letters line up whatever the monospace font. */
+function Ascii({ subtitle }: { subtitle: string }) {
+  const art = useMemo(() => asciiTitle(INTRO_TITLE), [])
+  const rowH = TITLE_CELL / ASCII_CELL.rows
+  const rows = (lines: string[], fill: string, dx = 0, dy = 0) => lines.map((line, i) => (
+    <text
+      key={i}
+      className="oasis-intro-row"
+      style={{ animationDelay: `${60 + i * 32}ms` }}
+      x={L.titleX + dx}
+      y={L.titleY + (i + 1) * rowH - rowH * 0.18 + dy}
+      textLength={L.titleW}
+      lengthAdjust="spacingAndGlyphs"
+      xmlSpace="preserve"
+      fill={fill}
+    >
+      {line}
+    </text>
+  ))
+  const cursorX = L.subtitleX + L.subtitleW + SUBTITLE_CELL * 1.4
+  return (
+    <>
+      <g fontFamily={ASCII_FONT} fontSize={rowH * 1.34} fontWeight={700}>
+        {rows(art.halo, 'rgba(125,227,255,0.42)')}
+        {rows(art.core, 'rgba(4,10,24,0.42)', 3, 3)}
+        {rows(art.core, 'rgba(232,255,248,0.9)')}
+      </g>
+      <Subtitle d={subtitle} />
+      <rect className="oasis-intro-cursor" x={cursorX} y={L.subtitleY} width={SUBTITLE_CELL * 3} height={L.subtitleH} fill="rgba(125,227,255,0.85)" />
+    </>
+  )
+}
+
+// The emblem picture is loaded once per page and kept: started as soon as the overlay mounts with it chosen (before
+// the world's assets fill the browser's connections), so later showings are instant.
+const emblem = createEmblemLoader(() => {
+  const img = new Image()
+  img.decoding = 'async'
+  // Ahead of the world's textures and models in the browser's queue (on HTTP/1.1 they hold every connection).
+  ;(img as HTMLImageElement & { fetchPriority?: string }).fetchPriority = 'high'
+  img.src = INTRO_EMBLEM_URL
+  return img.decode()
+})
+function preloadEmblem(): void {
+  if (typeof window !== 'undefined') emblem.start()
+}
+
+/**
+ * The generated picture, centred where the title stands; it settles in from slightly larger, a flash on the runes.
+ * Until the picture is there (a slow first load), Pixels stands in, so the intro is never an empty frame.
+ */
+function Emblem({ title, subtitle }: { title: string[]; subtitle: string }) {
+  const width = 1360
+  const height = Math.round(width * INTRO_EMBLEM_SIZE.height / INTRO_EMBLEM_SIZE.width)
+  const [ready, setReady] = useState(emblem.status() === 'ready')
+  useEffect(() => {
+    preloadEmblem()
+    return emblem.onSettled(() => setReady(emblem.status() === 'ready'))
+  }, [])
+  if (!ready) return <Pixels title={title} subtitle={subtitle} />
+  return (
+    <image
+      className="oasis-intro-emblem"
+      href={INTRO_EMBLEM_URL}
+      x={(INTRO_VIEW.width - width) / 2}
+      y={Math.round((INTRO_VIEW.height - height) / 2) - 10}
+      width={width}
+      height={height}
+      preserveAspectRatio="xMidYMid meet"
+    />
   )
 }
 
@@ -236,17 +221,15 @@ export function IntroArt({ variant }: { variant: IntroVariantId }) {
       data-variant={variant}
     >
       {variant === 'pixels' && <Pixels {...paths} />}
-      {variant === 'scanline' && <Scanline {...paths} />}
-      {variant === 'sigil' && <Sigil {...paths} />}
-      {variant === 'ghost' && <Ghost {...paths} />}
-      {variant === 'sunrise' && <Sunrise {...paths} />}
+      {variant === 'ascii' && <Ascii subtitle={paths.subtitle} />}
+      {variant === 'emblem' && <Emblem {...paths} />}
     </svg>
   )
 }
 
 const INTRO_CSS = `
 .oasis-intro {
-  position: fixed; inset: 0; z-index: 99990;
+  position: fixed; inset: 0; z-index: var(--z-splash);
   pointer-events: none; user-select: none;
   opacity: 1;
   animation: oasisIntroIn ${INTRO_FADE_IN_MS}ms ease-out both;
@@ -258,15 +241,16 @@ const INTRO_CSS = `
 @keyframes oasisIntroGlyph { from { opacity: 0; transform: translateY(26px); } to { opacity: 1; transform: none; } }
 .oasis-intro-late { animation: oasisIntroLate 600ms ease-out 480ms both; }
 @keyframes oasisIntroLate { from { opacity: 0; } to { opacity: 1; } }
-.oasis-intro-draw { stroke-dasharray: 1; animation: oasisIntroDraw 1300ms cubic-bezier(0.5, 0, 0.2, 1) 120ms both; }
-@keyframes oasisIntroDraw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
-.oasis-intro-sweep { animation: oasisIntroSweep 1700ms linear 300ms infinite both; }
-@keyframes oasisIntroSweep { from { transform: translateY(0); opacity: 0.9; } to { transform: translateY(var(--oasis-intro-sweep)); opacity: 0.15; } }
+.oasis-intro-row { animation: oasisIntroRow 380ms steps(4, end) both; }
+@keyframes oasisIntroRow { from { opacity: 0; transform: translateX(-14px); } to { opacity: 1; transform: none; } }
+.oasis-intro-cursor { animation: oasisIntroCursor 1060ms steps(1, end) 700ms infinite both; }
+@keyframes oasisIntroCursor { 0% { opacity: 1; } 50% { opacity: 0; } }
+.oasis-intro-emblem { transform-box: fill-box; transform-origin: center; animation: oasisIntroEmblem 900ms cubic-bezier(0.2, 0.85, 0.25, 1) both; }
+@keyframes oasisIntroEmblem { 0% { opacity: 0; transform: scale(1.08); filter: brightness(2.2); } 60% { opacity: 1; filter: brightness(1.25); } 100% { opacity: 1; transform: none; filter: none; } }
 .oasis-intro-rise { animation: oasisIntroRise 900ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
 @keyframes oasisIntroRise { from { opacity: 0; transform: translateY(60px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) {
-  .oasis-intro-glyph, .oasis-intro-late, .oasis-intro-draw, .oasis-intro-sweep, .oasis-intro-rise { animation: none; }
-  .oasis-intro-sweep { display: none; }
+  .oasis-intro-glyph, .oasis-intro-late, .oasis-intro-row, .oasis-intro-cursor, .oasis-intro-rise, .oasis-intro-emblem { animation: none; }
 }
 `
 
@@ -283,6 +267,7 @@ export function IntroOverlay() {
   // The first run, on page load, with the saved choice.
   useEffect(() => {
     const choice = readIntroChoice()
+    if (choice === 'emblem') preloadEmblem()
     if (choice !== 'off') setRun({ key: nextKeyRef.current++, variant: choice, phase: 'showing' })
   }, [])
 
@@ -291,6 +276,7 @@ export function IntroOverlay() {
     const onPreview = (event: Event) => {
       const choice = (event as CustomEvent<{ choice?: IntroChoice }>).detail?.choice
       if (!isIntroChoice(choice)) return
+      if (choice === 'emblem') preloadEmblem()
       setRun(choice === 'off' ? null : { key: nextKeyRef.current++, variant: choice, phase: 'showing' })
     }
     const onChanged = (event: Event) => {

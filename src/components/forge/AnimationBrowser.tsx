@@ -9,6 +9,7 @@ import { freeUalClips } from '@/lib/forge/ual-catalog'
 import { AUTHORED_CLIPS } from '@/lib/forge/authored-clips'
 import { ANIMATION_LIBRARY } from '@/lib/forge/animation-library'
 import { useUILayer } from '@/lib/input-manager'
+import { useLayer } from '@/lib/ui-kit/layers'
 
 export const OPEN_ANIMATION_BROWSER = 'oasis:open-animation-browser'
 export const PREVIEW_ANIMATION_EVENT = 'oasis:player-preview-animation'
@@ -65,13 +66,15 @@ export function AnimationBrowser() {
     return order.map(name => ({ name, clips: shown.filter(c => c.group === name) })).filter(g => g.clips.length)
   }, [open, filter, mixamoHere])
 
+  // The panel layer (src/lib/ui-kit/layers.ts): Esc closes it when it is the topmost thing.
+  const z = useLayer('animation-browser', 'panel', open, () => { previewAnimation(null); setPlaying(null); setOpen(false) })
   if (!open) return null
   const close = () => { previewAnimation(null); setPlaying(null); setOpen(false) }
   return (
     <div
       data-ui-panel="animation-browser"
-      className="fixed bottom-4 right-4 top-4 z-[9500] flex w-[300px] flex-col rounded-lg border border-white/15 p-3 font-mono text-white"
-      style={{ background: 'rgba(24,26,30,0.78)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)' }}
+      className="fixed bottom-4 right-4 top-4 z-[var(--z-panel)] flex w-[300px] flex-col rounded-lg border border-white/15 p-3 font-mono text-white"
+      style={{ zIndex: z, background: 'rgba(24,26,30,0.78)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)' }}
       onKeyDown={event => event.stopPropagation()}
     >
       <div className="mb-1 flex items-center justify-between">

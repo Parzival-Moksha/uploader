@@ -944,7 +944,7 @@ function MissionPopup({ mission, onClose, onSubmit, onCurate, onExecute, isAgent
   ]
 
   return (
-    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[99999]" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[var(--z-dialog)]" onClick={onClose}>
       <div onClick={e => e.stopPropagation()}
         className="bg-[#0a0e1a] border border-[#14b8a6]/30 rounded-xl w-[95%] max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">
 
@@ -1184,7 +1184,7 @@ function MissionPopup({ mission, onClose, onSubmit, onCurate, onExecute, isAgent
 
         {/* Image fullscreen overlay */}
         {imageFullscreen && mission.imageUrl && (
-          <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-[999999] cursor-pointer" onClick={() => setImageFullscreen(false)}>
+          <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-[calc(var(--z-dialog)_+_10)] cursor-pointer" onClick={() => setImageFullscreen(false)}>
             <img src={mission.imageUrl} alt={`Mission #${mission.id}`} className="max-w-[90vw] max-h-[90vh] object-contain rounded-lg" />
           </div>
         )}
@@ -1873,7 +1873,7 @@ function PreviewOverlay({ target, content, loading, onClose }: {
 }) {
   const tokens = Math.ceil((content?.length || 0) / 4)
   return (
-    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[9999]" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[var(--z-panel)]" onClick={onClose}>
       <div className="bg-[#0a0e1a] border border-[#14b8a6]/30 rounded-lg w-[90%] max-w-3xl max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between p-4 border-b border-[#14b8a6]/20">
           <div>
@@ -1907,7 +1907,7 @@ function AddModuleOverlay({ lobe, options, onAdd, onClose }: {
   onClose: () => void
 }) {
   return (
-    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[9999]" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[var(--z-panel)]" onClick={onClose}>
       <div className="bg-[#0a0e1a] border border-[#14b8a6]/30 rounded-lg w-[90%] max-w-md max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between p-4 border-b border-[#14b8a6]/20">
           <h3 className="font-bold text-[#14b8a6] text-sm">Add Module to {lobe}</h3>

@@ -18,6 +18,17 @@
   --hacker: #EF4444;
   --void: #000000;
   --glow: #A855F7;
+  /* The layers over the world, from the bottom (src/lib/ui-kit/layers.ts, the same numbers; a test checks).
+     Use as z-[var(--z-place)] or z-[calc(var(--z-hud)+10)]; never a number of your own. */
+  --z-world: 0;
+  --z-hud: 1000;
+  --z-panel: 2000;
+  --z-place: 3000;
+  --z-menu: 4000;
+  --z-dialog: 5000;
+  --z-notice: 6000;
+  --z-splash: 7000;
+  --z-tip: 8000;
 }
 
 * {

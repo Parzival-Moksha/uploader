@@ -23,6 +23,7 @@ import { groupAgentsByWorld } from '../../lib/village/village-worlds'
 import { useVillageWorldsVersion, villageAgentWorld, villageWorldName } from './village-worlds'
 import { currentVillageWorld } from './village-homes'
 import { GuideInvite, SummonMoreLine } from './GuideInvite'
+import { FirstRunGreeting } from './FirstRunGreeting'
 
 const COLLAPSED_KEY = 'oasis.village.agentsMenu.collapsed'
 const MARGIN = 16
@@ -299,12 +300,14 @@ export function VillageAgentsMenu() {
   return (
     <div
       data-ui-panel="village-agents"
-      className={`pointer-events-none fixed z-[185] flex select-none ${phone ? 'flex-col gap-2' : 'flex-row items-start'}`}
+      className={`pointer-events-none fixed z-[calc(var(--z-hud)_+_15)] flex select-none ${phone ? 'flex-col gap-2' : 'flex-row items-start'}`}
       style={{ left, top, width: phone ? width : undefined, maxHeight: collapsed ? undefined : maxHeight, gap: phone ? undefined : LIST_GAP }}
       onPointerDown={event => event.stopPropagation()}
       onWheel={event => event.stopPropagation()}
     >
       <style>{ATTENTION_GLOW_CSS}</style>
+      {/* A newcomer's first minute: their own sessions brought in, and one line saying what to do (FirstRunGreeting). */}
+      <FirstRunGreeting />
       {/* the header, like the rail's buttons; it glows amber while an agent needs you */}
       <div className="pointer-events-auto relative shrink-0" style={{ width }}>
       {attention.size > 0 && (

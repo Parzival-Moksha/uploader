@@ -41,6 +41,10 @@ jobs:
           echo "STARTED_IN=$(( $(date +%s) - start ))" >> "$GITHUB_ENV"
       - name: Status
         run: node scripts/oasis.mjs status
+      - name: A second browser gets the key from the clipboard, never from the output
+        run: |
+          node scripts/oasis.mjs link
+          pbpaste | grep -q 'profile=village&key=' && echo "The clipboard holds the village's address with the key."
       - name: Prepare a headless browser
         run: |
           npm install --silent --prefix "$RUNNER_TEMP/look" playwright@1.58.2

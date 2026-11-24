@@ -18,7 +18,7 @@ import { getTagSettings, subscribeTagSettings } from '../../lib/village/tag-styl
 /** Bottom-centre game prompt: a chamfered banner, a title, and key prompts in a row. */
 export function PromptBanner({ accent, title, children }: { accent: string; title: string; children: ReactNode }) {
   return (
-    <div className="pointer-events-none fixed bottom-7 left-1/2 z-[170] -translate-x-1/2 max-[700px]:bottom-28" style={{ filter: `drop-shadow(0 8px 18px rgba(0,0,0,0.55)) drop-shadow(0 0 14px ${accent}33)` }}>
+    <div className="pointer-events-none fixed bottom-7 left-1/2 z-[calc(var(--z-hud)_+_10)] -translate-x-1/2 max-[700px]:bottom-28" style={{ filter: `drop-shadow(0 8px 18px rgba(0,0,0,0.55)) drop-shadow(0 0 14px ${accent}33)` }}>
       <div
         className="relative px-7 pb-2.5 pt-1.5"
         style={{

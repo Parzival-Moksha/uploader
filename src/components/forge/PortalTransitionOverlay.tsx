@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import {
   DEFAULT_PORTAL_TRANSITION_SETTINGS,
+  PORTAL_TRANSITION_ABORT_EVENT,
   PORTAL_TRANSITION_READY_EVENT,
   PORTAL_TRANSITION_START_EVENT,
   normalizePortalTransitionSettings,
@@ -400,6 +401,9 @@ function VoidIris({ phase, progress, effect }: {
   )
 }
 
+/** The longest the travel view stays up (world-travel.ts gives a load 30 s, a trip 45 s at most). */
+const OVERLAY_MAX_SECONDS = 45
+
 export function PortalTransitionOverlay() {
   const [active, setActive] = useState<ActiveTransition | null>(null)
   const [tick, setTick] = useState(0)
@@ -420,11 +424,14 @@ export function PortalTransitionOverlay() {
     const onReady = () => {
       setActive(current => current ? { ...current, readyAt: current.readyAt ?? nowMs() } : current)
     }
+    const onAbort = () => setActive(null)
     window.addEventListener(PORTAL_TRANSITION_START_EVENT, onStart)
     window.addEventListener(PORTAL_TRANSITION_READY_EVENT, onReady)
+    window.addEventListener(PORTAL_TRANSITION_ABORT_EVENT, onAbort)
     return () => {
       window.removeEventListener(PORTAL_TRANSITION_START_EVENT, onStart)
       window.removeEventListener(PORTAL_TRANSITION_READY_EVENT, onReady)
+      window.removeEventListener(PORTAL_TRANSITION_ABORT_EVENT, onAbort)
     }
   }, [])
 
@@ -440,6 +447,12 @@ export function PortalTransitionOverlay() {
     let frame = 0
     const loop = () => {
       const elapsedSeconds = (nowMs() - active.startedAt) / 1000
+      // Never a trap: the tunnel follows the scene's loading flag, which can stay up (any asset anywhere). Past this
+      // the overlay ends whatever the flag says.
+      if (elapsedSeconds > OVERLAY_MAX_SECONDS) {
+        setActive(null)
+        return
+      }
       const phase = phaseFor(active.settings, elapsedSeconds, worldLoadingRef.current || active.readyAt === null)
       setTick(elapsedSeconds)
       if (elapsedSeconds < phase.total + 0.08) {
@@ -485,7 +498,7 @@ export function PortalTransitionOverlay() {
       data-portal-transition-phase={phase}
       data-portal-transition-effect={effect}
       data-portal-transition-total={total.toFixed(2)}
-      className="fixed inset-0 pointer-events-none z-[260] overflow-hidden"
+      className="fixed inset-0 pointer-events-none z-[calc(var(--z-notice)_+_20)] overflow-hidden"
       style={{
         opacity,
         background: phase === 'reveal' ? `rgba(0,0,0,${0.68 * (1 - progress)})` : 'rgba(0,0,0,0.08)',

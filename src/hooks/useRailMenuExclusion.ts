@@ -20,6 +20,7 @@ export type RailMenuId =
   | 'place'
   | 'profile'
   | 'wizard'
+  | 'character'
 
 const EVENT_NAME = 'oasis:rail-menu-open'
 

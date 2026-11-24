@@ -529,7 +529,7 @@ export function AvatarGallery({ currentAvatarUrl, onSelect, onClose }: AvatarGal
       style={{
         position: 'fixed',
         inset: 0,
-        zIndex: 10050,
+        zIndex: 'calc(var(--z-place) + 20)',
         display: 'flex',
         alignItems: mobileLayout ? 'stretch' : 'center',
         justifyContent: mobileLayout ? 'stretch' : 'center',

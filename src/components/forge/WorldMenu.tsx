@@ -14,9 +14,11 @@ import { getViewerUserIdClient } from '@/lib/viewer-identity-client'
 import { ensureViewerCookie, VIEWER_IDENTITY_EVENT } from '@/lib/viewer-identity-bootstrap'
 import { useClientOasisMode, useOasisCapabilities } from '@/lib/oasis-mode-client'
 import { WELCOME_HUB_WORLD_ID } from '@/lib/portal-gates'
+import { travelToWorld } from '@/lib/world-travel-exit'
 
 import { GameMenuButton } from './GameMenuButton'
 
+import { useLayer } from '@/lib/ui-kit/layers'
 const OASIS_BASE = process.env.NEXT_PUBLIC_BASE_PATH || ''
 
 const SHAREABLE_VISIBILITIES = new Set([
@@ -192,6 +194,8 @@ export function WorldMenu({ actionLogControl }: { actionLogControl?: ReactNode }
   const importInputRef = useRef<HTMLInputElement>(null)
   useUILayer('world-menu', isOpen)
   const { settings, updateSetting, rp1Locked } = useContext(SettingsContext)
+  // The place layer (src/lib/ui-kit/layers.ts): Esc closes World when it is the topmost thing.
+  useLayer('world-menu', 'place', isOpen, () => setIsOpen(false))
   const playClick = () => useAudioManager.getState().play('buttonClick')
 
   const activeWorldId = useOasisStore(s => s.activeWorldId)
@@ -533,7 +537,8 @@ export function WorldMenu({ actionLogControl }: { actionLogControl?: ReactNode }
   const handleSwitchWorld = (nextWorldId: string) => {
     if (!nextWorldId || nextWorldId === activeWorldId) return
     playClick()
-    switchWorld(nextWorldId)
+    // Through a portal he walks into (WorldTravelDirector), or the plain switch when that is off or can't run.
+    travelToWorld(nextWorldId, worldRegistry.find(world => world.id === nextWorldId)?.name)
     setIsOpen(false)
   }
 
@@ -615,7 +620,7 @@ export function WorldMenu({ actionLogControl }: { actionLogControl?: ReactNode }
           // A kit panel: it wears the one menu style (Settings' top right), like every menu (ui-kit).
           data-kit-style={menuStyle}
           style={{ display: 'block' }}
-          className="kit-panel absolute left-full top-0 z-[260] ml-2 max-h-[82vh] w-[410px] overflow-y-auto px-1 pb-1 pt-0 font-mono text-white max-[700px]:fixed max-[700px]:left-2 max-[700px]:right-2 max-[700px]:top-[58px] max-[700px]:ml-0 max-[700px]:max-h-[calc(100vh-70px)] max-[700px]:w-auto max-[700px]:p-2"
+          className="kit-panel absolute left-full top-0 z-[var(--z-place)] ml-2 max-h-[82vh] w-[410px] overflow-y-auto px-1 pb-1 pt-0 font-mono text-white max-[700px]:fixed max-[700px]:left-2 max-[700px]:right-2 max-[700px]:top-[58px] max-[700px]:ml-0 max-[700px]:max-h-[calc(100vh-70px)] max-[700px]:w-auto max-[700px]:p-2"
           onMouseDown={event => event.stopPropagation()}
         >
           <style>{`
@@ -1225,7 +1230,7 @@ export function WorldMenu({ actionLogControl }: { actionLogControl?: ReactNode }
 
       {qrExpanded && worldUrl && (
         <div
-          className="fixed inset-0 z-[2147483000] flex items-center justify-center bg-black/90 p-4 backdrop-blur-md"
+          className="fixed inset-0 z-[calc(var(--z-dialog)_+_20)] flex items-center justify-center bg-black/90 p-4 backdrop-blur-md"
           onClick={() => setQrExpanded(false)}
         >
           <div
@@ -1271,7 +1276,7 @@ export function WorldMenu({ actionLogControl }: { actionLogControl?: ReactNode }
       )}
 
       {deleteOpen && (
-        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/70 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[var(--z-dialog)] flex items-center justify-center bg-black/70 backdrop-blur-sm">
           <div className="w-full max-w-sm rounded-lg border border-red-400/30 bg-gray-950 p-5 font-mono text-white shadow-2xl">
             <div className="text-sm font-black uppercase tracking-[0.12em] text-red-100">Delete {worldName}?</div>
             <p className="mt-2 text-xs leading-relaxed text-white/55">

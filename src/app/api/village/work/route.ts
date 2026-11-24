@@ -112,7 +112,8 @@ export async function POST(request: NextRequest) {
     }
     if ('mission' in body) {
       if (body.mission !== null && typeof body.mission !== 'string') return NextResponse.json({ error: 'mission is a file name or null' }, { status: 400 })
-      const result = await switchWorkMission(body.mission)
+      // From outside the page (no Origin) it may not end his running own mission.
+      const result = await switchWorkMission(body.mission, Date.now(), fromOasisPage(request.headers.get('origin'), request.headers.get('host')))
       return result.ok ? NextResponse.json(result) : NextResponse.json({ error: result.error }, { status: result.status })
     }
     if (typeof body.tab !== 'string' || !body.tab || body.tab.length > 80 || typeof body.seq !== 'number' || typeof body.seconds !== 'number') {

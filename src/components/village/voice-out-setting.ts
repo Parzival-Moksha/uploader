@@ -1,8 +1,8 @@
-// ░▒▓ VOICE OUT (page) — Settings > Sound > Voice out: ElevenLabs best or fast, kept in this browser ▓▒░
-// Fast (half the credits) by default from 2026-11-23. "Off" is the agent voices' mute (village-companion.ts
+// ░▒▓ VOICE OUT (page) — Settings > Sound > Voice out: ElevenLabs v4 or v4 Turbo, kept in this browser ▓▒░
+// v4 Turbo (half the credits of v4) by default from 2026-11-24. "Off" is the agent voices' mute (village-companion.ts
 // isVillageVoiceOn), so there is one switch for silence, not two. The model each means: lib/village/voice-out.ts.
 
-import { DEFAULT_VOICE_OUT, isVoiceOutQuality, type VoiceOutQuality } from '../../lib/village/voice-out'
+import { voiceOutFrom, type VoiceOutQuality } from '../../lib/village/voice-out'
 
 const KEY = 'oasis.village.voiceOut'
 let quality: VoiceOutQuality | null = null
@@ -12,7 +12,8 @@ export function getVoiceOutQuality(): VoiceOutQuality {
   if (quality === null) {
     let saved: unknown = null
     try { saved = window.localStorage.getItem(KEY) } catch { saved = null }
-    quality = isVoiceOutQuality(saved) ? saved : DEFAULT_VOICE_OUT
+    // Saved before 24 Nov ('best', 'fast'), or nothing: v4 Turbo.
+    quality = voiceOutFrom(saved)
   }
   return quality
 }

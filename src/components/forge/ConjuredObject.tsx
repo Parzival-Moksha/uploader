@@ -27,6 +27,7 @@ import { extractModelStats } from './ModelPreview'
 import { isLibraryAnimation, getLibraryAnimId, loadAnimationClip, getCachedClip, retargetClip } from '../../lib/forge/animation-library'
 import { useInputManager } from '../../lib/input-manager'
 import { dispatch } from '../../lib/event-bus'
+import { WORLD_Z_RANGE } from '@/lib/ui-kit/layers'
 
 const OASIS_BASE = process.env.NEXT_PUBLIC_BASE_PATH || ''
 
@@ -79,7 +80,7 @@ class ConjuredObjectErrorBoundary extends React.Component<
             <boxGeometry args={[0.4, 0.4, 0.4]} />
             <meshBasicMaterial color="#ff3333" wireframe transparent opacity={0.6} />
           </mesh>
-          <Html position={[0, 0.6, 0]} center style={{ pointerEvents: 'none' }}>
+          <Html zIndexRange={WORLD_Z_RANGE} position={[0, 0.6, 0]} center style={{ pointerEvents: 'none' }}>
             <div className="text-[9px] text-red-400 font-mono bg-black/80 px-1.5 py-0.5 rounded whitespace-nowrap">
               {this.props.prompt.slice(0, 20)}... (broken)
             </div>

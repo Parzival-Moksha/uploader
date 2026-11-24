@@ -830,6 +830,7 @@ interface OasisState {
   viewingWorldId: string | null
 
   // ─═̷─═̷─🪟 PANEL Z-ORDERING — last clicked = highest z-index ─═̷─═̷─🪟
+  _panelZLayers: number
   _panelZCounter: number
   _panelZMap: Record<string, number>
   bringPanelToFront: (panelName: string) => void

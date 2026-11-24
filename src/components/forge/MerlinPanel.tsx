@@ -1543,7 +1543,7 @@ export function MerlinPanel({
     <div
       data-menu-portal={embedded ? undefined : 'merlin-panel'}
       data-ui-panel={embedded ? '' : undefined}
-      className={`${embedded ? 'relative w-full h-full' : 'fixed z-[9998]'} rounded-xl flex flex-col overflow-hidden`}
+      className={`${embedded ? 'relative w-full h-full' : 'fixed z-[var(--z-panel)]'} rounded-xl flex flex-col overflow-hidden`}
       style={{
         ...(embedded ? {} : { left: position.x, top: position.y }),
         width: embedded ? '100%' : size.w,

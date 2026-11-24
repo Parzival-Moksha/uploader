@@ -1396,7 +1396,7 @@ export function GeminiLivePanel({
         maxWidth: 'calc(100vw - 112px)',
         height: 'min(790px, calc(100vh - 128px))',
         borderRadius: 16,
-        zIndex: 9998,
+        zIndex: 'var(--z-panel)',
       }
 
   const tabButton = (tab: GeminiPanelTab, label: string) => (

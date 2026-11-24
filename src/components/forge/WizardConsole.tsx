@@ -11,6 +11,7 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useConjure } from '../../hooks/useConjure'
 import { useOasisStore } from '../../store/oasisStore'
+import { useLayer } from '@/lib/ui-kit/layers'
 import { PROVIDERS, REMESH_PRESETS, LIGHT_INTENSITY_MAX, LIGHT_INTENSITY_STEP, type ProviderName, type ConjuredAsset, type ConjureStatus, type CraftedScene, type RemeshQuality, type WorldLightType, type GeneratedImage } from '../../lib/conjure/types'
 import type { PlacementPending, PlacementVfxType } from '../../lib/forge/placement-types'
 import { dispatch } from '../../lib/event-bus'
@@ -747,7 +748,7 @@ function MediaLightbox({ url, onClose }: { url: string; onClose: () => void }) {
   }, [onClose])
 
   return (
-    <div className="fixed inset-0 z-[9999] bg-black/90 flex items-center justify-center cursor-pointer"
+    <div className="fixed inset-0 z-[var(--z-dialog)] bg-black/90 flex items-center justify-center cursor-pointer"
       onClick={onClose}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={url} alt="fullscreen" className="max-w-[90vw] max-h-[90vh] rounded-lg shadow-2xl"
@@ -1745,6 +1746,10 @@ export function WizardConsole({ isOpen, onClose, variant = 'local', initialTab }
     }
   }, [isDragging, isResizing, handleDrag, handleDragEnd, handleResize, handleResizeEnd])
 
+  // The panel layer (src/lib/ui-kit/layers.ts): opened (from the spell book, over Mindcraft) it comes to the front of
+  // the panels; Esc closes it when it is the topmost thing.
+  const wizardZ = useLayer('wizard', 'panel', isOpen, onClose)
+
   if (!isOpen) return null
 
   const dock = wizardDockGeometry(viewportWidth, getWizardDockWidth())
@@ -1776,7 +1781,7 @@ export function WizardConsole({ isOpen, onClose, variant = 'local', initialTab }
       style={{
         // Inline: the kit sets .kit-panel { position: relative }, which would beat a class.
         position: 'fixed',
-        zIndex: useOasisStore.getState().getPanelZIndex('wizard', 9999),
+        zIndex: wizardZ,
         top: WIZARD_DOCK_MARGIN,
         bottom: WIZARD_DOCK_MARGIN,
         right: WIZARD_DOCK_MARGIN,

@@ -57,7 +57,7 @@ export function NetworkWatch() {
       role="status"
       data-network-offline
       style={{ left: left + free / 2, width: Math.max(260, Math.min(free - 24, 640)) }}
-      className="pointer-events-none fixed top-3 z-[60] -translate-x-1/2 rounded-xl border border-amber-300/60 bg-black/75 px-4 py-3 text-center text-amber-50 shadow-lg backdrop-blur"
+      className="pointer-events-none fixed top-3 z-[calc(var(--z-hud)_+_1)] -translate-x-1/2 rounded-xl border border-amber-300/60 bg-black/75 px-4 py-3 text-center text-amber-50 shadow-lg backdrop-blur"
     >
       <div className="text-[20px] font-bold leading-tight">Offline {offlineSinceText(since)}</div>
       <div className="mt-1 text-[13px] leading-snug text-amber-50/90">

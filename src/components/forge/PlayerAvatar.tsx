@@ -14,6 +14,7 @@
 // ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
 
 import { useRef, useEffect, useState, useContext, useSyncExternalStore } from 'react'
+import { groundUnder, guardStep } from '../../lib/forge/ground-guard'
 import { isDragLookOn } from '../../lib/drag-look'
 import { useFrame, useLoader } from '@react-three/fiber'
 import { useKeyboardControls } from '@react-three/drei'
@@ -41,6 +42,7 @@ import {
   setPlayerAvatarPose,
   setPlayerSpellCasting,
   subscribePlayerAvatarTeleport,
+  getPlayerCinematic,
   subscribePlayerManaRecharging,
   subscribePlayerSpellCasting,
   type PlayerAvatarPose,
@@ -636,7 +638,8 @@ export function PlayerAvatar({
     // Drag look (lib/drag-look.ts): a browser without pointer lock turns the camera by dragging.
     if (isThirdPersonActive && (pointerLocked || mobile.lookActive || isDragLookOn())) {
       const mouseDelta = consumeMouseLookDelta()
-      if (mouseDelta.x !== 0 || mouseDelta.y !== 0) {
+      // A cinematic (world travel) holds the camera: the look input is dropped, not saved for later.
+      if (!getPlayerCinematic() && (mouseDelta.x !== 0 || mouseDelta.y !== 0)) {
         const sens = mouseSensitivity * 0.003
         cameraAzimuth.current = normalizeAngle(cameraAzimuth.current - mouseDelta.x * sens)
         cameraElevation.current = Math.max(
@@ -706,6 +709,20 @@ export function PlayerAvatar({
         }
       }
 
+      // A cinematic (world travel, world-travel.ts): the keys do nothing; the page walks the avatar.
+      const cinematic = getPlayerCinematic()
+      if (cinematic) {
+        forward = false
+        backward = false
+        left = false
+        right = false
+        sprint = false
+        slow = false
+        mobileMoveX = 0
+        mobileMoveZ = 0
+        mobileSprint = false
+      }
+
       // Party combat: knocked down by another player, you lie still until you get up (PartyCombatLayer).
       if (localCombatPose()?.down) {
         forward = false
@@ -720,7 +737,7 @@ export function PlayerAvatar({
 
       // Speed modifier: shift=sprint (4x), space=walk (0.25x), default=run
       const speedMult = sprint || mobileSprint ? TPS_SPRINT_MULT : slow ? TPS_WALK_MULT : 1
-      const currentSpeed = playerBaseSpeed() * speedMult
+      const currentSpeed = cinematic ? cinematic.speed : playerBaseSpeed() * speedMult
 
       // Sprint VFX — same speed lines + chromatic aberration as noclip
       const targetIntensity = sprint || mobileSprint ? (TPS_SPRINT_MULT - 1) / 3 : 0
@@ -738,6 +755,12 @@ export function PlayerAvatar({
       const moveX = (right ? 1 : 0) - (left ? 1 : 0) + mobileMoveX
       moveDir.addScaledVector(camForward, moveZ)
       moveDir.addScaledVector(camRight, moveX)
+      if (cinematic?.target) {
+        const toX = cinematic.target[0] - positionRef.current.x
+        const toZ = cinematic.target[1] - positionRef.current.z
+        const away = Math.hypot(toX, toZ)
+        if (away > 0.08) moveDir.set(toX / away, 0, toZ / away)
+      }
 
       const wantsToMove = moveDir.lengthSq() > 0.001
       if (wantsToMove && getPlayerSpellCasting()) {
@@ -762,7 +785,23 @@ export function PlayerAvatar({
       }
 
       // Apply velocity to position
+      const stepFromX = positionRef.current.x
+      const stepFromZ = positionRef.current.z
       positionRef.current.add(_tempVec.current.copy(velocityRef.current).multiplyScalar(delta))
+      // A world without ground (Floating Isle, Neon Harbor): no stepping off its surfaces into the sky or the sea
+      // (lib/forge/ground-guard.ts). Along an edge the player slides; the blocked part of the speed is dropped.
+      const worldState = useOasisStore.getState()
+      if (worldState.groundPresetId === 'none' && (positionRef.current.x !== stepFromX || positionRef.current.z !== stepFromZ)) {
+        const key = `${worldState.activeWorldId}|${worldState.craftedScenes.length}`
+        const feetY = positionRef.current.y
+        const step = guardStep(stepFromX, stepFromZ, positionRef.current.x, positionRef.current.z, (x, z) => groundUnder(state.scene, key, x, z, feetY))
+        if (step.blocked) {
+          if (step.x !== positionRef.current.x) velocityRef.current.x = 0
+          if (step.z !== positionRef.current.z) velocityRef.current.z = 0
+          positionRef.current.x = step.x
+          positionRef.current.z = step.z
+        }
+      }
 
       // Reveal-roll forward slide: avatar tweens 3m in facing direction over
       // the roll clip's duration. Eased so the slide feels natural (faster at

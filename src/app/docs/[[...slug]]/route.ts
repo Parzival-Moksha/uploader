@@ -3,6 +3,10 @@ import { extname, resolve, sep } from 'node:path'
 
 import { NextResponse } from 'next/server'
 
+import { DOCS_NAV, docsHref, docsPageFor, stripFrontMatter, type DocsPage } from '@/lib/docs-pages'
+import { escapeHtml, markdownToHtml } from '@/lib/docs-markdown'
+import { isHostedOasis } from '@/lib/oasis-profile'
+
 const docsRoot = resolve(process.cwd(), 'public', 'docs-site')
 
 const CONTENT_TYPES: Record<string, string> = {
@@ -143,7 +147,7 @@ function docsQuickstartUrl(request: Request) {
   const base = envOrigin && isLoopbackHost(host) && protocol === 'https'
     ? envOrigin
     : new URL(`${protocol || 'http'}://${host}`)
-  const url = new URL('/docs/getting-started/quickstart', base)
+  const url = new URL('/docs/getting-started/first-minutes', base)
 
   if (isLoopbackHost(url.host)) {
     url.protocol = 'http:'
@@ -159,6 +163,8 @@ export async function GET(
   { params }: { params: { slug?: string[] } },
 ) {
   const slug = params.slug ?? []
+  // A local or packaged Oasis: the pages as they are on disk (website/docs), never an old build.
+  if (!isHostedOasis()) return localDocsResponse(slug)
   const docsIndex = safeResolve('index.html')
 
   if (!docsIndex || !await pathExists(docsIndex)) {
@@ -182,5 +188,45 @@ export async function GET(
       'content-type': contentTypeFor(target),
       'cache-control': isHtml ? 'no-store' : 'public, max-age=31536000, immutable',
     },
+  })
+}
+
+// ─── a local or packaged Oasis: website/docs rendered as it is ───────────────────────────────────────────
+
+const LOCAL_DOCS_CSS = `
+:root{color-scheme:dark}*{box-sizing:border-box}
+body{margin:0;background:#0b0f17;color:#e6ebf2;font:16px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif}
+.wrap{display:flex;min-height:100vh}
+nav{flex:0 0 250px;padding:28px 20px;border-right:1px solid #1d2635;background:#0e1420}
+nav .brand{font-weight:800;letter-spacing:.12em;text-transform:uppercase;font-size:13px;color:#c4b5fd;margin-bottom:18px;display:block;text-decoration:none}
+nav h3{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#7d8aa0;margin:20px 0 6px}
+nav a{display:block;color:#cfd8e6;text-decoration:none;padding:4px 8px;border-radius:6px;font-size:14px}
+nav a:hover{background:#18212f}nav a.on{background:#241b3f;color:#fff}
+main{flex:1;max-width:820px;padding:36px 44px 80px}
+h1{font-size:30px;margin:0 0 18px}h2{font-size:21px;margin:34px 0 10px;border-bottom:1px solid #1d2635;padding-bottom:6px}
+a{color:#a5b4fc}code{background:#162030;padding:1px 5px;border-radius:4px;font-size:14px}
+pre{background:#111a27;border:1px solid #1d2635;padding:12px 14px;border-radius:8px;overflow-x:auto}pre code{background:none;padding:0}
+table{border-collapse:collapse;width:100%;margin:10px 0;font-size:14.5px}th,td{border:1px solid #1d2635;padding:6px 10px;text-align:left;vertical-align:top}th{background:#111a27}
+.back{display:inline-block;margin-bottom:22px;font-size:13px;color:#7d8aa0}
+@media (max-width:760px){.wrap{display:block}nav{border-right:0;border-bottom:1px solid #1d2635}main{padding:24px 18px 60px}}
+`
+
+function localDocsHtml(page: DocsPage, markdown: string) {
+  const body = markdownToHtml(markdown, href => docsHref(href, page.slug))
+  const nav = DOCS_NAV.map(group => `<h3>${escapeHtml(group.title)}</h3>${group.pages.map(p => `<a href="/docs/${p.slug}"${p.slug === page.slug ? ' class="on"' : ''}>${escapeHtml(p.title)}</a>`).join('')}`).join('')
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escapeHtml(page.title)} · The Oasis</title><style>${LOCAL_DOCS_CSS}</style></head><body><div class="wrap"><nav><a class="brand" href="/docs">The Oasis · docs</a>${nav}</nav><main><a class="back" href="/?profile=village">← back to the village</a>${body}</main></div></body></html>`
+}
+
+async function localDocsResponse(slug: string[]) {
+  const page = docsPageFor(slug)
+  if (!page) return new NextResponse('Not found', { status: 404 })
+  let markdown: string
+  try {
+    markdown = await readFile(resolve(process.cwd(), 'website', 'docs', `${page.slug}.md`), 'utf8')
+  } catch {
+    return new NextResponse('This page is missing from this copy of the Oasis.', { status: 404 })
+  }
+  return new NextResponse(localDocsHtml(page, stripFrontMatter(markdown)), {
+    headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' },
   })
 }

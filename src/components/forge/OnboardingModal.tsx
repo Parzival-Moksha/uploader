@@ -95,7 +95,7 @@ export function OnboardingModal() {
   return (
     <div
       data-ui-panel
-      className="fixed inset-0 z-[10000] flex items-center justify-center"
+      className="fixed inset-0 z-[var(--z-dialog)] flex items-center justify-center"
       style={{ backgroundColor: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)' }}
     >
       <div

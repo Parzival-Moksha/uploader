@@ -169,7 +169,7 @@ export function TimeUpBar({ snapshot, bottom }: { snapshot: WorkSnapshot; bottom
   return (
     <div
       data-own-mission="time-up-bar"
-      className="mc-scope fixed left-3 z-[171] flex max-w-[calc(100vw-24px)] flex-wrap items-center gap-2 rounded-xl border-2 bg-slate-950/90 px-3 py-2 text-white shadow-[0_0_28px_rgba(52,211,153,0.55)] backdrop-blur-md"
+      className="mc-scope fixed left-3 z-[calc(var(--z-hud)_+_11)] flex max-w-[calc(100vw-24px)] flex-wrap items-center gap-2 rounded-xl border-2 bg-slate-950/90 px-3 py-2 text-white shadow-[0_0_28px_rgba(52,211,153,0.55)] backdrop-blur-md"
       style={{ bottom, borderColor: GREEN, animation: 'oasis-time-up 1.2s ease-in-out infinite' }}
     >
       <style>{'@keyframes oasis-time-up { 0%, 100% { box-shadow: 0 0 10px rgba(52,211,153,0.35) } 50% { box-shadow: 0 0 34px rgba(52,211,153,0.95) } }'}</style>

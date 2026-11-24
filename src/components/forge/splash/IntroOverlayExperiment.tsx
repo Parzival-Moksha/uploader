@@ -84,7 +84,7 @@ export function IntroOverlayExperiment() {
         </button>
       </div>
       <p className="mt-2 text-[10px] leading-relaxed text-white/45">
-        A link can force one: <code className="text-fuchsia-200">?intro=sigil</code> or{' '}
+        A link can force one: <code className="text-fuchsia-200">?intro=ascii</code> or{' '}
         <code className="text-fuchsia-200">?intro=off</code>.
       </p>
     </section>

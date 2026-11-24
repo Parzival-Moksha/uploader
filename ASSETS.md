@@ -40,7 +40,7 @@ The CC0 avatars state that licence inside the file (VRM metadata); the cut check
 | `public/models/stylized-nature/` | 12 | Quaternius, Stylized Nature MegaKit | CC0 1.0 |
 | `public/oasislogo.jpg` | 1 | the Oasis | Made for the Oasis; MIT with the code |
 | `public/skies/` | 15 | the Oasis | Made for the Oasis (generated panoramas, 2026-11-09); MIT with the code |
-| `public/ui/` | 88 | the Oasis | Made for the Oasis (generated art); MIT with the code |
+| `public/ui/` | 89 | the Oasis | Made for the Oasis (generated art); MIT with the code |
 | `public/voice/` | 1 | the Oasis | Made for the Oasis; MIT with the code |
 
 ## What is not here, and why

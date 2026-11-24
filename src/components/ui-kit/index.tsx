@@ -1,6 +1,6 @@
 'use client'
 
-// ░▒▓ THE OASIS UI KIT ▓▒░  (owner: Hipster; how-to: docs/missions/ui-kit.md in 7c_oasis)
+// ░▒▓ THE OASIS UI KIT ▓▒░  (owner: Hipster; the how-to is this header)
 //
 // Every menu in the Oasis is built from these, so one setting restyles all of them:
 //   Settings (top right): the menu style (Glass, Forged, Parchment, Rune) and, for Glass, see-through, blur, colour.
@@ -17,11 +17,17 @@
 //   <KitTextField label value onChange multiline size="large" />  <KitSelectField label value onChange options />           a text box (title="…" on anything gives the Oasis tooltip)
 //   <KitDialog open title onClose actions>…</KitDialog>       a modal dialog;  await kitConfirm({ title, body, confirm, danger })
 //   <KitLookControls />                                       the shared style / see-through / blur / colour controls
+//   <KitChip pressed tone="danger">Settings</KitChip>          a small header button (a panel's Settings, dismiss, close)
+// Layers: never a z-index number of your own. `const z = useLayer(id, 'panel', open, close)` from src/lib/ui-kit/layers.ts,
+// or a class z-[var(--z-place)]; with a close, Esc closes your overlay when it is the topmost thing.
+// Before calling a menu done: look at it in all four styles (Settings > Experiments), and if it holds a long list or a
+// thread, fill it with 100+ lines and check it still scrolls in Glass and a textured style (in a 3D screen too).
 
-import { createContext, useCallback, useContext, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useId, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { KIT_CSS } from './kit-css'
 import { MENU_BLUR_MAX, MENU_STYLES, MENU_SWATCHES, DEFAULT_MENU_LOOK, setMenuLook, useMenuLook, type MenuStyleId, type ToggleLookId } from '@/lib/ui-kit/menu-look'
+import { useLayer } from '@/lib/ui-kit/layers'
 
 // ── style plumbing ─────────────────────────────────────────────────────────────────────────────
 
@@ -251,21 +257,16 @@ export function KitDialog({ open, title, children, actions, onClose, danger }: {
 }) {
   const kit = useKitStyle()
   const boxRef = useRef<HTMLDivElement>(null)
+  // The dialog layer (src/lib/ui-kit/layers.ts): above every menu and window; Esc closes it first, even from a field.
+  const id = `kit-dialog-${useId()}`
+  const z = useLayer(id, 'dialog', open, onClose)
   useEffect(() => {
     if (!open) return
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return
-      event.preventDefault()
-      event.stopImmediatePropagation()
-      onClose()
-    }
-    window.addEventListener('keydown', onKey, { capture: true })
     boxRef.current?.querySelector<HTMLElement>('[data-kit-autofocus], button[data-variant="primary"], button[data-variant="danger"]')?.focus()
-    return () => window.removeEventListener('keydown', onKey, { capture: true })
-  }, [open, onClose])
+  }, [open])
   if (!open || typeof document === 'undefined') return null
   return createPortal(
-    <div className="kit-dialog-backdrop" data-kit-dialog onMouseDown={event => { if (event.target === event.currentTarget) onClose() }}>
+    <div className="kit-dialog-backdrop" style={{ zIndex: z }} data-kit-dialog onMouseDown={event => { if (event.target === event.currentTarget) onClose() }}>
       <div ref={boxRef} role="dialog" aria-modal="true" data-kit-style={kit} data-danger={danger ? '1' : '0'} className="kit-dialog kit-panel" onKeyDown={event => event.stopPropagation()}>
         <div className="kit-panel-head"><div className="kit-panel-title">{title}</div><KitCloseButton onClick={onClose} /></div>
         <div className="kit-dialog-body">{children}</div>

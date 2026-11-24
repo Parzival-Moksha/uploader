@@ -380,6 +380,8 @@ export function CraftedSceneRenderer({ scene, onDelete: _onDelete }: CraftedScen
   return (
     <group
       ref={groupRef}
+      // The ground guard (lib/forge/ground-guard.ts) walks on crafted surfaces in worlds without a ground preset.
+      userData={{ oasisCraftedScene: scene.id }}
       onPointerOver={(e) => {
         e.stopPropagation()
         if (useInputManager.getState().pointerLocked) return

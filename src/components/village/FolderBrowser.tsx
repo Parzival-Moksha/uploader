@@ -67,7 +67,7 @@ export function FolderBrowser({ initialPath, recent, onPick, onClose }: {
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[10050] flex items-center justify-center bg-black/55 p-3 backdrop-blur-sm"
+      className="fixed inset-0 z-[var(--z-dialog)] flex items-center justify-center bg-black/55 p-3 backdrop-blur-sm"
       onPointerDown={event => { event.stopPropagation(); if (event.target === event.currentTarget) onClose() }}
       onKeyDown={event => event.stopPropagation()}
       onWheel={event => event.stopPropagation()}

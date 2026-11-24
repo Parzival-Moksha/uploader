@@ -4,6 +4,7 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { getPlayerAvatarPose, requestPlayerAvatarTeleport, type PlayerAvatarPose } from '../../lib/player-avatar-runtime'
+import { holdKeysFor, openTravelExit } from '../../lib/world-travel-exit'
 import {
   DEFAULT_PORTAL_ACTIVATION_DEPTH,
   WELCOME_HUB_WORLD_ID,
@@ -23,7 +24,6 @@ import {
 } from '../../lib/portal-zero-return-gate'
 import { createWorld, loadWorld, saveWorld } from '../../lib/forge/world-persistence'
 import {
-  PORTAL_REVEAL_ROLL_EVENT,
   PORTAL_TRANSITION_READY_EVENT,
   PORTAL_TRANSITION_START_EVENT,
   preloadPortalRevealRoll,
@@ -94,18 +94,7 @@ function emitPortalTransitionReady() {
   window.dispatchEvent(new CustomEvent(PORTAL_TRANSITION_READY_EVENT))
 }
 
-function emitPortalRevealRoll(gate: PortalGate, targetWorldName?: string) {
-  if (typeof window === 'undefined') return
-  window.dispatchEvent(new CustomEvent(PORTAL_REVEAL_ROLL_EVENT, {
-    detail: {
-      gateId: gate.id,
-      targetWorldName,
-      animationId: 'ual-roll',
-    },
-  }))
-}
-
-function animatePortalCameraSwallow(camera: THREE.Camera, gate: PortalGate, settings: PortalTransitionSettings): Promise<void> {
+export function animatePortalCameraSwallow(camera: THREE.Camera, gate: PortalGate, settings: PortalTransitionSettings): Promise<void> {
   if (!(camera instanceof THREE.PerspectiveCamera)) return Promise.resolve()
   const durationMs = Math.max(80, settings.swallowSeconds * 1000)
   const startMs = performance.now()
@@ -313,7 +302,7 @@ function framePortalArrivalCamera(camera: THREE.Camera, pose: PlayerAvatarPose):
   }
 }
 
-function settlePortalArrivalCamera(camera: THREE.Camera, pose: PlayerAvatarPose): void {
+export function settlePortalArrivalCamera(camera: THREE.Camera, pose: PlayerAvatarPose): void {
   framePortalArrivalCamera(camera, pose)
   if (typeof window === 'undefined') return
 
@@ -629,6 +618,8 @@ export function PortalGateLayer() {
 
     if (settings.rollReveal) void preloadPortalRevealRoll()
     emitPortalTransitionStart(gate, settings, targetWorldName)
+    let inputReturned = false
+    let releaseKeys: (() => void) | null = null
 
     const switchDelayMs = Math.max(0, (settings.swallowSeconds + settings.tunnelSeconds * PORTAL_WORLD_SWITCH_TUNNEL_FRACTION) * 1000)
     const remainingTunnelMs = Math.max(0, settings.tunnelSeconds * (1 - PORTAL_WORLD_SWITCH_TUNNEL_FRACTION) * 1000)
@@ -651,15 +642,28 @@ export function PortalGateLayer() {
         settlePortalArrivalCamera(camera, arrivalPose)
       }
       await sleep(remainingTunnelMs)
-      if (settings.rollReveal) emitPortalRevealRoll(gate, targetWorldName)
+      if (settings.rollReveal) {
+        // Controls back to the body first (its keys still held by the cinematic), so the roll's slide is drawn as it
+        // happens; then the same exit as a trip from the World menu (world-travel-exit.ts): a portal at his back if
+        // none stands there, the roll out of it, the portal closing.
+        if (shouldManageInput && useInputManager.getState().inputState === 'ui-focused') {
+          useInputManager.getState().returnToPrevious()
+          inputReturned = true
+        }
+        // Keys held for the roll; let go on the release below, or by the hold's own timer whatever happens.
+        releaseKeys = holdKeysFor(revealMs + 1500, () => {
+          openTravelExit(arrivalPose ?? getPlayerAvatarPose(), targetWorldId ?? useOasisStore.getState().activeWorldId, { gateId: gate.id, targetWorldName })
+        })
+      }
       await sleep(revealMs)
     } finally {
+      releaseKeys?.()
       if (perspectiveCamera && typeof originalFov === 'number') {
         perspectiveCamera.fov = originalFov
         perspectiveCamera.updateProjectionMatrix()
       }
       const currentInputManager = useInputManager.getState()
-      if (shouldManageInput && currentInputManager.inputState === 'ui-focused') {
+      if (shouldManageInput && !inputReturned && currentInputManager.inputState === 'ui-focused') {
         currentInputManager.returnToPrevious()
       }
     }

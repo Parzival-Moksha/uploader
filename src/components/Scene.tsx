@@ -145,6 +145,7 @@ import { UploadPanel } from './forge/UploadPanel'
 import { QuestProgressTracker } from './forge/QuestProgressTracker'
 import { QuestZeroNpcExclamation } from './forge/QuestZeroNpcExclamation'
 import { ConfigMenu } from './forge/config/ConfigMenu'
+import { WORLD_Z_RANGE, isLayerOpen, layerZ, subscribeLayers, useLayer } from '@/lib/ui-kit/layers'
 
 const SHOW_LEGACY_DEVCRAFT_PANEL = false
 const SHOW_LEGACY_PARZIVAL_PANEL = false
@@ -271,7 +272,7 @@ function MouseLookDebugOverlay() {
 
   return (
     <div
-      className="fixed bottom-4 left-4 z-[120] pointer-events-none rounded-lg border border-cyan-400/25 bg-black/70 px-3 py-2 text-[11px] font-mono text-cyan-100"
+      className="fixed bottom-4 left-4 z-[calc(var(--z-hud)_+_5)] pointer-events-none rounded-lg border border-cyan-400/25 bg-black/70 px-3 py-2 text-[11px] font-mono text-cyan-100"
       style={{ minWidth: 270, backdropFilter: 'blur(6px)' }}
     >
       <div className="flex items-center justify-between gap-3 text-cyan-200">
@@ -554,7 +555,7 @@ function ModeSwitchLabel() {
   if (!visible) return null
 
   return (
-    <div className="fixed inset-0 pointer-events-none z-[98] flex items-center justify-center">
+    <div className="fixed inset-0 pointer-events-none z-[calc(var(--z-hud)_+_2)] flex items-center justify-center">
       <div
         className="text-3xl font-black tracking-[0.3em] font-mono select-none"
         style={{
@@ -634,7 +635,7 @@ function DesktopKeyHints({ village = false, fpsFontSize = null }: { village?: bo
 
   return (
     <div
-      className="fixed right-2 top-2 z-[96] pointer-events-none grid grid-cols-[auto_auto] items-center gap-x-1.5 gap-y-[5px] rounded-bl-2xl py-2 pl-5 pr-2 max-[700px]:hidden"
+      className="fixed right-2 top-2 z-[calc(var(--z-hud)_+_1)] pointer-events-none grid grid-cols-[auto_auto] items-center gap-x-1.5 gap-y-[5px] rounded-bl-2xl py-2 pl-5 pr-2 max-[700px]:hidden"
       style={{ background: keys ? 'radial-gradient(120% 100% at 100% 0%, rgba(2,6,23,0.55), rgba(2,6,23,0.25) 55%, transparent 80%)' : undefined }}
     >
       {fpsFontSize !== null && (
@@ -771,7 +772,7 @@ function FPSDisplay({ enabled, fontSize }: { enabled: boolean; fontSize: number 
   return (
     <div
       data-testid="oasis-fps-display"
-      className={`fixed top-4 right-4 z-[100] font-mono font-bold pointer-events-none select-none ${mobileOasis ? '' : 'hidden max-[700px]:block'}`}
+      className={`fixed top-4 right-4 z-[calc(var(--z-hud)_+_3)] font-mono font-bold pointer-events-none select-none ${mobileOasis ? '' : 'hidden max-[700px]:block'}`}
       style={{
         fontSize: `${fontSize}px`,
         color: fpsColor(fps),
@@ -912,7 +913,7 @@ function DevcraftMiniBar({ onExpand }: { onExpand: () => void }) {
         top: pos.y !== 0 ? pos.y : undefined,
         left: pos.x === 0 ? '50%' : pos.x,
         transform: pos.x === 0 && pos.y === 0 ? 'translateX(-50%)' : undefined,
-        zIndex: 9990,
+        zIndex: 'calc(var(--z-hud) + 20)',
         display: 'flex',
         alignItems: 'center',
         gap: 12,
@@ -1072,7 +1073,7 @@ function AgentQuickLauncher({
       {isOpen && (
         <div
           data-rail-menu="agents"
-          className="fixed left-[10.25rem] top-4 z-[260] max-h-[calc(100vh-2rem)] w-[260px] overflow-y-auto rounded-lg border border-white/10 bg-black/[0.92] p-3 shadow-[0_0_54px_rgba(0,0,0,0.65),0_0_38px_rgba(244,114,182,0.18)] backdrop-blur-md max-[700px]:left-2 max-[700px]:right-2 max-[700px]:top-[58px] max-[700px]:w-auto max-[700px]:max-h-[calc(100vh-70px)] max-[700px]:p-2"
+          className="fixed left-[10.25rem] top-4 z-[var(--z-place)] max-h-[calc(100vh-2rem)] w-[260px] overflow-y-auto rounded-lg border border-white/10 bg-black/[0.92] p-3 shadow-[0_0_54px_rgba(0,0,0,0.65),0_0_38px_rgba(244,114,182,0.18)] backdrop-blur-md max-[700px]:left-2 max-[700px]:right-2 max-[700px]:top-[58px] max-[700px]:w-auto max-[700px]:max-h-[calc(100vh-70px)] max-[700px]:p-2"
         >
           <div className="grid grid-cols-2 gap-2">
             {(['2d', '3d'] as const).map(option => (
@@ -1294,7 +1295,7 @@ function RookieMerlinWorldPrompt() {
   if (!nearby) return null
   return (
     <group position={[position[0], position[1] + 3.05, position[2]]}>
-      <Html transform sprite center distanceFactor={8} style={{ pointerEvents: 'none' }}>
+      <Html zIndexRange={WORLD_Z_RANGE} transform sprite center distanceFactor={8} style={{ pointerEvents: 'none' }}>
         <div className="rounded-md border border-amber-200/35 bg-black/75 px-3 py-2 text-center shadow-[0_0_22px_rgba(251,191,36,0.18)] backdrop-blur-md">
           <div className="text-[10px] font-black uppercase tracking-[0.22em] text-amber-100">Merlin</div>
           <div className="mt-1 flex gap-1.5 text-[10px] font-mono text-white/90">
@@ -1344,7 +1345,7 @@ function RookieMerlinInteractionOverlay({
 
   if (!nearby) return null
   return (
-    <div className="fixed bottom-5 right-5 z-[210] flex max-w-[min(380px,calc(100vw-32px))] flex-col gap-2 rounded-lg border border-amber-200/20 bg-slate-950/90 p-3 text-white shadow-[0_18px_50px_rgba(0,0,0,0.42)] backdrop-blur-xl max-[700px]:bottom-4 max-[700px]:right-3 max-[700px]:left-3">
+    <div className="fixed bottom-5 right-5 z-[calc(var(--z-hud)_+_20)] flex max-w-[min(380px,calc(100vw-32px))] flex-col gap-2 rounded-lg border border-amber-200/20 bg-slate-950/90 p-3 text-white shadow-[0_18px_50px_rgba(0,0,0,0.42)] backdrop-blur-xl max-[700px]:bottom-4 max-[700px]:right-3 max-[700px]:left-3">
       <div className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-100/85">Merlin awaits</div>
       <div className="grid grid-cols-3 gap-2">
         <button type="button" onClick={onTalk} className="rounded-md border border-sky-300/25 bg-sky-400/10 px-2 py-2 text-[11px] font-black uppercase tracking-[0.12em] text-sky-100 transition hover:bg-sky-400/20">
@@ -1360,6 +1361,9 @@ function RookieMerlinInteractionOverlay({
     </div>
   )
 }
+
+/** The menus that open inside the rail's box (their layer ids). */
+const RAIL_MENU_IDS = ['settings', 'world-menu', 'profile', 'avatar-gallery']
 
 export default function Scene() {
   // Away mode's rest drives the Canvas's frameloop (see the Canvas below).
@@ -1478,6 +1482,12 @@ export default function Scene() {
   const [actionLogOpen, setActionLogOpen] = useState(false)
   const [merlinOpen, setMerlinOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
+  // The rail is one stacking context with the menus it holds (Settings, World, Profile): on the HUD, so Mindcraft
+  // covers its buttons (the owner, 2026-11-23); on the place layer while one of its menus is open, so that menu is
+  // over the panels and Mindcraft.
+  const railMenuOpen = useSyncExternalStore(subscribeLayers, () => RAIL_MENU_IDS.some(isLayerOpen), () => false)
+  // The menu layer (src/lib/ui-kit/layers.ts), above the main menu that opens it: Esc closes Help first.
+  useLayer('help', 'menu', helpOpen, () => setHelpOpen(false))
   // The main menu's Help tile opens it; Escape closes it (before Escape means the main menu again).
   useEffect(() => {
     const open = () => setHelpOpen(true)
@@ -2226,7 +2236,7 @@ export default function Scene() {
           always on mobile in those modes, since mobile can't pointer-lock but
           still needs a center target indicator for SELECT / placement / cast. ─═̷─═̷─🎯 */}
       {showCenterCrosshair && (
-        <div data-oasis-crosshair className="fixed inset-0 pointer-events-none z-[99] flex items-center justify-center">
+        <div data-oasis-crosshair className="fixed inset-0 pointer-events-none z-[calc(var(--z-hud)_+_2)] flex items-center justify-center">
           <div className="relative w-5 h-5">
             <div className="absolute top-1/2 left-0 w-full h-px bg-white/40" />
             <div className="absolute left-1/2 top-0 h-full w-px bg-white/40" />
@@ -2250,9 +2260,8 @@ export default function Scene() {
         />
       )}
 
-      {/* Main game rail. Above the agent panels (9400 and up), so Settings, World and Profile open over them;
-          below the main menu (20000). */}
-      <div className="fixed left-4 top-4 z-[10400] flex flex-col gap-2 select-none max-[700px]:left-2 max-[700px]:top-2 max-[700px]:gap-1.5">
+      {/* Main game rail: the HUD layer; the place layer while Settings, World or Profile is open (src/lib/ui-kit/layers.ts). */}
+      <div style={{ zIndex: railMenuOpen ? layerZ('place') : layerZ('hud', 50) }} className="fixed left-4 top-4 flex flex-col gap-2 select-none max-[700px]:left-2 max-[700px]:top-2 max-[700px]:gap-1.5">
         {/* Always on screen: Menu, World, Spells, Agents. Profile, Settings and Help open from the main menu. */}
         <GameMenuRailButton />
         <ProfileButton hideRailButton />
@@ -2459,7 +2468,7 @@ export default function Scene() {
           style={{
             position: 'fixed',
             top: 40, left: 40, bottom: 40, right: 40,
-            zIndex: 9998,
+            zIndex: 'var(--z-panel)',
             borderRadius: 16,
             overflow: 'hidden',
             boxShadow: '0 0 40px rgba(0,255,65,0.15), 0 8px 32px rgba(0,0,0,0.5)',
@@ -2496,7 +2505,7 @@ export default function Scene() {
 
       {/* Play mode (RP1) is on: spells fire, editing is hidden. This goes back to build mode. */}
       {effectiveRp1Mode && !readOnlyForcesRp1 && (
-        <div style={{ position: 'fixed', bottom: 88, right: 24, zIndex: 9999 }}>
+        <div style={{ position: 'fixed', bottom: 88, right: 24, zIndex: 'calc(var(--z-hud) + 30)' }}>
           <KitButton
             onClick={() => updateSetting('rp1Mode', false)}
             title="Play mode: spells fire, editing is hidden. Click to go back to build mode (select, move, create)."
@@ -2627,7 +2636,7 @@ function ImageDropZone() {
     <>
       {/* Visual overlay when dragging — pointer-events:none so it doesn't intercept */}
       {dropping && (
-        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 backdrop-blur-sm border-4 border-dashed border-sky-400/60 pointer-events-none">
+        <div className="fixed inset-0 z-[calc(var(--z-notice)_+_30)] flex items-center justify-center bg-black/60 backdrop-blur-sm border-4 border-dashed border-sky-400/60 pointer-events-none">
           <div className="text-center">
             <div className="text-6xl mb-4">🖼️</div>
             <div className="text-sky-400 text-2xl font-bold tracking-wide">Drop media into the Oasis</div>
@@ -2638,7 +2647,7 @@ function ImageDropZone() {
 
       {/* Upload progress */}
       {uploading && (
-        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[10001] bg-black/80 border border-sky-400/40 rounded-lg px-6 py-3 text-sky-400 text-sm pointer-events-none">
+        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[calc(var(--z-notice)_+_31)] bg-black/80 border border-sky-400/40 rounded-lg px-6 py-3 text-sky-400 text-sm pointer-events-none">
           Uploading media...
         </div>
       )}
@@ -2661,6 +2670,8 @@ function SettingsMenu({ children, opacity }: { children: React.ReactNode; opacit
   useUILayer('settings-menu', isOpen)
   const close = useCallback(() => setIsOpen(false), [])
   useRailMenuExclusion('settings', isOpen, close)
+  // The place layer (src/lib/ui-kit/layers.ts): Esc closes Settings when it is the topmost thing.
+  useLayer('settings', 'place', isOpen, close)
   // The main menu's Config tile.
   useEffect(() => {
     const open = () => setIsOpen(true)
@@ -2695,7 +2706,7 @@ function SettingsMenu({ children, opacity }: { children: React.ReactNode; opacit
           data-ui-panel
           data-rail-menu="settings"
           data-kit-style={settingsLook.style}
-          className="kit-panel fixed bottom-4 left-[10.25rem] top-4 z-[260] flex w-[min(960px,calc(100vw-11.5rem))] overflow-hidden text-white shadow-[0_0_54px_rgba(0,0,0,0.68)] max-[700px]:bottom-2 max-[700px]:left-2 max-[700px]:right-2 max-[700px]:top-[58px] max-[700px]:w-auto"
+          className="kit-panel fixed bottom-4 left-[10.25rem] top-4 z-[var(--z-place)] flex w-[min(960px,calc(100vw-11.5rem))] overflow-hidden text-white shadow-[0_0_54px_rgba(0,0,0,0.68)] max-[700px]:bottom-2 max-[700px]:left-2 max-[700px]:right-2 max-[700px]:top-[58px] max-[700px]:w-auto"
           // A kit panel: the menu style, and for Glass the see-through, blur and colour, from its top right (ui-kit).
           onMouseDown={event => event.stopPropagation()}
         >
@@ -2838,7 +2849,7 @@ function OasisLoader() {
         backdropFilter: 'blur(8px)',
         borderRadius: '8px',
         border: '1px solid rgba(168, 85, 247, 0.25)',
-        zIndex: 9998,
+        zIndex: 'var(--z-splash)',
         transition: 'opacity 0.6s ease',
         opacity: active ? 1 : 0,
         pointerEvents: 'none',

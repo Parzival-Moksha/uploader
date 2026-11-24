@@ -191,7 +191,7 @@ export function UploadPanel() {
   return (
     <div
       data-ui-panel
-      className="fixed right-4 top-4 z-[290] w-[min(420px,calc(100vw-2rem))] rounded-lg border border-amber-200/32 bg-[#0a0706]/95 font-mono text-white shadow-[0_0_60px_rgba(251,146,60,0.28),0_0_24px_rgba(0,0,0,0.78)] backdrop-blur-md max-[700px]:right-2 max-[700px]:top-[58px] max-[700px]:w-[min(320px,calc(100vw-1rem))]"
+      className="fixed right-4 top-4 z-[var(--z-panel)] w-[min(420px,calc(100vw-2rem))] rounded-lg border border-amber-200/32 bg-[#0a0706]/95 font-mono text-white shadow-[0_0_60px_rgba(251,146,60,0.28),0_0_24px_rgba(0,0,0,0.78)] backdrop-blur-md max-[700px]:right-2 max-[700px]:top-[58px] max-[700px]:w-[min(320px,calc(100vw-1rem))]"
       onMouseDown={event => event.stopPropagation()}
     >
       <div className="flex items-center justify-between gap-3 border-b border-amber-100/16 px-4 py-3">

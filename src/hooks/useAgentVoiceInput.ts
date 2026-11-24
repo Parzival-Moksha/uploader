@@ -12,6 +12,7 @@ import {
 import { isBrowserDictationSupported } from '@/lib/voice/browser-dictation'
 // The engine's ears (ElevenLabs, the local helper) when it has some, else the browser's own (dictation-route.ts).
 import { startVillageDictation } from '@/lib/voice/dictation-route'
+import { micErrorLine, micStatusLine } from '@/lib/voice/mic-wait'
 
 // ░▒▓ The mic on every agent text box: live dictation (Moonshine Medium Streaming in the agent engine). ▓▒░
 // Words arrive while you talk (onLiveText); the whole dictation goes to onTranscript once it has settled.
@@ -132,10 +133,11 @@ export function useAgentVoiceInput({
       const dictation = await startVillageDictation({
         lang,
         onStream: stream => { void startPlayerLipSync(stream) },
-        onStatus: text => { setBackendState('loading'); setBackendMessage(text) },
+        // In plain words, with how long (mic-wait.ts, the onboarding's trip point 5).
+        onStatus: text => { setBackendState('loading'); setBackendMessage(micStatusLine(text)) },
         onReady: () => { setBackendState('ready'); setBackendMessage('') },
         onLevel: value => setLevel(value),
-        onError: text => { setError(text); setBackendState('error'); setBackendMessage(text) },
+        onError: text => { const line = micErrorLine(text); setError(line); setBackendState('error'); setBackendMessage(line) },
         onLine: line => {
           linesRef.current.set(line.line, line)
           if (line.text) setBackendState('ready')
@@ -165,7 +167,7 @@ export function useAgentVoiceInput({
       stopPlayerLipSync()
       setListening(false)
       setBackendState('error')
-      setError(nextError instanceof Error ? nextError.message : 'Unable to access the microphone.')
+      setError(micErrorLine(nextError instanceof Error ? nextError.message : 'Unable to access the microphone.'))
     } finally {
       startingRef.current = false
     }

@@ -45,7 +45,7 @@ export function DeleteConfirmModal({ isOpen, itemName, placedCount, worldCount, 
   }
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm"
+    <div className="fixed inset-0 z-[var(--z-dialog)] flex items-center justify-center bg-black/70 backdrop-blur-sm"
       onClick={onCancel}>
       <div className="bg-gray-900 border border-teal-500/30 rounded-xl p-5 max-w-sm w-full mx-4 shadow-2xl"
         onClick={e => e.stopPropagation()}>

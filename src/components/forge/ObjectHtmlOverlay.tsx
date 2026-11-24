@@ -101,7 +101,7 @@ export function ObjectHtmlOverlay() {
 
   return (
     <div
-      className="fixed inset-0 z-[420] flex items-center justify-center bg-black/40 p-4 font-mono text-white backdrop-blur-[2px] max-[700px]:p-2"
+      className="fixed inset-0 z-[calc(var(--z-panel)_+_50)] flex items-center justify-center bg-black/40 p-4 font-mono text-white backdrop-blur-[2px] max-[700px]:p-2"
       onMouseDown={event => {
         if (event.target === event.currentTarget) closeObjectOverlay()
       }}

@@ -318,7 +318,7 @@ export function ThunderboltScreenFlash({ alpha }: { alpha: number }) {
         background: 'rgba(255, 255, 240, 1)',
         opacity: alpha,
         pointerEvents: 'none',
-        zIndex: 80,
+        zIndex: 'var(--z-hud)',
         mixBlendMode: 'screen',
       }}
     />

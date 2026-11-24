@@ -151,7 +151,7 @@ export function ConnectionWarning({ local }: { local: boolean }) {
   }
 
   return (
-    <div data-connection-warning className="pointer-events-none fixed left-1/2 top-3 z-[185] flex w-max max-w-[min(760px,calc(100vw-24px))] -translate-x-1/2 flex-col gap-1.5" role="alert">
+    <div data-connection-warning className="pointer-events-none fixed left-1/2 top-3 z-[calc(var(--z-hud)_+_15)] flex w-max max-w-[min(760px,calc(100vw-24px))] -translate-x-1/2 flex-col gap-1.5" role="alert">
       {lines.map(line => (
         <div
           key={line.id}

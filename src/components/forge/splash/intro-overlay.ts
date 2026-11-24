@@ -6,7 +6,10 @@
 // The letters are a 5x7 dot-matrix font drawn as SVG paths: no web font, so it looks the same on
 // Windows, Mac and Linux, and a dot-matrix letter is mostly holes, which is the point of the overlay.
 
-export type IntroVariantId = 'pixels' | 'scanline' | 'sigil' | 'ghost' | 'sunrise'
+// The owner's pick (19 Nov): Pixels stays, with Sunrise's sun behind it; Scanline, Sigil, Ghost and Sunrise go; a dense
+// ASCII-art 04515 is new, and a generated picture with real transparency (the Forged emblem). A saved choice of a
+// deleted one falls back to the default.
+export type IntroVariantId = 'pixels' | 'ascii' | 'emblem'
 export type IntroChoice = IntroVariantId | 'off'
 
 export interface IntroVariant {
@@ -16,14 +19,44 @@ export interface IntroVariant {
 }
 
 export const INTRO_VARIANTS: IntroVariant[] = [
-  { id: 'pixels', label: 'Pixels', blurb: 'White glass blocks, a cyan underline.' },
-  { id: 'scanline', label: 'Scanline', blurb: 'Green phosphor bars and a sweep line.' },
-  { id: 'sigil', label: 'Sigil', blurb: 'Gold diamonds inside a drawn ring.' },
-  { id: 'ghost', label: 'Ghost', blurb: 'Hollow outlines with a reflection.' },
-  { id: 'sunrise', label: 'Sunrise', blurb: 'A striped sun behind magenta dots.' },
+  { id: 'pixels', label: 'Pixels', blurb: 'White glass blocks over a striped sun rising, a cyan horizon.' },
+  { id: 'ascii', label: 'ASCII', blurb: 'The title in dense characters with a faint halo, a terminal at dusk.' },
+  { id: 'emblem', label: 'Forged emblem', blurb: 'Forged iron numbers with glowing cyan runes and embers: a painted title, see-through around it.' },
 ]
 
 export const DEFAULT_INTRO_CHOICE: IntroChoice = 'pixels'
+/**
+ * The Forged emblem: generated 2026-11-23 (Gemini 3 Pro Image through OpenRouter, $0.14) on pure black, then keyed by
+ * brightness to real transparency (black clear, glow tails fading, the metal solid), 1600x852 WebP.
+ */
+export const INTRO_EMBLEM_URL = '/ui/intro/forged-emblem.webp'
+export const INTRO_EMBLEM_SIZE = { width: 1600, height: 852 }
+
+export type EmblemStatus = 'idle' | 'loading' | 'ready' | 'failed'
+
+/**
+ * Loads the emblem picture once and says how it went. 'failed' (a package without the file, offline) means the intro
+ * keeps Pixels: never a broken image. `load` is the browser's image decode, passed in so this is testable.
+ */
+export function createEmblemLoader(load: () => Promise<unknown>) {
+  let status: EmblemStatus = 'idle'
+  const waiters = new Set<() => void>()
+  const settle = (next: EmblemStatus) => { status = next; waiters.forEach(fn => fn()); waiters.clear() }
+  return {
+    status: () => status,
+    start(): void {
+      if (status !== 'idle') return
+      status = 'loading'
+      load().then(() => settle('ready'), () => settle('failed'))
+    },
+    /** Called once when the load settles (at once if it already has). Returns an unsubscribe. */
+    onSettled(fn: () => void): () => void {
+      if (status === 'ready' || status === 'failed') { fn(); return () => {} }
+      waiters.add(fn)
+      return () => { waiters.delete(fn) }
+    },
+  }
+}
 export const INTRO_TITLE = '04515'
 export const INTRO_SUBTITLE = 'D3BU9 Y0UR531F'
 
@@ -214,4 +247,64 @@ export function introLayout(): IntroLayout {
     centerX: INTRO_VIEW.width / 2,
     centerY: titleY + blockH / 2,
   }
+}
+
+// ── ASCII ─────────────────────────────────────────────────────────────────────────────────────
+
+/** Characters per lit cell of the 5x7 font: 4 across, 3 down (a monospace character is a bit under twice as tall as wide). */
+export const ASCII_CELL = { cols: 4, rows: 3 }
+const ASCII_DENSE = '@#%&8$B0MW'
+const ASCII_SPARSE = ".:'`-~^,"
+/** Share of the halo positions (unlit, next to a lit cell) that get a character. */
+const ASCII_HALO = 0.32
+
+/** A fixed hash of a position, 0..1: the same picture on every run. */
+function grain(r: number, c: number, salt: number): number {
+  let h = (r * 73856093) ^ (c * 19349663) ^ (salt * 83492791)
+  h = (h ^ (h >>> 13)) * 1274126177
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967295
+}
+
+/**
+ * The title as rows of characters: `core` has the letters (every lit cell a dense block), `halo` a sparse scatter in the
+ * unlit cells that touch a letter. Both have the same rows and width, spaces elsewhere, so they can be drawn on top of
+ * each other in two colours.
+ */
+export function asciiTitle(text: string): { core: string[]; halo: string[]; cols: number } {
+  const chars = Array.from(text)
+  const cellCols = chars.length * (GLYPH_W + 1) - 1
+  const lit = (r: number, c: number): boolean => {
+    if (r < 0 || r >= GLYPH_H || c < 0 || c >= cellCols) return false
+    const g = Math.floor(c / (GLYPH_W + 1))
+    const gc = c % (GLYPH_W + 1)
+    if (gc >= GLYPH_W) return false
+    return GLYPHS[chars[g]]?.[r]?.[gc] === '#'
+  }
+  const cols = cellCols * ASCII_CELL.cols
+  const core: string[] = []
+  const halo: string[] = []
+  for (let r = 0; r < GLYPH_H; r++) {
+    for (let sub = 0; sub < ASCII_CELL.rows; sub++) {
+      let a = ''
+      let b = ''
+      for (let c = 0; c < cellCols; c++) {
+        const on = lit(r, c)
+        const near = !on && (lit(r - 1, c) || lit(r + 1, c) || lit(r, c - 1) || lit(r, c + 1))
+        for (let k = 0; k < ASCII_CELL.cols; k++) {
+          const R = r * ASCII_CELL.rows + sub
+          const C = c * ASCII_CELL.cols + k
+          if (on) {
+            a += ASCII_DENSE[Math.floor(grain(R, C, 1) * ASCII_DENSE.length)]
+            b += ' '
+          } else {
+            a += ' '
+            b += near && grain(R, C, 2) < ASCII_HALO ? ASCII_SPARSE[Math.floor(grain(R, C, 3) * ASCII_SPARSE.length)] : ' '
+          }
+        }
+      }
+      core.push(a)
+      halo.push(b)
+    }
+  }
+  return { core, halo, cols }
 }

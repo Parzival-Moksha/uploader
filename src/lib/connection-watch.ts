@@ -43,7 +43,7 @@ export interface ConnectionWarningLine {
 
 /** How a packaged Oasis is started (scripts/oasis.mjs start; its launcher opens the browser with the key). */
 export const START_PACKAGED = 'Start the Oasis again: in Claude Code type /oasis, or open the oasis file in its folder (oasis.command on a Mac, oasis.cmd on Windows, oasis.sh on Linux).'
-export const KEY_DETAIL = 'Open it with /oasis in Claude Code, or the oasis file in its folder: that opens your browser with the key. Another browser, or 127.0.0.1 instead of localhost, has no key.'
+export const KEY_DETAIL = 'Open it with /oasis in Claude Code, or `node scripts/oasis.mjs open` in its folder: that opens your default browser with the key. For another browser on this machine, `node scripts/oasis.mjs link` puts the address with the key on the clipboard; paste it there. 127.0.0.1 instead of localhost has no key either.'
 
 export function connectionWarnings(input: WatchInput): ConnectionWarningLine[] {
   const out: ConnectionWarningLine[] = []

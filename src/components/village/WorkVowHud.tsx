@@ -6,6 +6,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { useMindcraftLook } from './mindcraft-look'
+import { layerZ } from '../../lib/ui-kit/layers'
 import { formatClock, WORK_VALOR, type WorkDayView, type WorkSnapshot, timeToGo } from '../../lib/village/work-vow'
 import { GAME_HUD_TEXT } from '../forge/GameKeycap'
 import { useOasisStore } from '../../store/oasisStore'
@@ -120,7 +121,7 @@ function Detail({ snapshot, liveSeconds, liveAgents, onClose }: { snapshot: Work
   const [left, setLeft] = useState(12)
   useLayoutEffect(() => {
     const measure = () => {
-      const band = clearBand(window.innerWidth, overlayObstacles(9300, '[data-ui-panel="village-work-vow"]'))
+      const band = clearBand(window.innerWidth, overlayObstacles(layerZ('hud', 49), '[data-ui-panel="village-work-vow"]'))
       setLeft(band.left > 0 ? Math.round(band.left + 12) : 12)
     }
     measure()
@@ -135,7 +136,7 @@ function Detail({ snapshot, liveSeconds, liveAgents, onClose }: { snapshot: Work
     <div
       data-ui-panel="village-work-vow"
       style={{ left }}
-      className="mc-scope mc-popup oasis-frame fixed bottom-[92px] z-[9300] max-h-[calc(100vh-110px)] w-[350px] overflow-y-auto overflow-x-hidden p-3 text-white shadow-[0_24px_70px_rgba(0,0,0,0.55)] backdrop-blur-xl max-[700px]:bottom-auto max-[700px]:top-[120px]"
+      className="mc-scope mc-popup oasis-frame fixed bottom-[92px] z-[var(--z-place)] max-h-[calc(100vh-110px)] w-[350px] overflow-y-auto overflow-x-hidden p-3 text-white shadow-[0_24px_70px_rgba(0,0,0,0.55)] backdrop-blur-xl max-[700px]:bottom-auto max-[700px]:top-[120px]"
     >
       <div className="mb-2 flex items-start justify-between">
         <div>
@@ -244,7 +245,7 @@ export function WorkVowHud() {
   // No book yet: say so, in the counter's place. It never just vanishes (it asks again every 5 s).
   if (!snapshot) {
     return (
-      <div data-ui-panel="village-work-vow" data-work-vow="reading" className="fixed bottom-3 left-3 z-[170] rounded-xl border border-white/20 bg-slate-950/80 px-3 py-2 text-[11px] text-white/70 max-[700px]:bottom-auto max-[700px]:left-2 max-[700px]:top-[64px]" style={GAME_HUD_TEXT}>
+      <div data-ui-panel="village-work-vow" data-work-vow="reading" className="fixed bottom-3 left-3 z-[calc(var(--z-hud)_+_10)] rounded-xl border border-white/20 bg-slate-950/80 px-3 py-2 text-[11px] text-white/70 max-[700px]:bottom-auto max-[700px]:left-2 max-[700px]:top-[64px]" style={GAME_HUD_TEXT}>
         work counter: reading the book…
       </div>
     )
@@ -286,7 +287,8 @@ export function WorkVowHud() {
 
   return (
     <>
-      <TimeUpBar snapshot={snapshot} bottom={counterTop} />
+      {/* While the panel is open it shows the same +5 / +15 / done itself; the bar would sit half under it. */}
+      {!open && <TimeUpBar snapshot={snapshot} bottom={counterTop} />}
       <button
         ref={counterRef}
         type="button"
@@ -294,7 +296,7 @@ export function WorkVowHud() {
         onClick={() => setOpen(value => !value)}
         title="Your work vow: click for the detail"
         data-done={done ? '1' : '0'}
-        className="mc-hud fixed bottom-3 left-3 z-[170] flex items-center gap-2.5 rounded-xl border bg-slate-950/80 py-1.5 pl-2 pr-3 text-left text-white shadow-[0_10px_30px_rgba(0,0,0,0.45)] backdrop-blur-md transition hover:bg-slate-900/90 max-[700px]:bottom-auto max-[700px]:left-2 max-[700px]:top-[64px]"
+        className="mc-hud fixed bottom-3 left-3 z-[calc(var(--z-hud)_+_10)] flex items-center gap-2.5 rounded-xl border bg-slate-950/80 py-1.5 pl-2 pr-3 text-left text-white shadow-[0_10px_30px_rgba(0,0,0,0.45)] backdrop-blur-md transition hover:bg-slate-900/90 max-[700px]:bottom-auto max-[700px]:left-2 max-[700px]:top-[64px]"
         style={{ borderColor: run?.over && !run.paused ? GREEN : `${color}66`, boxShadow: run?.over && !run.paused ? `0 0 26px ${GREEN}aa` : done ? `0 0 22px ${GREEN}44` : undefined }}
       >
         <span className="relative flex items-center justify-center">
