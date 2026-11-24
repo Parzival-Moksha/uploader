@@ -11,7 +11,6 @@ import { GraphicsTab } from './tabs/GraphicsTab'
 import { FontsTab } from './tabs/FontsTab'
 import { SoundTab } from './tabs/SoundTab'
 import { ControlsTab } from './tabs/ControlsTab'
-import { BoltsTab } from './tabs/BoltsTab'
 import { WorldVfxTab } from './tabs/WorldVfxTab'
 import { AgentsTab } from './tabs/AgentsTab'
 import { ExperimentsTab } from './tabs/ExperimentsTab'
@@ -144,8 +143,7 @@ export function ConfigMenu({ menuOpacity, onMenuOpacityChange, consoleControl, i
         {activeTab === 'fonts' && <FontsTab />}
         {activeTab === 'sound' && <SoundTab />}
         {activeTab === 'controls' && <ControlsTab />}
-        {activeTab === 'bolts' && <BoltsTab />}
-        {activeTab === 'world-vfx' && <WorldVfxTab />}
+        {activeTab === 'vfx' && <WorldVfxTab />}
         {activeTab === 'agents' && <AgentsTab />}
         {activeTab === 'experiments' && <ExperimentsTab />}
         {activeTab === 'misc' && <MiscTab {...tabProps} />}

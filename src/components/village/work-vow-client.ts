@@ -6,7 +6,7 @@
 
 import { onEngineEvent } from '../../lib/agent-engine-client'
 import { activeMsBetween, isAutomationClient, ownTurnMs, WORK_BEAT_MS, type AgentWorkReport, type WorkSnapshot } from '../../lib/village/work-vow'
-import { runClock, type RunResult } from '../../lib/village/own-mission'
+import { commitInWindow, commitStateAt, runClock, type RunResult } from '../../lib/village/own-mission'
 import { useOasisStore } from '../../store/oasisStore'
 import { useAudioManager } from '../../lib/audio-manager'
 
@@ -259,6 +259,7 @@ function tick(): void {
   G.seq = seq
   G.pendingMs = pendingMs
   endRunIfDue(now)
+  ringDueCommits(now)
   // No book yet (the first read failed, the server was compiling): keep asking, every 5 s, until there is one.
   if (!state.snapshot && now - lastReadAt >= 5000) void refreshWorkVow()
   const due = now - lastBeatAt >= WORK_BEAT_MS
@@ -318,9 +319,19 @@ async function runPost(run: object): Promise<OwnRunAnswer> {
 }
 
 /** Start his own mission: a new one by title, or one from his list by file. minutes null: open-ended. */
-export async function startOwnRun(input: { title?: string; file?: string; minutes: number | null; notify: string | null }): Promise<OwnRunAnswer> {
+export async function startOwnRun(input: { title?: string; file?: string; minutes: number | null; notify: string | null; commit?: string }): Promise<OwnRunAnswer> {
   await beat() // the seconds so far are booked under what was counted before
   return runPost({ start: input })
+}
+
+/** Commit a mission for a day and a time (`at`, ms), with its length: kept on time, it earns its bonus. */
+export function commitOwnRun(input: { title: string; at: number; minutes: number; notify: string | null }): Promise<OwnRunAnswer> {
+  return runPost({ commit: input })
+}
+
+/** Call a committed mission off. */
+export function uncommitOwnRun(id: string): Promise<OwnRunAnswer> {
+  return runPost({ uncommit: id })
 }
 
 export function saveOwnRun(input: { title: string; minutes: number | null; ease: number; impact: number; urgency: number }): Promise<OwnRunAnswer> {
@@ -400,6 +411,14 @@ function endRunIfDue(now: number): void {
   // He gets time to answer (+5, +15, done) before it ends by itself.
   const ranOutAt = active.startedAt + run.pausedMs + run.plannedSeconds * 1000
   if (now - ranOutAt >= RUN_ANSWER_GRACE_MS && now - dueAskedAt >= 30_000) void endOwnRunIfDue(active.startedAt)
+}
+
+/** A committed mission is due (its window opened): the bell, once, in one tab. Nothing else running. */
+function ringDueCommits(now: number): void {
+  if (!maySend() || state.snapshot?.active?.run) return
+  for (const c of state.snapshot?.commits || []) {
+    if (commitStateAt(c, now) === 'pending' && commitInWindow(c, now) && now >= c.at - 60_000) chimeOnce(`commit:${c.id}`)
+  }
 }
 
 /** The bell when a mission's time is up: once per run and length, in one tab only (tabs share localStorage). */

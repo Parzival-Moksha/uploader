@@ -17,6 +17,8 @@ export interface RunState {
   pausedMs: number
   /** Seconds the Oasis counted on it while it ran (the rest of the wall time was outside the Oasis tab). */
   counted: number
+  /** Started as a committed mission inside its window: its id and the bonus it earns if kept. */
+  commit?: { id: string; bonusPct: number }
 }
 
 export interface RunResult {
@@ -35,6 +37,9 @@ export interface RunResult {
   endedAt: number
   /** Who his notes were sent to; '' if nobody. */
   told: string
+  /** A committed mission kept: the bonus XP it earned (its percentage of its XP). */
+  bonusXp?: number
+  bonusPct?: number
   /** The board line and the agent note say it; the HUD shows it for a while. */
   line: string
 }
@@ -57,6 +62,67 @@ export function fromOasisPage(origin: string | null, host: string | null): boole
   } catch {
     return false
   }
+}
+
+// ─── committed missions ─────────────────────────────────────────────────────
+// The owner, 2026-11-24: "committed missions will be worth more. And the further out you commit, the more XP bonus it
+// gives you, because of the discounting effect: future you will be busy doing other stuff." A mission for a day and a
+// time, with its length. Kept (started within COMMIT_GRACE_MS of its time and run to its length): its XP plus a bonus
+// that grows with how far ahead it was committed. What a missed one costs is still his to decide (0 until then).
+
+/** Started this long before or after its time counts as on time. */
+export const COMMIT_GRACE_MS = 15 * 60_000
+
+export type CommitState = 'pending' | 'started' | 'kept' | 'missed' | 'cancelled'
+
+export interface Commitment {
+  id: string
+  /** His mission's file (docs/questions). */
+  file: string
+  title: string
+  /** When it starts (ms). */
+  at: number
+  minutes: number
+  /** When he committed (ms): the bonus grows with at − madeAt. */
+  madeAt: number
+  bonusPct: number
+  notify: string | null
+  state: CommitState
+  /** The run that came of it (its start), and the Telegram reminder (when sent). */
+  startedAt?: number
+  remindedAt?: number
+}
+
+/**
+ * The bonus for committing ahead: 20% × days ahead^0.83, at most +100% (×2, the vow's multiplier), none under an hour
+ * ahead (that is just starting it). A day ahead +20%, three days +50%, a week +100%.
+ */
+export function commitBonusPct(madeAt: number, at: number): number {
+  const ahead = at - madeAt
+  if (!(ahead >= 3600_000)) return 0
+  return Math.min(100, Math.round(20 * Math.pow(ahead / 86_400_000, 0.834)))
+}
+
+/** What it is now: a pending one whose window has passed unstarted is missed. */
+export function commitStateAt(c: Pick<Commitment, 'state' | 'at'>, now: number): CommitState {
+  return c.state === 'pending' && now > c.at + COMMIT_GRACE_MS ? 'missed' : c.state
+}
+
+/** Inside its window now (from COMMIT_GRACE_MS before its time to COMMIT_GRACE_MS after). */
+export function commitInWindow(c: Pick<Commitment, 'at'>, now: number): boolean {
+  return Math.abs(now - c.at) <= COMMIT_GRACE_MS
+}
+
+/** "Wed 25 Nov 14:00". */
+export function commitWhen(at: number): string {
+  const d = new Date(at)
+  return `${d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })} ${clockOf(at)}`
+}
+
+/** The reminder when it is due (Telegram when no Oasis page is open). */
+export function commitReminder(c: Pick<Commitment, 'title' | 'minutes' | 'bonusPct' | 'at'>): string {
+  const bonus = c.bonusPct ? `, +${c.bonusPct}% XP if you keep it` : ''
+  return `⏰ Now: your committed mission "${c.title}" (${minutesLabel(c.minutes * 60)}${bonus}). Start it in the Oasis by ${clockOf(c.at + COMMIT_GRACE_MS)}: the counter, bottom left.`
 }
 
 /** Default agent his notes go to. */
@@ -128,10 +194,10 @@ export function runIsDue(startedAt: number, run: RunState, now: number): boolean
 }
 
 /** "kept · 1 h · 60 XP", "not kept: 40 min of 1 h · 40 XP", "done · 1 h 12 min · 72 XP". */
-export function runLine(result: Pick<RunResult, 'plannedSeconds' | 'seconds' | 'kept' | 'xp'>): string {
+export function runLine(result: Pick<RunResult, 'plannedSeconds' | 'seconds' | 'kept' | 'xp'> & Partial<Pick<RunResult, 'bonusXp' | 'bonusPct'>>): string {
   if (result.plannedSeconds === null) return `done · ${minutesLabel(result.seconds)} · ${result.xp} XP`
   return result.kept
-    ? `kept · ${minutesLabel(result.seconds)} · ${result.xp} XP`
+    ? `kept · ${minutesLabel(result.seconds)} · ${result.xp} XP${result.bonusXp ? ` + ${result.bonusXp} XP committed (+${result.bonusPct}%)` : ''}`
     : `not kept: ${minutesLabel(result.seconds)} of ${minutesLabel(result.plannedSeconds)} · ${result.xp} XP`
 }
 
@@ -223,6 +289,12 @@ function appendUnder(text: string, heading: string, line: string): string {
   while (section.length && !section[section.length - 1].trim()) section.pop()
   const after = lines.slice(next)
   return [...lines.slice(0, at + 1), ...section, line, ...(after.length ? ['', ...after] : ['']) ].join('\n')
+}
+
+/** The commitment in the file: when, how long, the bonus if kept. */
+export function markCommitted(text: string, c: Pick<Commitment, 'at' | 'minutes' | 'madeAt' | 'bonusPct'>): string {
+  const made = new Date(c.madeAt).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
+  return appendUnder(text, 'Committed', `- for ${commitWhen(c.at)}, ${minutesLabel(c.minutes * 60)}; committed on ${made} at ${clockOf(c.madeAt)}${c.bonusPct ? `: +${c.bonusPct}% XP if kept` : ''}`)
 }
 
 /** One note, with the time: "- 19:12 the skill tree needs a back button". */

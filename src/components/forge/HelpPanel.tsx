@@ -34,6 +34,7 @@ const SHORTCUTS: ShortcutRow[] = [
   { keys: ['W', 'A', 'S', 'D'], action: 'Walk (or the arrows)', category: 'moving' },
   { keys: ['Shift'], action: 'Run (hold)', category: 'moving' },
   { keys: ['Space'], action: 'Walk slowly (hold)', category: 'moving' },
+  { keys: ['Space'], action: 'Mouse-look on / off (tap)', category: 'moving' },
   { keys: ['Left Click'], action: 'On the world: the mouse turns the view; Esc gives it back', category: 'moving' },
   { keys: ['Scroll'], action: 'Camera nearer / farther', category: 'moving' },
   { keys: ['C'], action: 'Camera: around a point, flying free, behind you', category: 'moving' },

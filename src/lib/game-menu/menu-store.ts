@@ -26,7 +26,10 @@ export interface MenuPrefs {
   tiltAmount: number
   /** The camera drifts behind the menu. Off: it stays where it was. */
   drift: boolean
-  /** Escape out of mouse-look opens the menu at once (one press instead of two). */
+  /**
+   * Escape out of mouse-look opens the menu at once. Off since 24 Nov (the owner: on a Mac Esc went straight to the
+   * menu instead of freeing the mouse): the first Esc frees the mouse, the next one opens the menu.
+   */
   openFromMouseLook: boolean
 }
 
@@ -36,7 +39,7 @@ export const DEFAULT_MENU_PREFS: MenuPrefs = {
   tilt: true,
   tiltAmount: 1.7,
   drift: true,
-  openFromMouseLook: true,
+  openFromMouseLook: false,
 }
 
 const PREFS_KEY = 'oasis-game-menu-prefs'
@@ -52,7 +55,7 @@ export function sanitizeMenuPrefs(raw: unknown): MenuPrefs {
     tiltAmount: typeof r.tiltAmount === 'number' && Number.isFinite(r.tiltAmount) ? Math.min(8, Math.max(0, r.tiltAmount)) : DEFAULT_MENU_PREFS.tiltAmount,
     // Always on now (the owner: "that doesn't even need to be in the settings").
     drift: true,
-    openFromMouseLook: true,
+    openFromMouseLook: false,
   }
 }
 

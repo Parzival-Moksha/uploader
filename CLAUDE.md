@@ -70,6 +70,15 @@ A session outside the village (the Claude Code app or a terminal) gets the same 
 
 Start with `get_world_state`, place a few things, then `screenshot_viewport` to see what the user sees.
 
+## Update it
+
+Only when the user asks. Worlds, agents, keys and uploads stay. With the plugin, if anything fails the old version comes back; in a clone, a failed build keeps the old build running and the next start tries again.
+
+- In a clone: `node scripts/oasis.mjs update` (a `git pull --ff-only`, then the start script rebuilds; a plain `git pull` followed by `node scripts/oasis.mjs start` also rebuilds).
+- With the plugin: `/oasis update` in Claude Code. A plain `/oasis` never updates; it says when a newer Oasis is available.
+
+The version shows in `node scripts/oasis.mjs status`, in the main menu under the name, and at `/api/health`.
+
 ## 7. When something is wrong
 
 - `node scripts/oasis.mjs status` first.

@@ -62,7 +62,7 @@ export function railIconFor(label: string): RailIcon {
   if (key === 'agents') return 'agents'
   if (key === 'settings' || key === 'config') return 'settings'
   if (key === 'help') return 'help'
-  if (key === 'profile') return 'profile'
+  if (key === 'profile' || key === 'character') return 'profile'
   return 'none'
 }
 

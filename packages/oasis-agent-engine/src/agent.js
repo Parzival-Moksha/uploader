@@ -207,6 +207,9 @@ export class Agent {
     ];
     if (this.model) args.push('--model', this.model);
     if (this.permissionMode) args.push('--permission-mode', this.permissionMode);
+    // No mode of its own, on an account with a Claude folder of its own: the owner's main permission settings come
+    // with it (accounts.js inheritedPermissions: his written default mode and rules, never bypassPermissions).
+    else if (configDir && this.hub.inheritedSettingsArgs) args.push(...this.hub.inheritedSettingsArgs());
     if (this.effort) args.push('--effort', this.effort);
     if (this.worldTools) args.push(...worldToolsArgs({ cwd: this.cwd, configDir }));
     if (this.chrome) args.push(...chromeArgs());

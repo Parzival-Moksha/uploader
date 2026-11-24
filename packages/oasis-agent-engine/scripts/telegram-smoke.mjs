@@ -1,7 +1,7 @@
-// Telegram smoke [2 haiku turns]: the engine's Telegram line (src/telegram.js) end to end, against a fake Bot API.
+// Telegram smoke [3 haiku turns]: the engine's Telegram line (src/telegram.js) end to end, against a fake Bot API.
 // Starts its own test engine (port 4541 unless OASIS_PORT) with OASIS_TELEGRAM=1 pointed at a local stub, so the real
 // bot and the real engine on 4530 are never touched. Checks: a stranger is ignored, /agents, a routed message comes
-// back as the agent's reply, a permission card turns into a ping, /checkin now (0 turns), offset saved.
+// back as the agent's reply, a permission card turns into a ping that "smoke-tg: allow" / "deny" answers, /checkin now, offset saved.
 //
 //   node scripts/telegram-smoke.mjs
 import http from 'node:http';
@@ -28,7 +28,8 @@ const check = (label, ok, extra = '') => { console.log(`${ok ? 'PASS' : 'FAIL'} 
 const sent = [];
 let updates = [];
 let nextId = 1;
-const push = (message) => updates.push({ update_id: nextId++, message: { chat: { id: Number(CHAT) }, date: Math.floor(Date.now() / 1000), ...message } });
+let msgSeq = 100; // message ids in a private chat: one rising sequence for the bot and for him
+const push = (message) => updates.push({ update_id: nextId++, message: { chat: { id: Number(CHAT), type: 'private' }, from: { id: Number(CHAT), is_bot: false }, date: Math.floor(Date.now() / 1000), message_id: ++msgSeq, ...message } });
 const stub = http.createServer((req, res) => {
   const chunks = [];
   req.on('data', (c) => chunks.push(c));
@@ -44,7 +45,7 @@ const stub = http.createServer((req, res) => {
       return json({ ok: true, result: updates });
     }
     if (m[2] === 'sendMessage') { sent.push(String(body.text)); console.log('  tg <-', JSON.stringify(String(body.text).slice(0, 160))); }
-    return json({ ok: true, result: { message_id: sent.length } });
+    return json({ ok: true, result: { message_id: ++msgSeq } });
   });
 });
 await new Promise((r) => stub.listen(0, '127.0.0.1', r));
@@ -56,7 +57,7 @@ const engine = spawn(process.execPath, [path.join(PKG, 'src', 'index.js')], {
   env: {
     ...process.env, OASIS_PORT: String(PORT), OASIS_ROSTER: path.join(tmp, 'roster.json'), OASIS_TELEGRAM: '1',
     OASIS_TELEGRAM_API: apiBase, OASIS_TELEGRAM_CONFIG: path.join(tmp, 'tg.json'), OASIS_TELEGRAM_STATE: path.join(tmp, 'tg-state.json'),
-    OASIS_TELEGRAM_PING_MS: '4000', OASIS_TELEGRAM_CHECKIN_MS: '0',
+    OASIS_TELEGRAM_PING_MS: '4000', OASIS_TELEGRAM_CHECKIN_MS: '0', OASIS_TELEGRAM_BATCH_MS: '300',
   },
   stdio: ['ignore', 'pipe', 'pipe'],
 });
@@ -96,8 +97,8 @@ try {
   const beforeCheckin = sent.length;
   push({ text: '/checkin now' });
   const checkin = await waitFor(() => sent.slice(beforeCheckin)[0], 15000, 'the check-in');
-  const webUp = await fetch('http://127.0.0.1:4516/api/village/work', { signal: AbortSignal.timeout(5000) }).then((r) => r.ok, () => false);
-  check('/checkin now sends the day from the work counter', webUp ? /^🕘 \d\d:\d\d check-in · /.test(checkin) && /(Vow kept|You sucked today|No vow running)/.test(checkin) : /^No check-in right now/.test(checkin), JSON.stringify(checkin.split(/\n/)[0]));
+  // The day from the work counter on the page server, or (when that is not answering) a plain "No check-in right now".
+  check('/checkin now answers: the day from the work counter, or why not', /^🕘 \d\d:\d\d check-in · /.test(checkin) || /^No check-in right now/.test(checkin), JSON.stringify(checkin.split('\n').slice(0, 2).join(' | ')));
   const st2 = await cmd('telegram');
   check('the check-in state is reported', st2.data?.checkin?.time === '21:00' && st2.data.checkin.lastSent === null, JSON.stringify(st2.data?.checkin));
 
@@ -108,24 +109,42 @@ try {
   const user = events.find((e) => e.agentId === id && e.kind === 'user.sent');
   check('the agent got the message tagged [Telegram]', user?.text === '[Telegram] Reply with only the word PONG.', user?.text);
 
-  // [turn 2] a permission card left open -> one ping after OASIS_TELEGRAM_PING_MS
+  // [turn 2] a permission card left open -> one ping after OASIS_TELEGRAM_PING_MS, answered from Telegram: "allow"
   const before = sent.length;
   push({ text: '@smoke Use the Write tool to create tg-ping.txt containing hi. Nothing else.' });
   const perm = await waitFor(() => events.find((e) => e.agentId === id && e.kind === 'permission.request'), 120000, 'a permission card');
   const ping = await waitFor(() => sent.slice(before).find((t) => t.startsWith('🟠')), 15000, 'the ping');
-  check('a ping names the agent and the tool', /^🟠 smoke-tg needs you: allow Write/.test(ping), ping);
+  check('the ping shows the whole request and how to answer it', /^🟠 smoke-tg needs you: allow Write\?\nWrite to [^\n]*tg-ping\.txt:\nhi\nReply "smoke-tg: allow" · "smoke-tg: deny"/.test(ping), JSON.stringify(ping).slice(0, 220));
+  check('the ping says why it asks (the mode)', /It asks because it runs in mode default/.test(ping) || /Even in mode auto/.test(ping), JSON.stringify(ping.split('\n').at(-1)));
   await sleep(4500);
   check('only one ping for that state', sent.slice(before).filter((t) => t.startsWith('🟠')).length === 1);
-  await cmd('respond', { agentId: id, requestId: perm.requestId, behavior: 'deny', message: 'Smoke test: denied.' });
+  push({ text: 'smoke-tg: allow' });
+  const confirm = await waitFor(() => sent.slice(before).find((t) => t.startsWith('✅ smoke-tg: allowed')), 15000, 'the confirmation');
+  check('one line says what was allowed', /^✅ smoke-tg: allowed Write: Write to [^\n]*tg-ping\.txt: hi \(this once\)\.$/.test(confirm), JSON.stringify(confirm));
   await waitFor(() => events.find((e) => e.agentId === id && e.kind === 'turn.end' && e.ts > perm.ts), 120000, 'turn 2 end');
-  await waitFor(() => sent.length > before + 1, 10000, 'the second reply');
-  check('the turn after the ping is answered too', sent.length > before + 1, JSON.stringify(sent.at(-1)).slice(0, 160));
+  check('the agent really got the allow: the file is there', fs.existsSync(path.join(A, 'tg-ping.txt')));
+  await waitFor(() => sent.slice(before).find((t) => t.startsWith('<b>smoke-tg</b>')), 10000, 'the second reply');
+  fs.rmSync(path.join(A, 'tg-ping.txt'), { force: true });
 
+  // [turn 3] the same, answered "deny": nothing is written, and the agent is told
+  const before3 = sent.length;
+  push({ text: '@smoke Use the Write tool to create tg-ping2.txt containing no. Nothing else.' });
+  await waitFor(() => events.find((e) => e.agentId === id && e.kind === 'permission.request' && e.ts > perm.ts && e.requestId !== perm.requestId), 120000, 'the second card');
+  await waitFor(() => sent.slice(before3).find((t) => t.startsWith('🟠')), 15000, 'the second ping');
+  push({ text: 'smoke-tg: deny' });
+  const denied = await waitFor(() => sent.slice(before3).find((t) => t.startsWith('🚫 smoke-tg: denied')), 15000, 'the denial');
+  check('a deny says what was denied', /^🚫 smoke-tg: denied Write: /.test(denied), JSON.stringify(denied));
+  await waitFor(() => sent.slice(before3).find((t) => t.startsWith('<b>smoke-tg</b>')), 120000, 'the third reply');
+  check('nothing was written after the deny', !fs.existsSync(path.join(A, 'tg-ping2.txt')));
+
+  // From the outside: a message that is not his own typed private message does not answer anything (no card is open now,
+  // so it goes to the agent as plain text; the real refusal paths are in the unit tests).
   check('the stranger never reached the agent', !events.some((e) => e.kind === 'user.sent' && /STRANGER/.test(e.text || '')) && engineLog.some((l) => l.includes('ignored a message from chat 1')));
   const state = JSON.parse(fs.readFileSync(path.join(tmp, 'tg-state.json'), 'utf8'));
   check('the offset is saved', state.offset === nextId, `offset ${state.offset}, next ${nextId}`);
   check('no token in the engine log', !engineLog.some((l) => l.includes(TOKEN)));
   fs.rmSync(path.join(A, 'tg-ping.txt'), { force: true });
+  fs.rmSync(path.join(A, 'tg-ping2.txt'), { force: true });
   await cmd('kill', { agentId: id });
   await cmd('shutdown');
   ws.close();

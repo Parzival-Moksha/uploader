@@ -450,12 +450,18 @@ export interface EngineAccount {
   /** From its own rate_limit_events: five_hour, seven_day, … */
   /** Each window as the CLI last reported it. utilization null: no figure was sent (unknown, never guessed). */
   windows: Record<string, { utilization: number | null; resetsAt: number | null; status: string | null; at: number; source?: 'unified' | 'status-only' }>
+  /** A full login (the CLI's own, or a Claude folder of its own): Chrome tools exist there. */
+  fullLogin?: boolean
+  /** Which permission mode its agents run in when they have none of their own, and where that comes from. */
+  permissions?: string
 }
 export interface EngineAccountsView {
   /** "auto" (the account whose week ends first) or an account id. */
   villageDefault: string
   firstReset: number | null
   allExhausted: boolean
+  /** auto's rule in one line: "spending Yahoo first: it resets Tue 21:00". */
+  strategy?: string | null
   accounts: EngineAccount[]
 }
 

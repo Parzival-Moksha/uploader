@@ -51,7 +51,7 @@ import {
   isFocusInputState,
   isVillageFocusBlocked,
   openVillagePicker,
-  pressVillageView,
+  villageEscape,
   registerVillageCamera,
   setVillageLiveStation,
   setVillagePlaza,
@@ -335,7 +335,7 @@ function DeskWindow({ agentId, nearby, mode, size: sizeFor }: { agentId: string;
   const textured = menuStyle !== 'glass'
   // The full screen (F) is drawn in the 3D view, but counts on the panel layer for Esc (src/lib/ui-kit/layers.ts):
   // a dialog, the main menu or Mindcraft over it closes first.
-  useLayer(`village-screen-${agentId}`, 'panel', mode === 'screen' && Boolean(agent), () => pressVillageView('Esc'))
+  useLayer(`village-screen-${agentId}`, 'panel', mode === 'screen' && Boolean(agent), () => villageEscape())
   if (!agent) return null
   const color = agent.readOnly ? VILLAGE_OBSERVED_COLOR : statusColor(effectiveStatus(agent))
   // The full screen's height follows the view (village-layout.ts fullScreenWindow); the desk's is fixed.

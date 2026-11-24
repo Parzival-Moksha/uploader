@@ -45,7 +45,9 @@ export function SummonAvatarPicker({ value, onChange, accent }: { value: string;
             title={avatar.name}
             aria-label={avatar.name}
             onClick={() => onChange(avatar.path)}
-            className="!h-[64px] !w-[64px] shrink-0"
+            // Square thumbnails: the picture is square and the tile takes its height (the kit's 16:10 picture in a
+            // forced 64 px square showed only the top of each avatar, the owner 2026-11-24).
+            className="!w-[72px] shrink-0 [&_.kit-pick-pic]:!aspect-square"
           />
         ))}
       </div>

@@ -10,6 +10,10 @@
 //        and the files it sent with SendUserFile (photos or documents).
 //        Pings: an agent at needs-decision (amber) or error (red) for PING_MS (2 min) gets one short message per state.
 //        The daily check-in (checkin.js): at 21:00 local, the day's work from the Mindcraft work counter. /checkin.
+//        A "needs you" message is one he can act on (approvals.js): "Perf: allow", "Perf: deny", "Perf: allow always",
+//        "Perf: show" (the rest of a long request), "Perf: pick 2" (a simple question). Only from his own private chat,
+//        typed (not by voice, not forwarded), and only for a request he has been shown whole. Not sent while an Oasis page
+//        is open and he was active in the last ten minutes; several agents waiting together are one message.
 //
 // Across engine restarts (journal.js): an update taken from the bot is kept until it is handed to an agent, and handled
 // at the next start if the engine stopped in between; a message handed to an agent rides in that agent's journal queue
@@ -25,6 +29,7 @@ import path from 'node:path';
 import { attachmentFile } from './files.js';
 import { CHECKIN_DEFAULT, checkinDue, checkinText, localDate, parseCheckinTime } from './checkin.js';
 import { stripSpoken } from './voice.js';
+import { describeSuggestions, groupBlocks, handle, parseDecision, requestBlock, requestText, showText, simpleQuestion, splitExact, suggestionProblem } from './approvals.js';
 
 export const TG_MAX = 4096;
 export const PING_MS = 2 * 60_000;
@@ -38,6 +43,12 @@ export const TELL_GAP_MS = 30 * 60_000;
 /** After a restart, an agent that owed a reply here still owes it for this long (journal.js `owed`). */
 const REARM_MS = 15 * 60_000;
 const SCRIBE_API = 'https://api.elevenlabs.io/v1/speech-to-text';
+/** Several agents waiting within this long of the first ping become one message. */
+export const BATCH_MS = 45_000;
+/** No ping while an Oasis page is open and the owner was active this recently (the marker over the agent is enough). */
+export const PRESENT_MS = 10 * 60_000;
+/** A held ping looks again this often. */
+const HOLD_RECHECK_MS = 60_000;
 
 export const STATUS_EMOJI = { working: '🟢', waiting: '🔵', 'needs-decision': '🟠', error: '🔴', idle: '⚪' };
 
@@ -125,6 +136,7 @@ export const HELP = [
   '/agents  who is in the village',
   '/stop [name]  interrupt a turn (Anorak without a name)',
   '/pings on|off  messages when an agent waits for you for 2 minutes',
+  '"Perf: allow", "Perf: deny", "Perf: allow always", "Perf: show"  answer an agent that waits for you (typed, not by voice)',
   '/checkin on|off|21:30|now  the evening sum-up of the day\'s work',
 ].join('\n');
 
@@ -236,6 +248,7 @@ const sleep = (ms, signal) => new Promise((resolve) => {
   signal?.addEventListener('abort', onAbort, { once: true });
 });
 const stripBom = (s) => s.replace(/^\uFEFF/, '');
+const oneLineClip = (s, n) => { const t = String(s ?? '').replace(/\s+/g, ' ').trim(); return t.length > n ? `${t.slice(0, n - 1)}…` : t; };
 const hhmm = (ms) => new Date(ms).toTimeString().slice(0, 5);
 
 // ------------------------------------------------------------------ the bot
@@ -257,6 +270,12 @@ export class TelegramLine {
     this.listAgents = o.listAgents;
     this.sendToAgent = o.send;
     this.interruptAgent = o.interrupt || null;
+    this.respondFn = o.respond || null; // (agentId, requestId, {behavior, message, answers, always}) -> engine's respond
+    this.pages = o.pages || (() => 0); // Oasis pages connected to the engine (0: unknown, never holds a ping back)
+    this.batchMs = o.batchMs ?? BATCH_MS;
+    this.presentMs = o.presentMs ?? PRESENT_MS;
+    this.presenceEveryMs = o.presenceEveryMs ?? 30_000;
+    this.holdMs = o.holdMs ?? HOLD_RECHECK_MS;
     this.fileFor = o.fileFor || attachmentFile;
     this.scribeApi = o.scribeApi || process.env.OASIS_SCRIBE_API || SCRIBE_API;
     this.scribeKey = o.scribeKey || (() => readScribeKey());
@@ -272,6 +291,11 @@ export class TelegramLine {
     this.pings = new Map(); // agentId -> {status, since, timer}
     this.lastText = new Map(); // agentId -> last main-thread text (ping summaries)
     this.lastTurnEnd = new Map();
+    this.shown = new Map(); // requestId -> {agentId, msgId (the Telegram message that showed it), full, noPhone, alwaysOk}: what he has been shown, so "allow" only meets a request he saw whole
+    this.batch = new Map(); // agentId -> ping waiting for its message (several agents become one)
+    this.batchTimer = null;
+    this.activity = { date: null, seconds: 0, lastGrowthAt: 0 }; // the work counter's seconds, to know when he last worked
+    this.presenceTimer = null;
     this.outbox = Promise.resolve();
     this.running = false;
     this.abort = null;
@@ -392,6 +416,18 @@ export class TelegramLine {
     }
   }
 
+  /**
+   * Plain text sent exactly as given (cut only at 4096, nothing trimmed). Resolves to the highest message id Telegram
+   * gave its pieces once it has all of them (ids in a private chat only rise, so this is "after this, he has read it");
+   * 0 when any piece did not go out.
+   */
+  async sayAsync(text) {
+    try {
+      const sent = await Promise.all(splitExact(text, TG_MAX).map((piece) => this.queue(() => this.api('sendMessage', { chat_id: this.cfg.chatId, text: piece, link_preview_options: { is_disabled: true } }))));
+      return Math.max(0, ...sent.map((r) => Number(r?.message_id) || 0));
+    } catch { return 0; }
+  }
+
   /** An agent's markdown: HTML mode where it parses, plain text where it doesn't. `head` (a name) goes in front, bold. */
   sayMarkdown(md, head = '') {
     chunkText(md, CHUNK).forEach((piece, i) => {
@@ -442,6 +478,10 @@ export class TelegramLine {
       this.checkinTimer = setInterval(() => void this.checkinTick(), this.checkinEveryMs);
       this.checkinTimer.unref?.();
     }
+    if (this.presenceEveryMs > 0) {
+      this.presenceTimer = setInterval(() => { if (this.pages()) void this.sampleActivity(); }, this.presenceEveryMs);
+      this.presenceTimer.unref?.();
+    }
     return this;
   }
 
@@ -452,6 +492,10 @@ export class TelegramLine {
     this.typingTimer = null;
     clearInterval(this.checkinTimer);
     this.checkinTimer = null;
+    clearInterval(this.presenceTimer);
+    this.presenceTimer = null;
+    clearTimeout(this.batchTimer);
+    this.batchTimer = null;
     for (const p of this.pings.values()) clearTimeout(p.timer);
   }
 
@@ -582,13 +626,21 @@ export class TelegramLine {
     this.stats.received++;
     const sentAt = (m.date || 0) * 1000;
     const late = sentAt && Date.now() - sentAt > 10 * 60_000 ? sentAt : 0;
-    if (m.voice || m.audio || m.video_note) return this.onVoice(m, late, u.update_id);
+    // What may answer an agent's request (decide()): the configured chat is a private chat, and its owner wrote this
+    // himself (Telegram's own `from`), not a bot, not a message forwarded from elsewhere. Only `message` updates are
+    // asked for (no edited messages, channel posts or button callbacks), so nothing else can carry an answer.
+    const ctx = {
+      messageId: Number(m.message_id) || 0,
+      verified: m.chat?.type === 'private' && String(m.from?.id) === this.cfg.chatId && m.from?.is_bot !== true && !m.via_bot,
+      forwarded: Boolean(m.forward_origin || m.forward_date || m.forward_from || m.forward_from_chat),
+    };
+    if (m.voice || m.audio || m.video_note) return this.onVoice(m, late, u.update_id, ctx);
     const text = m.text ?? m.caption;
     if (!text) { this.say('I can take text and voice notes for now.'); return; }
-    return this.handleText(text, { late, updateId: u.update_id });
+    return this.handleText(text, { late, updateId: u.update_id, ...ctx });
   }
 
-  async onVoice(m, late, updateId) {
+  async onVoice(m, late, updateId, ctx = {}) {
     const v = m.voice || m.audio || m.video_note;
     const key = this.scribeKey();
     if (!key) { this.say("Voice notes aren't wired yet (no ElevenLabs key)."); return; }
@@ -607,7 +659,7 @@ export class TelegramLine {
     }
     if (!text) { this.say("Heard nothing I could make out."); return; }
     this.say(`heard: ${text.length > 300 ? `${text.slice(0, 299)}…` : text}`);
-    return this.handleText(text, { voice: true, late, updateId });
+    return this.handleText(text, { voice: true, late, updateId, ...ctx });
   }
 
   /** ElevenLabs Scribe (scribe_v2, as in C:/8f_dirk/scribe.py), with the village's names as key terms. */
@@ -626,16 +678,29 @@ export class TelegramLine {
   }
 
   // ---------------------------------------------------------------- routing
-  async handleText(text, { voice = false, late = 0, updateId = null } = {}) {
+  async handleText(text, { voice = false, late = 0, updateId = null, verified = false, forwarded = false, messageId = 0 } = {}) {
     const agents = this.listAgents();
     const r = parseRoute(text, agents);
+    const ctx = { voice, verified, forwarded, messageId };
     switch (r.kind) {
       case 'empty': return undefined;
       case 'command': return this.onCommand(r.command, r.arg, agents);
       case 'unknown': return this.say(`No agent called "${r.name}". Here's who's around:\n${agentListText(agents)}`);
       case 'ambiguous': return this.say(`"${r.name}" could be ${r.matches.map((a) => a.name).join(' or ')}. Here's who's around:\n${agentListText(agents)}`);
-      case 'agent': return this.deliver(r.agent, r.text, { voice, late, updateId });
+      case 'agent': {
+        // "Perf: allow" answers Perf's open request; with none open it is an ordinary message to Perf.
+        const d = parseDecision(r.text);
+        if (d && await this.decide(r.agent, d, ctx)) return undefined;
+        return this.deliver(r.agent, r.text, { voice, late, updateId });
+      }
       default: {
+        // A bare "allow" is for the one agent that waits; with several waiting, a name is needed.
+        const d = parseDecision(r.text);
+        if (d) {
+          const waiting = agents.filter((a) => a.permissions?.length);
+          if (waiting.length > 1) return this.say(`More than one is waiting (${waiting.map((a) => a.name).join(', ')}). Say which: "${handle(waiting[0].name)}: ${r.text}".`);
+          if (waiting.length === 1 && await this.decide(waiting[0], d, ctx)) return undefined;
+        }
         const anorak = defaultAgent(agents);
         if (!anorak) return this.say(`Anorak isn't in the village right now. Name someone ("Tyler: ...").\n${agentListText(agents)}`);
         return this.deliver(anorak, r.text, { voice, late, updateId });
@@ -763,9 +828,12 @@ export class TelegramLine {
       const gone = this.turns.get(id);
       if (gone && (gone.armed || gone.uuids.size || gone.bridge.length)) this.say(`${gone.name} was stopped or moved before answering your message.`);
       clearTimeout(this.pings.get(id)?.timer);
+      this.batch.delete(id);
+      for (const [rid, s] of this.shown) if (s.agentId === id) this.shown.delete(rid);
       this.pings.delete(id); this.turns.delete(id); this.lastText.delete(id); this.lastTurnEnd.delete(id);
       return;
     }
+    if (e.kind === 'permission.resolved' && e.requestId) this.shown.delete(e.requestId);
     if (e.kind === 'status') return this.onStatus(id, e.status);
     if (e.kind === 'text' && !e.parentToolUseId) this.lastText.set(id, stripSpoken(e.text || ''));
     if (e.kind === 'turn.end') this.lastTurnEnd.set(id, e);
@@ -887,10 +955,208 @@ export class TelegramLine {
     // The answer to the owner's Telegram message already went out and ended there (a question, or the error).
     const t = this.turns.get(id);
     if (t?.repliedAt && t.repliedAt >= p.since - 15_000 && !a.permissions?.length) return this.log(`no ping for ${why}: the reply is already on Telegram`);
-    const text = pingText(a, { lastText: this.lastText.get(id), lastTurnEnd: this.lastTurnEnd.get(id) });
-    this.stats.pinged++;
-    this.log(`ping: ${why}`);
-    this.say(text);
+    void this.holdOrBatch(id, p, why).catch((e) => this.log(`ping for ${why} failed: ${e.message}`));
+  }
+
+  /** The work counter's seconds, sampled: when they grow, he is working in the Oasis. A page server that doesn't answer leaves the last picture. */
+  async sampleActivity(now = this.now()) {
+    let w;
+    try { w = await this.fetchWork(); } catch {
+      // Not answering means no page is being served: never hold a ping back for it.
+      this.activity.lastGrowthAt = 0;
+      return this.activity;
+    }
+    const secs = Number(w.today?.seconds) || 0;
+    const act = this.activity;
+    if (act.date === w.date && secs > act.seconds) act.lastGrowthAt = now;
+    act.date = w.date;
+    act.seconds = secs;
+    return act;
+  }
+
+  /** An Oasis page is open and he did something in the last PRESENT_MS: the marker over the agent is enough. */
+  async ownerAtOasis(now = this.now()) {
+    if (!this.pages()) return false;
+    await this.sampleActivity(now);
+    return this.activity.lastGrowthAt > 0 && now - this.activity.lastGrowthAt < this.presentMs;
+  }
+
+  /** At the ping's time: he is at the Oasis -> hold it (look again in a minute, and send it once he is away); else it joins the next message. */
+  async holdOrBatch(id, p, why) {
+    const present = await this.ownerAtOasis();
+    if (this.pings.get(id) !== p) return;
+    if (present) {
+      if (!p.held) { p.held = true; this.log(`holding the ping for ${why}: an Oasis page is open and he was active in the last ${Math.round(this.presentMs / 60_000)} min`); }
+      p.timer = setTimeout(() => this.firePing(id, p), this.holdMs);
+      p.timer.unref?.();
+      return;
+    }
+    this.batch.set(id, p);
+    if (!this.batchTimer) {
+      this.batchTimer = setTimeout(() => { this.batchTimer = null; void this.flushPings().catch((e) => this.log(`ping message failed: ${e.message}`)); }, this.batchMs);
+      this.batchTimer.unref?.();
+    }
+  }
+
+  /** The pings that came together become one message, one entry per agent. */
+  async flushPings() {
+    const entries = [...this.batch];
+    this.batch.clear();
+    const present = await this.ownerAtOasis();
+    const agents = this.listAgents();
+    const blocks = [];
+    for (const [id, p] of entries) {
+      if (this.pings.get(id) !== p) continue;
+      const a = agents.find((x) => x.id === id);
+      if (!a || a.status !== p.status || !needsOwner(a)) continue;
+      if (present) { p.timer = setTimeout(() => this.firePing(id, p), this.holdMs); p.timer.unref?.(); continue; }
+      blocks.push(this.blockFor(a));
+    }
+    for (const g of groupBlocks(blocks)) {
+      this.stats.pinged += g.blocks.length;
+      for (const b of g.blocks) this.log(`ping: ${b.agent.name} (${b.agent.status}${b.agent.statusReason ? `: ${b.agent.statusReason}` : ''})`);
+      await this.announce(g);
+    }
+  }
+
+  /** One agent's entry: an error, an open card he can answer here, or a state only its own window can settle. */
+  blockFor(a) {
+    const name = a.name || a.id;
+    if (a.status === 'error') return { agent: a, text: `🔴 ${name} is stuck: ${clipLine(a.statusReason || 'an error', 300)}`, full: true, kind: 'error' };
+    const reqs = Array.isArray(a.permissions) ? a.permissions : [];
+    if (reqs.length) return { ...requestBlock(a, reqs[0], { more: reqs.length - 1 }), agent: a, req: reqs[0] };
+    const text = pingText(a, { lastText: this.lastText.get(a.id), lastTurnEnd: this.lastTurnEnd.get(a.id) });
+    return { agent: a, text: `${text}\nThat one is settled in its own window, not from here.`, full: true, kind: 'window' };
+  }
+
+  /** Send a message of entries and remember which requests it showed, and whole or in part. */
+  async announce(g) {
+    const msgId = await this.sayAsync(g.text);
+    if (!msgId) return false;
+    for (const b of g.blocks) if (b.req) this.remember(b.req.requestId, { agentId: b.agent.id, msgId, full: Boolean(b.full), noPhone: Boolean(b.noPhone), alwaysOk: b.alwaysOk !== false });
+    return true;
+  }
+
+  remember(requestId, entry) {
+    this.shown.set(requestId, entry);
+    if (this.shown.size > 200) for (const [k] of [...this.shown].slice(0, this.shown.size - 200)) this.shown.delete(k);
+  }
+
+  // ---------------------------------------------------------------- answering an agent's request
+  /** `show`: the whole request, exactly. */
+  async showRequest(a, req) {
+    const s = showText(a, req);
+    const msgId = await this.sayAsync(`${s.head}\n\n${s.body}\n\n${s.tail}`);
+    if (msgId) this.remember(req.requestId, { agentId: a.id, msgId, full: s.full, noPhone: !s.full, alwaysOk: s.alwaysOk !== false });
+    return Boolean(msgId);
+  }
+
+  /** The line that says what was answered: the tool and the start of its command. */
+  describeWhat(req) {
+    if (req.requestKind === 'plan') return 'the plan';
+    if (req.requestKind === 'question') return 'the question';
+    const t = oneLineClip(requestText(req), 110);
+    return `${req.toolName || 'the tool'}${t ? `: ${t}` : ''}`;
+  }
+
+  /** Shown whole, and his message came after the one that showed it (a higher message id: no clocks involved). */
+  canAllow(req, messageId) {
+    const s = this.shown.get(req.requestId);
+    return Boolean(s && s.full && !s.noPhone && s.msgId && messageId && messageId > s.msgId);
+  }
+
+  /**
+   * "Name: allow | allow always | deny | show | pick N". Returns false when Name has nothing open (then it is an ordinary
+   * message). Allowing needs: his own typed message, and the request shown to him whole, before he wrote.
+   */
+  async decide(agent, d, ctx = {}) {
+    const a = this.listAgents().find((x) => x.id === agent.id) || agent;
+    const reqs = Array.isArray(a.permissions) ? a.permissions : [];
+    if (!reqs.length) return false;
+    const name = a.name || a.id;
+    const who = handle(name);
+    if (d.verb === 'show') { await this.showRequest(a, reqs[0]); return true; }
+    if (!ctx.verified || ctx.forwarded || ctx.voice) {
+      const why = !ctx.verified ? 'not his own private chat' : ctx.forwarded ? 'forwarded' : 'by voice';
+      this.log(`refused "${d.verb}" for ${name}: ${why}`);
+      this.say(!ctx.verified ? 'I only take approvals typed in your own private chat with me.'
+        : ctx.forwarded ? 'A forwarded message is not an approval: type it yourself.'
+          : `I don't take approvals by voice: a misheard word could allow the wrong thing. Type "${who}: ${d.verb}".`);
+      return true;
+    }
+    if (!this.respondFn) { this.say('Answering from here is not wired in this engine.'); return true; }
+    if (d.verb === 'deny') {
+      const req = reqs.find((r) => this.shown.has(r.requestId)) || reqs[0];
+      await this.answer(a, req, { behavior: 'deny', message: 'Denied by the owner on Telegram.' }, `🚫 ${who}: denied ${this.describeWhat(req)}`);
+      return true;
+    }
+    if (d.verb === 'pick') {
+      const req = reqs.find((r) => r.requestKind === 'question');
+      const q = req && simpleQuestion(req);
+      if (!req) this.say(`${name} isn't asking a question (it waits for an allow or a deny).`);
+      else if (!q) this.say(`${name}'s question has several parts or several choices: answer it in the Oasis.`);
+      else if (!this.canAllow(req, ctx.messageId)) await this.showFirst(a, req, ctx.messageId);
+      else if (d.n < 1 || d.n > q.options.length) this.say(`Pick a number from 1 to ${q.options.length}.`);
+      else {
+        const label = q.options[d.n - 1].label;
+        await this.answer(a, req, { behavior: 'allow', answers: { [req.input.questions[0].question]: label } }, `✅ ${who}: answered "${label}"`);
+      }
+      return true;
+    }
+    // allow / allow always
+    const open = reqs.filter((r) => r.requestKind !== 'question');
+    if (!open.length) { this.say(`${name} asks a question, not for permission. Reply "${who}: pick 1" (or the number you choose), or answer it in the Oasis.`); return true; }
+    const req = open.find((r) => this.canAllow(r, ctx.messageId));
+    if (!req) { await this.showFirst(a, open[0], ctx.messageId); return true; }
+    if (d.always && suggestionProblem(req.suggestions)) {
+      this.say(`"allow always" is not offered for ${name}'s request (${suggestionProblem(req.suggestions)}). "${who}: allow" allows it once.`);
+      return true;
+    }
+    if (d.always && describeSuggestions(req.suggestions) && this.shown.get(req.requestId)?.alwaysOk === false) {
+      this.say(`"allow always" was not shown to you whole for this request. "${who}: allow" allows it once.`);
+      return true;
+    }
+    const standing = d.always ? describeSuggestions(req.suggestions) : null;
+    const what = this.describeWhat(req);
+    await this.answer(a, req, { behavior: 'allow', always: Boolean(standing) },
+      d.always && !standing ? `✅ ${who}: allowed ${what} once (no standing rule was offered for it)`
+        : `✅ ${who}: allowed ${what}${standing ? `, and always: ${standing}` : ' (this once)'}`);
+    return true;
+  }
+
+  /** "allow" met a request he has not been shown whole (or since before he wrote): show it, never allow it. */
+  async showFirst(a, req, messageId) {
+    const who = handle(a.name || a.id);
+    const s = this.shown.get(req.requestId);
+    if (s && !s.full) {
+      this.say(s.noPhone ? `${a.name}'s request can't be checked on a phone ("${who}: show" says why): decide it in the Oasis, or "${who}: deny".` : `You have seen only the first part of ${a.name}'s request. "${who}: show" sends the rest.`);
+    } else if (s && !(messageId && messageId > s.msgId)) {
+      this.say(`That was written before I showed you this request. Look at it again, then send it again.`);
+    } else {
+      const b = requestBlock(a, req);
+      await this.announce({ text: `${b.text}\n\nI had not shown you this one yet. Look it over, then answer.`, blocks: [{ ...b, agent: a, req }] });
+    }
+  }
+
+  /** Answer through the engine and say in one line what was done; if more wait on the same agent, show the next. */
+  async answer(a, req, opts, line) {
+    const who = handle(a.name || a.id);
+    try {
+      await this.respondFn(a.id, req.requestId, opts);
+    } catch (e) {
+      this.say(/no pending request/.test(e.message) ? `${a.name}'s request was already answered (in the Oasis?).` : `Could not answer ${a.name}: ${e.message}`);
+      this.shown.delete(req.requestId);
+      return;
+    }
+    this.shown.delete(req.requestId);
+    const after = (this.listAgents().find((x) => x.id === a.id)?.permissions) || [];
+    this.say(`${line}${after.length ? ` · ${after.length} more waiting for ${who}` : ''}.`);
+    this.log(`answered ${a.name}: ${opts.behavior}${opts.always ? ' always' : ''}${opts.answers ? ' (pick)' : ''}`);
+    if (after.length) {
+      const fresh = this.listAgents().find((x) => x.id === a.id) || a;
+      const b = { ...requestBlock(fresh, after[0], { more: after.length - 1 }), agent: fresh, req: after[0] };
+      await this.announce({ text: b.text, blocks: [b] });
+    }
   }
 
   // ---------------------------------------------------------------- an agent tells the owner
@@ -926,7 +1192,9 @@ export class TelegramLine {
     }
     return {
       enabled: true, polling: this.running, configOk: this.cfg.ok, chatId: this.cfg.chatId || null,
-      nextAppAlsoPolls: !!this.cfg.nextPolls, pings: this.state.pings, checkin: { ...this.state.checkin }, offset: this.state.offset, ...this.stats,
+      nextAppAlsoPolls: !!this.cfg.nextPolls, pings: this.state.pings, checkin: { ...this.state.checkin }, offset: this.state.offset,
+      presence: { pages: this.pages(), lastActiveAt: this.activity.lastGrowthAt || null, atOasis: Boolean(this.pages() && this.activity.lastGrowthAt && this.now() - this.activity.lastGrowthAt < this.presentMs) },
+      waitingToPing: this.batch.size, ...this.stats,
     };
   }
 }
@@ -935,7 +1203,7 @@ export class TelegramLine {
  * The engine's Telegram line, or null when it should stay off: test engines (any port but 4530) unless OASIS_TELEGRAM=1,
  * OASIS_TELEGRAM=0, or no usable bot config. Paths and the API base can be overridden for tests.
  */
-export function startTelegram({ port, root, log, listAgents, send, interrupt, journal = null }) {
+export function startTelegram({ port, root, log, listAgents, send, interrupt, respond, pages, journal = null }) {
   const flag = process.env.OASIS_TELEGRAM;
   if (flag === '0' || (flag !== '1' && Number(port) !== 4530)) return null;
   const line = new TelegramLine({
@@ -944,7 +1212,9 @@ export function startTelegram({ port, root, log, listAgents, send, interrupt, jo
     apiBase: process.env.OASIS_TELEGRAM_API,
     pingMs: Number(process.env.OASIS_TELEGRAM_PING_MS) || PING_MS,
     checkinEveryMs: process.env.OASIS_TELEGRAM_CHECKIN_MS != null ? Number(process.env.OASIS_TELEGRAM_CHECKIN_MS) : undefined, // 0: no timer (tests)
-    listAgents, send, interrupt, log, journal,
+    batchMs: process.env.OASIS_TELEGRAM_BATCH_MS != null ? Number(process.env.OASIS_TELEGRAM_BATCH_MS) : undefined,
+    presentMs: process.env.OASIS_TELEGRAM_PRESENT_MS != null ? Number(process.env.OASIS_TELEGRAM_PRESENT_MS) : undefined,
+    listAgents, send, interrupt, respond, pages, log, journal,
   });
   if (!line.cfg.ok) { line.log(`off: ${line.cfg.error || 'the bot config lacks enabled, botToken or chatId'}`); return null; }
   return line.start();

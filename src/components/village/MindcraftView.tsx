@@ -14,7 +14,7 @@ import { useMindcraftLook } from './mindcraft-look'
 import { ManualTimeForm } from './ManualTimeForm'
 import { CarbonMissions } from './CarbonMissions'
 import { HoursChart, type RebuiltDays } from './MindcraftChart'
-import { runningClock } from './OwnMissionPanel'
+import { CommittedList, runningClock } from './OwnMissionPanel'
 import { useLiveWork } from './useLiveWork'
 import { useKitStyle } from '@/components/ui-kit'
 import { layerZ, raiseLayer, useLayer } from '@/lib/ui-kit/layers'
@@ -198,6 +198,7 @@ function TodayCard({ book, snapshot, onRemoveManual, onSaved }: { book: Mindcraf
           {snapshot.runs.map((r, i) => <div key={i} className="text-white/85"><span style={{ color: r.plannedSeconds === null || r.kept ? '#34d399' : '#f87171' }}>{r.plannedSeconds === null || r.kept ? '✓' : '×'}</span> {r.title}: {r.plannedSeconds === null ? 'done' : r.kept ? 'kept' : 'not kept'} · {hms(r.seconds)}{r.told ? ' · notes to ' + r.told : ''}</div>)}
         </div>
       )}
+      <CommittedList snapshot={snapshot} title="Committed: today and the coming days" />
       <DayList days={today} today={snapshot.date} target={snapshot.targetSeconds} onRemoveManual={onRemoveManual} empty="Nothing counted yet today." liveToday={live.mine} />
       <div className="flex flex-wrap gap-3 text-[13px]">
         <button type="button" className="text-amber-200/85 underline decoration-dotted" onClick={() => setManual(v => !v)}>{manual ? 'close' : 'add time by hand'}</button>

@@ -7,6 +7,8 @@
 //   node scripts/oasis.mjs open                     open the village in the default browser, with the local key
 //   node scripts/oasis.mjs link                     put the village's address with the key on the clipboard, for
 //                                                   another browser on this machine (never printed)
+//   node scripts/oasis.mjs update                   a git clone: git pull, then start (it rebuilds); a plugin
+//                                                   install updates with /oasis update in Claude Code
 //   node scripts/oasis.mjs status                   what is running
 //   node scripts/oasis.mjs stop                     stop what `start` started (never anything else)
 //
@@ -26,7 +28,7 @@
 //     `next build`, then `next start`.
 // Exit codes: 0 fine, 3 the page server did not come up in time, 6 setup failed.
 import { spawn, spawnSync } from 'node:child_process'
-import { randomBytes } from 'node:crypto'
+import { createHash, randomBytes } from 'node:crypto'
 import fs from 'node:fs'
 import net from 'node:net'
 import os from 'node:os'
@@ -45,6 +47,8 @@ const WAIT_MS = Number(process.env.OASIS_WAIT_MS || 150_000)
 const WIN = process.platform === 'win32'
 const STARTED_AT = Date.now()
 let firstStart = false
+let update = null
+let rolledBack = false
 
 const say = (line) => process.stdout.write(`${line}\n`)
 const args = process.argv.slice(2)
@@ -86,10 +90,11 @@ function runAsync(command, argv, options = {}) {
 // minutes a person, or the agent that runs this for them, thinks it hung. So: the steps up front, one line per step,
 // and a line every 25 seconds while a long one runs, each with about how long is left.
 /** Typical seconds per step, measured in clean installs (Windows, GitHub's Apple Silicon Mac), Nov 2026. */
-export const STEP_SECONDS = { packages: 90, client: 15, database: 20, party: 10, build: process.platform === 'darwin' ? 300 : 200 }
+export const STEP_SECONDS = { packages: 90, client: 15, migrate: 10, database: 20, party: 10, build: process.platform === 'darwin' ? 300 : 200 }
 const STEP_WORDS = {
   packages: 'installing the packages',
   client: 'preparing the database client',
+  migrate: 'bringing your database up to this version (a copy of it is kept first)',
   database: 'creating the database and the first worlds',
   party: 'installing the party server',
   build: 'building the Oasis',
@@ -158,6 +163,77 @@ function readEnvFile() {
   try { return fs.readFileSync(path.join(HOME, '.env'), 'utf8') } catch { return '' }
 }
 
+// ── updates: what was built from what ─────────────────────────────────────────────────────────────────────
+// A git pull, or a new release unpacked by the plugin, changes the source under a finished build. Without a record
+// of what the build was made from, the old page kept being served (Hustler, 24 Nov). So the build leaves a stamp:
+// the version and a fingerprint of everything it was made from; the packages leave the lockfile's hash.
+const SOURCE_STAMP = path.join(HOME, '.next', 'oasis-source.json')
+const PREVIOUS_BUILD = path.join(HOME, '.next-previous')
+
+/** The version this copy of the Oasis is (its release file), or ''. */
+export function oasisVersion(home = HOME) {
+  try { return JSON.parse(fs.readFileSync(path.join(home, 'plugins', 'oasis', 'scripts', 'release.json'), 'utf8')).version || '' } catch { return '' }
+}
+
+function fileSha1(file) {
+  try { return createHash('sha1').update(fs.readFileSync(file)).digest('hex') } catch { return '' }
+}
+
+function listFiles(dir) {
+  const out = []
+  const walk = (d) => {
+    let entries
+    try { entries = fs.readdirSync(d, { withFileTypes: true }) } catch { return }
+    for (const e of entries) {
+      const full = path.join(d, e.name)
+      if (e.isDirectory()) walk(full)
+      else if (e.isFile()) out.push(full)
+    }
+  }
+  walk(dir)
+  return out.sort()
+}
+
+/** Everything the page's build is made from, and the engine port it is built for. */
+export function sourceFingerprint(home = HOME, enginePort = ENGINE_PORT) {
+  const hash = createHash('sha1').update(`engine:${enginePort}\n`)
+  const files = [...listFiles(path.join(home, 'src')), ...['package.json', 'pnpm-lock.yaml', 'next.config.mjs', 'tsconfig.json',
+    'tailwind.config.js', 'postcss.config.js', 'instrumentation.ts', 'prisma/schema.prisma', '.env.production'].map((f) => path.join(home, f))]
+  for (const file of files) {
+    let data
+    try { data = fs.readFileSync(file) } catch { continue }
+    hash.update(path.relative(home, file).split(path.sep).join('/')).update('\0').update(data).update('\0')
+  }
+  return hash.digest('hex')
+}
+
+function readStamp() {
+  try { return JSON.parse(fs.readFileSync(SOURCE_STAMP, 'utf8')) } catch { return null }
+}
+
+/** The database was last brought up to which schema (a stamp beside it); a missing stamp counts as different. */
+function schemaPushNeeded() {
+  const db = databaseFile(readEnvFile())
+  const now = fileSha1(path.join(HOME, 'prisma', 'schema.prisma'))
+  let seen = ''
+  try { seen = fs.readFileSync(`${db}.schema.sha1`, 'utf8').trim() } catch { /* never stamped */ }
+  return Boolean(now) && seen !== now
+}
+
+const stampFile = (dir, name) => path.join(dir, 'node_modules', `.oasis-${name}.sha1`)
+/** true when this folder's lockfile (or the database schema) is not what its packages were installed from. */
+function stale(dir, name, source) {
+  const now = fileSha1(source)
+  if (!now) return false
+  let seen = ''
+  try { seen = fs.readFileSync(stampFile(dir, name), 'utf8').trim() } catch { /* never stamped: an install from before stamps */ }
+  return seen !== now
+}
+function stamp(dir, name, source) {
+  const now = fileSha1(source)
+  if (now && fs.existsSync(path.join(dir, 'node_modules'))) fs.writeFileSync(stampFile(dir, name), now)
+}
+
 /**
  * Room for the build. Node gives itself about a quarter of the machine's memory by default, and the build needs
  * more than 2 GB: on a Mac with 7 or 8 GB (GitHub's own Macs, a base MacBook Air) it ran out of memory twice and
@@ -173,29 +249,44 @@ const roomDir = () => path.join(HOME, 'packages', 'oasis-room-server')
 const roomNeedsPackages = () => SLIM && fs.existsSync(path.join(roomDir(), 'pnpm-lock.yaml')) && !fs.existsSync(path.join(roomDir(), 'node_modules', 'tsx', 'package.json'))
 
 /** The steps a first start still has to take, in order (each is skipped once done). */
-function setupPlan() {
+function setupPlan(fingerprint = SLIM ? sourceFingerprint() : '') {
   const plan = []
-  if (!fs.existsSync(bin('next', 'package.json'))) plan.push('packages')
-  if (!fs.existsSync(bin('.prisma', 'client', 'index.js'))) plan.push('client')
+  const packages = !fs.existsSync(bin('next', 'package.json')) || (SLIM && stale(HOME, 'lock', path.join(HOME, 'pnpm-lock.yaml')))
+  if (packages) plan.push('packages')
+  if (packages || !fs.existsSync(bin('.prisma', 'client', 'index.js')) || (SLIM && stale(HOME, 'schema', path.join(HOME, 'prisma', 'schema.prisma')))) plan.push('client')
   if (!fs.existsSync(databaseFile(readEnvFile()))) plan.push('database')
-  if (roomNeedsPackages()) plan.push('party')
-  if (SLIM && !fs.existsSync(path.join(HOME, '.next', 'BUILD_ID'))) plan.push('build')
+  else if (SLIM && schemaPushNeeded()) plan.push('migrate')
+  if (roomNeedsPackages() || (SLIM && fs.existsSync(path.join(roomDir(), 'node_modules')) && stale(roomDir(), 'lock', path.join(roomDir(), 'pnpm-lock.yaml')))) plan.push('party')
+  if (SLIM && (!fs.existsSync(path.join(HOME, '.next', 'BUILD_ID')) || readStamp()?.fingerprint !== fingerprint)) plan.push('build')
   return plan
+}
+
+/** An update: a build exists (or the plugin says it is updating) and the plan rebuilds. From which version to which. */
+function updateFrom(plan) {
+  if (!SLIM || !plan.includes('build')) return null
+  const from = process.env.OASIS_UPDATE_FROM || (fs.existsSync(path.join(HOME, '.next', 'BUILD_ID')) ? (readStamp()?.version || 'an earlier version') : '')
+  return from ? { from, to: oasisVersion() || 'this version' } : null
 }
 
 /** First run: packages, the .env file, the database, and (slim) the build. Each step is skipped once done. */
 async function setup() {
-  const plan = setupPlan()
+  const fingerprint = SLIM ? sourceFingerprint() : ''
+  const plan = setupPlan(fingerprint)
   const began = Date.now()
   const done = []
-  firstStart = plan.length > 0
-  if (plan.length) say(`First start: ${plan.length} step${plan.length === 1 ? '' : 's'}, ${aboutTime(secondsLeft(plan, 0, 0))} in all. Later starts take seconds.`)
+  update = updateFrom(plan)
+  firstStart = plan.length > 0 && !update
+  if (update) say(update.from === update.to
+    ? `Rebuilding the Oasis ${update.to} (its files or its ports changed): ${plan.length} step${plan.length === 1 ? '' : 's'}, ${aboutTime(secondsLeft(plan, 0, 0))} in all.`
+    : `Updating the Oasis from ${update.from} to ${update.to}: ${plan.length} step${plan.length === 1 ? '' : 's'}, ${aboutTime(secondsLeft(plan, 0, 0))} in all.`)
+  else if (plan.length) say(`First start: ${plan.length} step${plan.length === 1 ? '' : 's'}, ${aboutTime(secondsLeft(plan, 0, 0))} in all. Later starts take seconds.`)
   // Corepack asks before it downloads pnpm; nobody may be there to answer (an agent runs this), so it may not ask.
   process.env.COREPACK_ENABLE_DOWNLOAD_PROMPT = '0'
   if (plan.includes('packages')) {
     const [command, ...lead] = pnpm()
     const code = await step(plan, 'packages', () => runAsync(command, [...lead, 'install', '--frozen-lockfile', ...(SLIM ? ['--prod=false'] : [])]))
     if (code !== 0) return fail('The package install failed.')
+    if (SLIM) stamp(HOME, 'lock', path.join(HOME, 'pnpm-lock.yaml'))
     done.push('packages')
   }
   if (!fs.existsSync(path.join(HOME, '.env'))) {
@@ -207,9 +298,21 @@ async function setup() {
   const prisma = bin('prisma', 'build', 'index.js')
   if (plan.includes('client')) {
     if (await step(plan, 'client', () => runAsync(process.execPath, [prisma, 'generate'])) !== 0) return fail('Preparing the database client failed.')
+    if (SLIM) stamp(HOME, 'schema', path.join(HOME, 'prisma', 'schema.prisma'))
     done.push('database client')
   }
-  // Only ever on a machine without a database: an existing one is never pushed to.
+  // An existing database is brought up to a changed schema only after a copy of it is kept, and never with
+  // --accept-data-loss: Prisma refuses a change that would lose data, and the start stops with what it said.
+  if (plan.includes('migrate')) {
+    const db = databaseFile(readEnvFile())
+    const copy = `${db}.before-${oasisVersion() || 'update'}-${Date.now()}`
+    fs.copyFileSync(db, copy)
+    const code = await step(plan, 'migrate', () => runAsync(process.execPath, [prisma, 'db', 'push', '--skip-generate']))
+    if (code !== 0) return fail(`Your database could not be brought up to this version without losing data, so it was left as it was (a copy is in ${copy}). Nothing else changed in it; report this at https://github.com/Parzival-Moksha/uploader/issues.`)
+    fs.writeFileSync(`${db}.schema.sha1`, fileSha1(path.join(HOME, 'prisma', 'schema.prisma')))
+    done.push('database update')
+  }
+  // A new database: created and seeded with the first worlds.
   if (plan.includes('database')) {
     const db = databaseFile(readEnvFile())
     fs.mkdirSync(path.dirname(db), { recursive: true })
@@ -221,23 +324,42 @@ async function setup() {
       return 0
     })
     if (code !== 0) return fail('Creating the database failed.')
+    fs.writeFileSync(`${databaseFile(readEnvFile())}.schema.sha1`, fileSha1(path.join(HOME, 'prisma', 'schema.prisma')))
     done.push('database')
   }
   // The party's room server (World menu > Host a party) has packages of its own, from its own lockfile. A failure
   // here leaves everything else working; hosting then says it cannot start.
   if (plan.includes('party')) {
     const [command, ...lead] = pnpm()
-    if (await step(plan, 'party', () => runAsync(command, [...lead, 'install', '--frozen-lockfile', '--prod'], { cwd: roomDir() })) === 0) done.push('party server')
+    if (await step(plan, 'party', () => runAsync(command, [...lead, 'install', '--frozen-lockfile', '--prod'], { cwd: roomDir() })) === 0) { stamp(roomDir(), 'lock', path.join(roomDir(), 'pnpm-lock.yaml')); done.push('party server') }
     else say('The party server packages could not be installed; everything else works, hosting a party does not.')
   }
   if (plan.includes('build')) {
+    // The build that runs today stays beside until the new one is built: a failed rebuild gives it back.
+    const next = path.join(HOME, '.next')
+    const kept = fs.existsSync(path.join(next, 'BUILD_ID'))
+    if (kept) {
+      fs.rmSync(PREVIOUS_BUILD, { recursive: true, force: true })
+      fs.renameSync(next, PREVIOUS_BUILD)
+    }
     const build = () => runAsync(process.execPath, [bin('next', 'dist', 'bin', 'next'), 'build'], { env: { ...process.env, ...webEnv(), NODE_OPTIONS: buildNodeOptions() } })
     const code = await step(plan, 'build', async () => {
       if (await build() === 0) return 0
       say('The build failed; trying once more …')
       return build()
     })
-    if (code !== 0) return fail('The build failed twice. Look at the lines above for why, and start the Oasis again.')
+    if (code !== 0) {
+      if (kept) {
+        fs.rmSync(next, { recursive: true, force: true })
+        fs.renameSync(PREVIOUS_BUILD, next)
+        say(`The new version did not build (the lines above say why). The build you had is back${readStamp()?.version ? ` (${readStamp().version})` : ''}; the Oasis starts with it.`)
+        rolledBack = true
+        return true
+      }
+      return fail('The build failed twice. Look at the lines above for why, and start the Oasis again.')
+    }
+    fs.writeFileSync(SOURCE_STAMP, JSON.stringify({ version: oasisVersion(), fingerprint, builtAt: new Date().toISOString() }, null, 2))
+    fs.rmSync(PREVIOUS_BUILD, { recursive: true, force: true })
     done.push('build')
   }
   if (done.length) say(`Set up: ${done.join(', ')}, in ${minSec((Date.now() - began) / 1000)}.`)
@@ -276,6 +398,7 @@ const tokenEnv = () => (REQUIRE_TOKEN ? { OASIS_LOCAL_TOKEN: localToken(), OASIS
 function webEnv() {
   const env = { OASIS_ENGINE_HTTP_URL: `http://127.0.0.1:${ENGINE_PORT}` }
   if (ENGINE_PORT !== 4530) env.NEXT_PUBLIC_AGENT_ENGINE_URL = `ws://127.0.0.1:${ENGINE_PORT}/ws`
+  if (oasisVersion()) env.NEXT_PUBLIC_OASIS_VERSION = oasisVersion()
   if (SLIM) {
     env.NEXT_PUBLIC_OASIS_PROFILE = 'village'
     env.NEXT_PUBLIC_OASIS_EDITION = 'slim'
@@ -349,12 +472,12 @@ export function villageUrl({ session = '', firstRun = false, port = WEB_PORT, ke
  * The last lines of a start: for the person, or for the agent that ran this for them to pass on word for word
  * (a newcomer's agent otherwise guesses: other ports, its own browser, "I can't confirm it's open").
  */
-export function handoverLines({ url, opened, seconds, folder, first = false }) {
+export function handoverLines({ url, opened, seconds, folder, first = false, updatedTo = '' }) {
   return [
     '',
     '---- For the user (pass this on word for word) ----',
     opened ? `The Oasis is open in your browser: ${url}` : `The Oasis is running: ${url} (to open it with its key: node scripts/oasis.mjs open)`,
-    first ? `The first start took ${minSec(seconds)}; later starts take seconds.` : `Started in ${minSec(seconds)}.`,
+    updatedTo ? `Updated to ${updatedTo} in ${minSec(seconds)}.` : first ? `The first start took ${minSec(seconds)}; later starts take seconds.` : `Started in ${minSec(seconds)}.`,
     'First thing to do: in the village, walk up to one of your own Claude Code sessions standing in front of you and press E to read it (Talk to it here carries it on); or click Agents (top left), then Summon a guide.',
     `To open it again: node scripts/oasis.mjs open (in ${folder}).`,
     '----------------------------------------------------',
@@ -362,6 +485,13 @@ export function handoverLines({ url, opened, seconds, folder, first = false }) {
 }
 
 async function start() {
+  // An update rebuilds the page and may reinstall packages: the servers this script started stop first (never others).
+  const pending = setupPlan()
+  if ((pending.includes('build') || pending.includes('packages')) && (alive(readRun().web) || alive(readRun().engine))) {
+    say('Stopping the running Oasis to update it …')
+    stop()
+    await sleep(1500)
+  }
   if (!(await setup())) return 6
   const run = readRun()
   const started = []
@@ -400,8 +530,33 @@ async function start() {
   const url = villageUrl({ session: arg('--session'), firstRun })
   // The key goes to the browser, never to the output (a log or a chat window would keep it).
   openBrowser(REQUIRE_TOKEN ? villageUrl({ session: arg('--session'), firstRun, key: localToken() }) : url)
-  for (const line of handoverLines({ url: villageUrl(), opened: !process.env.OASIS_NO_OPEN, seconds: (Date.now() - STARTED_AT) / 1000, folder: HOME, first: firstStart })) say(line)
+  for (const line of handoverLines({ url: villageUrl(), opened: !process.env.OASIS_NO_OPEN, seconds: (Date.now() - STARTED_AT) / 1000, folder: HOME, first: firstStart, updatedTo: update && !rolledBack ? update.to : '' })) say(line)
   return 0
+}
+
+/**
+ * Updates on request only. A git clone: git pull --ff-only (local changes to tracked files stop it, with git's words),
+ * then the start script, which rebuilds what changed and keeps the previous build until the new one is built.
+ * A plugin install updates with /oasis update in Claude Code (the old app stays beside until the new one answers).
+ */
+async function updateCommand() {
+  if (!fs.existsSync(path.join(HOME, '.git'))) {
+    say(`This Oasis (${oasisVersion() || 'its version is unknown'}) was not installed from git. In Claude Code, /oasis update installs the newest one and keeps your worlds and agents.`)
+    return 1
+  }
+  const before = oasisVersion()
+  say(`Updating the Oasis${before ? ` (${before})` : ''} from its repository: git pull …`)
+  if (await runAsync('git', ['pull', '--ff-only'], { shell: WIN })) {
+    say('git pull did not finish (the lines above say why). Nothing was changed; the Oasis you had is as it was.')
+    return 1
+  }
+  const after = oasisVersion()
+  if (after === before && !setupPlan().length) {
+    say(`The Oasis is already the newest${after ? ` (${after})` : ''}.`)
+    return open()
+  }
+  process.env.OASIS_UPDATE_FROM = before || 'an earlier version'
+  return start()
 }
 
 /** Opens the village in the default browser with the key; starts the Oasis first if it is not running. */
@@ -448,7 +603,7 @@ async function status() {
   const [engine, web] = await Promise.all([portOpen(ENGINE_PORT), portOpen(WEB_PORT)])
   say(`Engine (port ${ENGINE_PORT}): ${engine ? 'running' : 'not running'}`)
   say(`World  (port ${WEB_PORT}): ${web ? 'running' : 'not running'}`)
-  say(`Edition: ${SLIM ? 'slim' : 'workshop'}, in ${HOME}`)
+  say(`Edition: ${SLIM ? 'slim' : 'workshop'}${oasisVersion() ? `, version ${oasisVersion()}` : ''}, in ${HOME}`)
   say(`Local key: ${REQUIRE_TOKEN ? 'on (only this machine may talk to the Oasis). `node scripts/oasis.mjs open` opens it with the key; `node scripts/oasis.mjs link` puts the address with the key on the clipboard for another browser' : 'off'}`)
   return 0
 }
@@ -481,13 +636,17 @@ async function main() {
   if (command === 'start') return start()
   if (command === 'setup') return (await setup()) ? 0 : 6
   if (command === 'open') return open()
+  if (command === 'update') return updateCommand()
   if (command === 'link') return link()
   if (command === 'status') return status()
   if (command === 'stop') return stop()
-  say('Usage: node scripts/oasis.mjs start | open | link | setup | status | stop')
+  say('Usage: node scripts/oasis.mjs start | open | link | update | setup | status | stop')
   return 1
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+/** The real path of a file (through links), or the path itself. */
+const realOf = (p) => { try { return fs.realpathSync(p) } catch { return path.resolve(p) } }
+// Started through a link (an updated install's `app` is one), argv[1] is the link's path: compare real paths.
+if (process.argv[1] && realOf(process.argv[1]) === realOf(fileURLToPath(import.meta.url))) {
   main().then((code) => process.exit(code))
 }

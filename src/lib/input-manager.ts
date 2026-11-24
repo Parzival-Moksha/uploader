@@ -9,7 +9,8 @@
 import { create } from 'zustand'
 import { LOCK_ANSWER_MS, installDragLook, isDragLookOn, lockFailureCounts, noteLockFailed, noteLockGranted } from './drag-look'
 import { useEffect } from 'react'
-import { installPointerRelease, lockRequestPending, noteLockRequested, noteLockSettled } from './pointer-release'
+import { installPointerRelease, keepLockThroughEscape, lockRequestPending, noteLockRequested, noteLockSettled } from './pointer-release'
+import { isSpaceTap, shouldGiveLookBack, spaceTargetIsWorld, wasLooking } from './look-keys'
 
 interface MouseLookDebugState {
   droppedSampleCount: number
@@ -32,6 +33,11 @@ const mouseLookAccumulator = {
   oldestTime: 0,
 }
 let lastPointerLockRightClickAt = 0
+/** When the pointer lock last ended (look-keys.ts wasLooking: a lock released just before a panel opened counts). */
+let lastLockLostAt = -Infinity
+/** Space held: when it went down, and whether another key was pressed during it (then it is no tap). */
+let spaceDownAt = -Infinity
+let spaceChord = false
 let lastUILayerClosedAt = 0
 let skipNextMouseLookSample = false
 let uiFocusHoldUntil = 0
@@ -291,6 +297,8 @@ interface InputManagerState {
   pointerLocked: boolean
   _previousCameraState: InputState | null
   _uiLayerStack: string[]
+  /** The mouse steered the camera when the current panel / menu / focus began: leaving it gives the look back. */
+  _lookBeforeFocus: boolean
 
   // Queries
   can: () => StateCapabilities
@@ -324,6 +332,7 @@ export const useInputManager = create<InputManagerState>((set, get) => ({
   pointerLocked: false,
   _previousCameraState: null,
   _uiLayerStack: [],
+  _lookBeforeFocus: false,
 
   can: () => STATE_CAPABILITIES[get().inputState],
   isPointerLocked: () => get().pointerLocked,
@@ -357,19 +366,22 @@ export const useInputManager = create<InputManagerState>((set, get) => ({
 
   enterAgentFocus: () => {
     const current = get().inputState
-    const cameraState = (current === 'agent-focus' || current === 'ui-focused')
-      ? get()._previousCameraState : current
+    const fromFocus = current === 'agent-focus' || current === 'ui-focused'
+    const cameraState = fromFocus ? get()._previousCameraState : current
+    // Remember whether the mouse was steering the camera: closing the panel gives that back (the owner asked ~5x).
+    const lookBefore = fromFocus ? get()._lookBeforeFocus : wasLooking(get().pointerLocked, lastLockLostAt, getMouseLookNow())
     // Release pointer lock for DOM interaction
     if (get().pointerLocked) document.exitPointerLock()
-    set({ inputState: 'agent-focus', _previousCameraState: cameraState })
+    set({ inputState: 'agent-focus', _previousCameraState: cameraState, _lookBeforeFocus: lookBefore })
   },
 
   enterUIFocus: () => {
     const current = get().inputState
+    const lookBefore = wasLooking(get().pointerLocked, lastLockLostAt, getMouseLookNow())
     // Release pointer lock so user can interact with UI
     if (get().pointerLocked) document.exitPointerLock()
     if (current !== 'ui-focused' && current !== 'agent-focus') {
-      set({ inputState: 'ui-focused', _previousCameraState: current })
+      set({ inputState: 'ui-focused', _previousCameraState: current, _lookBeforeFocus: lookBefore })
     } else {
       set({ inputState: 'ui-focused' })
     }
@@ -383,13 +395,14 @@ export const useInputManager = create<InputManagerState>((set, get) => ({
     }
     clearMouseLookAccumulator()
     const prev = get()._previousCameraState || 'orbit'
-    set({ inputState: prev, _previousCameraState: null })
+    const lookBefore = get()._lookBeforeFocus
+    set({ inputState: prev, _previousCameraState: null, _lookBeforeFocus: false })
     // Blur DOM so keyboard goes back to game
     if (typeof document !== 'undefined' && document.activeElement instanceof HTMLElement) {
       document.activeElement.blur()
     }
-    // Do not auto-reacquire pointer lock after closing UI. The user should
-    // explicitly click back into the scene to hand mouse-look to the camera.
+    // The look the owner had when the panel / menu opened comes back (look-keys.ts shouldGiveLookBack).
+    giveLookBack(lookBefore, prev)
   },
 
   handleEscape: () => {
@@ -398,13 +411,14 @@ export const useInputManager = create<InputManagerState>((set, get) => ({
     if (!fallback) return false
     clearMouseLookAccumulator()
     const prev = get()._previousCameraState || fallback
-    set({ inputState: prev, _previousCameraState: null })
+    const lookBefore = get()._lookBeforeFocus
+    set({ inputState: prev, _previousCameraState: null, _lookBeforeFocus: false })
     if (typeof document !== 'undefined' && document.activeElement instanceof HTMLElement) {
       document.activeElement.blur()
     }
-    // Escape returns to the previous mode, but never re-locks the pointer: browser pointer lock is opt-in again on the
-    // next canvas click. (A re-lock from the Escape key, 2026-11-14 to 16, left the owner's cursor confined to the
-    // upper-left two thirds of the screen: keep pointer lock to clicks.)
+    // Escape out of a panel gives back the look the owner had when it opened (asked ~5x, 24 Nov). The re-lock of
+    // 14-16 Nov that confined his cursor was a Chromium leftover clip; the engine's clip watchdog releases those.
+    giveLookBack(lookBefore, prev)
     return true
   },
 
@@ -521,6 +535,7 @@ export const useInputManager = create<InputManagerState>((set, get) => ({
   _syncPointerLockState: () => {
     const locked = !!document.pointerLockElement
     if (locked) noteLockGranted()
+    else if (get().pointerLocked) lastLockLostAt = getMouseLookNow()
     clearMouseLookAccumulator()
     skipNextMouseLookSample = locked
     mouseLookDebugState.lastPointerLockChangeAt = getMouseLookNow()
@@ -550,6 +565,29 @@ export const useInputManager = create<InputManagerState>((set, get) => ({
       if (e.key === 'Escape' && get().pointerLocked) {
         document.exitPointerLock()
       }
+      // Space: note the press; any other key during it makes it a chord (Space + W walks slowly), not a tap.
+      if (e.code === 'Space') {
+        if (!e.repeat) { spaceDownAt = getMouseLookNow(); spaceChord = false }
+      } else if (spaceDownAt > -Infinity) {
+        spaceChord = true
+      }
+    }
+
+    // A tap of Space turns mouse-look on or off (clicking is for selecting; the owner, 24 Nov). Holding Space still
+    // walks slowly. Not in a text field or on a focused button, and only where the camera can be mouse-steered.
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (e.code !== 'Space') return
+      const held = getMouseLookNow() - spaceDownAt
+      const chord = spaceChord
+      spaceDownAt = -Infinity
+      spaceChord = false
+      if (!isSpaceTap(held, chord) || e.ctrlKey || e.altKey || e.metaKey || e.shiftKey) return
+      const target = e.target as HTMLElement | null
+      if (!spaceTargetIsWorld(target?.tagName, Boolean(target?.isContentEditable))) return
+      const state = get()
+      if (state._uiLayerStack.length > 0 || !STATE_CAPABILITIES[state.inputState].canLockPointer) return
+      if (state.pointerLocked) document.exitPointerLock()
+      else state.requestPointerLock()
     }
 
     const onContextMenu = (e: MouseEvent) => {
@@ -602,6 +640,7 @@ export const useInputManager = create<InputManagerState>((set, get) => ({
     document.addEventListener('pointerlockerror', onPointerLockError)
     document.addEventListener(mouseLookEvent, onMouseLookMove)
     document.addEventListener('keydown', onKeyDown)
+    document.addEventListener('keyup', onKeyUp)
     document.addEventListener('contextmenu', onContextMenu)
     document.addEventListener('focusin', onFocusIn)
     document.addEventListener('focusout', onFocusOut)
@@ -613,12 +652,29 @@ export const useInputManager = create<InputManagerState>((set, get) => ({
       document.removeEventListener('pointerlockerror', onPointerLockError)
       document.removeEventListener(mouseLookEvent, onMouseLookMove)
       document.removeEventListener('keydown', onKeyDown)
+      document.removeEventListener('keyup', onKeyUp)
       document.removeEventListener('contextmenu', onContextMenu)
       document.removeEventListener('focusin', onFocusIn)
       document.removeEventListener('focusout', onFocusOut)
     }
   },
 }))
+
+/**
+ * Leaving a panel / menu / focus: if the mouse steered the camera when it opened, it steers again at once (no
+ * cursor, no click). The Escape key-up of the same press must not free it again (pointer-release.ts).
+ */
+function giveLookBack(lookBefore: boolean, returningTo: InputState): void {
+  const state = useInputManager.getState()
+  if (!shouldGiveLookBack(lookBefore, STATE_CAPABILITIES[returningTo].canLockPointer, state._uiLayerStack.length)) return
+  keepLockThroughEscape()
+  // After this tick: the panel finishes closing, focus leaves its fields.
+  setTimeout(() => {
+    const now = useInputManager.getState()
+    if (now._uiLayerStack.length > 0 || !STATE_CAPABILITIES[now.inputState].canLockPointer) return
+    now.requestPointerLock()
+  }, 0)
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CONVENIENCE — non-hook access for event handlers + R3F useFrame

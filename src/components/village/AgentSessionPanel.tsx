@@ -7,6 +7,7 @@
 
 import { useEffect, useMemo, useState, useSyncExternalStore, type PointerEvent as ReactPointerEvent } from 'react'
 import { kitConfirm } from '../ui-kit'
+import { HERMES_MODES, MODE_LABEL, MODE_MEANING, PERMISSION_MODES, switchAgentMode } from './agent-mode'
 import { CUSTOM_MODEL_VALUE, cleanModelId, mergeModelLists, type ModelOption } from '../../lib/village/village-models'
 import { useOasisStore } from '../../store/oasisStore'
 import { useUILayer } from '../../lib/input-manager'
@@ -26,6 +27,7 @@ import {
   subscribeSessionPanelWidth,
   subscribeVillageScreen,
   pressVillageView,
+  villageEscape,
 } from './village-actions'
 import { VillageComposer } from './VillageComposer'
 import { EffortSelect } from './EffortSelect'
@@ -46,44 +48,6 @@ import { VILLAGE_FONT_BODY, VILLAGE_FONT_DISPLAY, VILLAGE_TYPE_CLASS, agentDispl
 import { useKitStyle } from '@/components/ui-kit'
 import { raiseLayer, useLayer } from '@/lib/ui-kit/layers'
 
-const PERMISSION_MODES = ['default', 'acceptEdits', 'auto', 'plan', 'bypassPermissions']
-/** What each mode means, in one line (the restart confirm says it). */
-const MODE_MEANING: Record<string, string> = {
-  default: 'It asks you before edits, commands and other tools.',
-  acceptEdits: 'It edits files without asking, and asks before commands.',
-  auto: 'It decides by itself what is safe, and asks you about the rest.',
-  plan: 'It only reads and plans: it changes nothing.',
-  bypassPermissions: 'It does everything without asking: edits, commands, the network.',
-}
-
-/**
- * Switch an agent's mode. When the running process can't take it (bypass on a session not started with it), the
- * Oasis asks and then restarts that agent in the mode with the same session (engine agent.js setPermissionMode).
- */
-async function switchMode(agentId: string, name: string, mode: string): Promise<void> {
-  const client = getAgentEngineClient()
-  try {
-    await client.setPermissionMode(agentId, mode)
-  } catch (error) {
-    const data = (error as { data?: { needsRestart?: boolean } }).data
-    if (!data?.needsRestart) { showNotice(`Mode switch failed: ${describeError(error)}`, 'error'); return }
-    const ok = await kitConfirm({
-      title: `Restart ${name} in ${mode}?`,
-      body: `${MODE_MEANING[mode] || ''} Its running process can't switch to this mode, so it restarts with the same session: the conversation stays. If it is working, after this turn.`,
-      confirm: 'Restart in this mode',
-      danger: mode === 'bypassPermissions',
-    })
-    if (!ok) return
-    try {
-      const reply = await client.setPermissionMode(agentId, mode, true) as { data?: { applied?: string } }
-      showNotice(`${name} restarts in ${mode}${reply?.data?.applied === 'after this turn' ? ' after this turn' : ''}.`, 'info')
-    } catch (err) {
-      showNotice(`Mode switch failed: ${describeError(err)}`, 'error')
-    }
-  }
-}
-/** A Hermes agent's modes (ACP session/set_mode): ask before edits, allow workspace edits, allow edits except sensitive paths. */
-const HERMES_MODES = ['default', 'accept_edits', 'dont_ask']
 
 function useViewport() {
   const [size, setSize] = useState(() => ({
@@ -163,7 +127,7 @@ export function AgentSessionPanel() {
   // On the panel layer (src/lib/ui-kit/layers.ts), with Mindcraft and the Wizard console: the later opened or clicked
   // is on top; Esc closes it when it is the topmost. Another agent opened (from Mindcraft, N) comes to the front.
   const shown = Boolean(agentId && agent && screenAgentId !== agentId)
-  const zIndex = useLayer('village-session', 'panel', shown, () => pressVillageView('Esc'))
+  const zIndex = useLayer('village-session', 'panel', shown, () => villageEscape())
   useEffect(() => { if (agentId && shown) raiseLayer('village-session', 'panel') }, [agentId, shown])
   // The remembered width (the owner drags the left edge); geometry reads it, this re-renders on a change.
   useSyncExternalStore(subscribeSessionPanelWidth, getSessionPanelWidth, () => null)
@@ -308,6 +272,38 @@ export function AgentSessionPanel() {
  * The agent's settings page (its panel's Settings tab, in the side panel and on the full screen): model and mode on
  * top, then thinking, account and its switches, Follow across worlds, and the thread's text size.
  */
+/**
+ * Its permission mode, one row per mode with what it means (agent-mode.ts): a click switches, bypass asks once, and
+ * when its running process refuses, it restarts in the mode with the same conversation, without another question.
+ */
+function ModeChooser({ agent }: { agent: EngineAgentState }) {
+  const [busy, setBusy] = useState<string | null>(null)
+  const current = agent.permissionMode || agent.effectivePermissionMode || 'default'
+  return (
+    <div data-agent-mode-chooser className="flex flex-col gap-1">
+      <div className="kit-label text-[10px] uppercase tracking-[0.12em]">Permissions</div>
+      {PERMISSION_MODES.map(mode => {
+        const on = mode === current
+        return (
+          <div key={mode} className="flex items-center gap-2">
+            <KitChip
+              data-mode={mode}
+              pressed={on}
+              tone={mode === 'bypassPermissions' ? 'danger' : undefined}
+              disabled={busy !== null || on}
+              onClick={() => { setBusy(mode); void switchAgentMode(agent.id, agent.name, mode).finally(() => setBusy(null)) }}
+              className="w-[7.5rem] shrink-0 justify-center"
+            >
+              {busy === mode ? '…' : MODE_LABEL[mode]}
+            </KitChip>
+            <span className={`text-[11px] leading-snug ${on ? 'text-white/90' : 'text-white/55'}`}>{MODE_MEANING[mode]}</span>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 /** Its session id, whole, to copy (it left the header: "7d97fabf. Is it the commit hash or something?"). */
 function SessionIdLine({ sessionId }: { sessionId: string | null }) {
   const [copied, setCopied] = useState(false)
@@ -365,21 +361,24 @@ export function AgentControls({ agent }: { agent: EngineAgentState }) {
               {models.map(model => <option key={model.value} value={model.value}>{model.displayName || model.value}</option>)}
               <option value={CUSTOM_MODEL_VALUE}>Other model id…</option>
           </KitSelectField>
-          <KitSelectField
-              label="Mode"
-              value={agent.permissionMode || ''}
-              onChange={event => {
-                const mode = event.target.value
-                if (!mode) return
-                void switchMode(agent.id, agent.name, mode)
-              }}
-              onKeyDown={event => event.stopPropagation()}
-            >
-              <option value="">{`settings (${agent.effectivePermissionMode || '?'})`}</option>
-              {(agent.runtime === 'hermes' ? HERMES_MODES : PERMISSION_MODES).map(mode => <option key={mode} value={mode}>{mode}</option>)}
-          </KitSelectField>
+          {agent.runtime === 'hermes' && (
+            <KitSelectField
+                label="Mode"
+                value={agent.permissionMode || ''}
+                onChange={event => {
+                  const mode = event.target.value
+                  if (!mode) return
+                  void switchAgentMode(agent.id, agent.name, mode)
+                }}
+                onKeyDown={event => event.stopPropagation()}
+              >
+                <option value="">{`settings (${agent.effectivePermissionMode || '?'})`}</option>
+                {HERMES_MODES.map(mode => <option key={mode} value={mode}>{mode}</option>)}
+            </KitSelectField>
+          )}
           <EffortSelect agent={agent} />
           </div>
+          {agent.runtime !== 'hermes' && <ModeChooser agent={agent} />}
           <FollowPair agent={agent} />
           <div className="flex flex-wrap items-center gap-2">
           {/* Its Claude account (engine accounts.js), when there is more than one. */}

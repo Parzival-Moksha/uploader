@@ -73,6 +73,8 @@ function useMenuTriggers() {
     let lastInputChangeAt = 0
     let lastProgrammaticUnlockAt = 0
     let pending: { event: KeyboardEvent; reachedBubble: boolean } | null = null
+    // When mouse-look last ended (an Escape right after it is still the one that freed the mouse).
+    let lastUnlockAt = -Infinity
 
     const stopWatching = useInputManager.subscribe((state, prev) => {
       if (state.inputState !== prev.inputState || state._uiLayerStack !== prev._uiLayerStack) lastInputChangeAt = performance.now()
@@ -133,6 +135,8 @@ function useMenuTriggers() {
       const before = nothingOpen()
       const typing = isTypingTarget(event.target)
       const wasLocked = useInputManager.getState().pointerLocked
+      // Locked now, or the lock ended a moment ago (browsers that hand the key over after unlocking).
+      const mouseLook = wasLocked || performance.now() - lastUnlockAt < 300
       const startedAt = performance.now()
       const entry = { event, reachedBubble: false }
       pending = entry
@@ -151,6 +155,7 @@ function useMenuTriggers() {
           reachedBubble: entry.reachedBubble,
           defaultPrevented: event.defaultPrevented,
           menuPhase: useGameMenu.getState().phase,
+          mouseLook,
         })
         // Something reacted to this key just before it reached here (a panel closing itself).
         if (!open || lastInputChangeAt >= startedAt - 250) return
@@ -170,6 +175,7 @@ function useMenuTriggers() {
       const justUnlocked = wasLocked && !locked
       wasLocked = locked
       if (!justUnlocked) return
+      lastUnlockAt = performance.now()
       const at = performance.now()
       if (at - lastProgrammaticUnlockAt < 400) return
       window.setTimeout(() => {
@@ -253,6 +259,8 @@ function MenuTitle({ rect, tiltRef }: { rect: MenuRect; tiltRef: React.RefObject
       </div>
       <div className="ogm-tagline" style={{ fontSize: Math.max(10, Math.min(15, cellPx * 0.62)) }}>
         04515 <span>·</span> D3BU9 Y0UR531F
+        {/* The version a packaged Oasis is (baked in by its start script), so a person can tell an update took. */}
+        {process.env.NEXT_PUBLIC_OASIS_VERSION ? <> <span>·</span> v{process.env.NEXT_PUBLIC_OASIS_VERSION}</> : null}
       </div>
     </div>
   )

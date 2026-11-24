@@ -13,6 +13,7 @@ import { getAgentEngineClient } from '../../lib/agent-engine-client'
 import { clippedCharacters, describeSuggestion, permissionReviewText } from '../../lib/village/village-decisions'
 import { showNotice } from '../forge/GlobalNotice'
 import { focusVillageAgent } from './village-actions'
+import { MODE_MEANING, switchAgentMode } from './agent-mode'
 
 const BUTTON = 'rounded-md border px-2.5 py-1 text-[11px] font-bold transition disabled:cursor-not-allowed disabled:opacity-40'
 const ALLOW = `${BUTTON} border-emerald-300/40 bg-emerald-400/15 text-emerald-100 hover:bg-emerald-400/30`
@@ -179,6 +180,10 @@ function PlanForm({ agentId, decision }: { agentId: string; decision: EngineDeci
 function PermissionForm({ agentId, decision }: { agentId: string; decision: EngineDecisionState }) {
   const busy = useInFlight(decision.requestId)
   const client = getAgentEngineClient()
+  // Auto would have decided this kind itself: offer to switch the agent to it (agent-mode.ts), not in auto or bypass.
+  const mode = useOasisStore(s => s.agentEngine.agents[agentId]?.permissionMode || s.agentEngine.agents[agentId]?.effectivePermissionMode || 'default')
+  const name = useOasisStore(s => s.agentEngine.agents[agentId]?.name || 'this agent')
+  const offerAuto = mode !== 'auto' && mode !== 'bypassPermissions' && !decision.readOnly
   const review = useMemo(() => permissionReviewText(decision.toolName, decision.input), [decision.toolName, decision.input])
   const hidden = useMemo(() => clippedCharacters(decision.input), [decision.input])
   const answer = (allow: boolean, always = false) => {
@@ -203,8 +208,21 @@ function PermissionForm({ agentId, decision }: { agentId: string; decision: Engi
           <button type="button" className={NEUTRAL} disabled={busy} onClick={() => answer(true, true)}>allow always</button>
         )}
         <button type="button" className={DENY} disabled={busy} onClick={() => answer(false)}>deny</button>
+        {offerAuto && (
+          <button
+            type="button"
+            data-allow-and-auto
+            className={NEUTRAL}
+            disabled={busy}
+            title={`Allow this, and switch ${name} to auto: ${MODE_MEANING.auto}`}
+            onClick={() => { answer(true); void switchAgentMode(agentId, name, 'auto') }}
+          >
+            allow, then auto
+          </button>
+        )}
         {busy && <span className="self-center text-[10.5px] text-white/45">sending…</span>}
       </div>
+      {!decision.readOnly && <div data-card-keys className="text-[10.5px] text-white/55">Enter allows · Esc denies · N the next agent waiting on you</div>}
       <SuggestionList decision={decision} />
     </div>
   )

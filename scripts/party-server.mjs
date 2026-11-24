@@ -478,7 +478,17 @@ const PARTY_COPIED_DIRS = new Set(['thumbs', 'portal-thumbs'])
 const CATALOG_CONFIG = ['asset-catalog-extras.json', 'ground-presets-extras.json']
 
 function linkDir(target, link) {
-  if (fs.existsSync(link)) return
+  // A link from before an update points at the previous app folder (or at nothing, once it is pruned): it is made
+  // again to this install's folder. A real folder or file there is left alone.
+  let stat = null
+  try { stat = fs.lstatSync(link) } catch { /* nothing there */ }
+  if (stat && !stat.isSymbolicLink()) return
+  if (stat) {
+    let current = ''
+    try { current = fs.realpathSync(link) } catch { /* dangling */ }
+    if (current && path.resolve(current) === path.resolve(fs.realpathSync(target))) return
+    try { fs.unlinkSync(link) } catch { fs.rmdirSync(link) }
+  }
   fs.symlinkSync(target, link, process.platform === 'win32' ? 'junction' : 'dir')
 }
 

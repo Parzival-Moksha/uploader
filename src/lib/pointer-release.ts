@@ -20,6 +20,15 @@ const PENDING_MS = 1500
 let lockRequestedAt = -Infinity
 let cancelLockUntil = -Infinity
 const captures = new Map<number, Element>()
+/**
+ * Mouse-look handed back on purpose (closing an agent panel or a menu with Esc gives back the look the owner had,
+ * input-manager.ts): the Escape key-up of that same press must not take it away again. Until this time it doesn't.
+ */
+let keepLockUntil = -Infinity
+export function keepLockThroughEscape(ms = 800, at = now()): void {
+  keepLockUntil = at + ms
+}
+
 /** Keys down right now: code -> key (what a keyup for it needs). */
 const heldKeys = new Map<string, string>()
 let notify: ((what: string) => void) | null = null
@@ -108,6 +117,8 @@ export function installPointerRelease(): () => void {
   const onKeyUp = (event: KeyboardEvent) => {
     if (event.code) heldKeys.delete(event.code)
     if (event.key !== 'Escape') return
+    // This Escape closed an agent panel or a menu and gave the look back on purpose: leave that lock alone.
+    if (now() < keepLockUntil) { keepLockUntil = -Infinity; return }
     const freed = freeMouse()
     // A lock Escape itself ends is normal; a drag or a late lock it had to stop is worth a word.
     const unusual = freed.filter(what => what !== 'pointer lock')

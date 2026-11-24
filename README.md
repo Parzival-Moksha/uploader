@@ -31,7 +31,7 @@ cd uploader
 node scripts/oasis.mjs start
 ```
 
-Start it only this way (`pnpm dev` and `npm start` run the same script): `next dev` or `next start` alone gives a page without the engine, the database or the village, an empty world where nobody can be summoned. `node scripts/oasis.mjs status` says what is running, `node scripts/oasis.mjs stop` stops it. It works the same on Windows, macOS and Linux. (macOS: installs and opens on a clean Mac at every release, checked by machine; no person has watched a Mac install yet. Linux: written with care, not yet run by us.)
+Start it only this way (`pnpm dev` and `npm start` run the same script): `next dev` or `next start` alone gives a page without the engine, the database or the village, an empty world where nobody can be summoned. `node scripts/oasis.mjs status` says what is running and which version, `node scripts/oasis.mjs stop` stops it. **To update:** with the plugin, `/oasis update` in Claude Code; in a clone, `node scripts/oasis.mjs update` (git pull, then a rebuild; your worlds, agents and keys stay). The version is in the main menu (M), under the Oasis's name. It works the same on Windows, macOS and Linux. (macOS: installs and opens on a clean Mac at every release, checked by machine; no person has watched a Mac install yet. Linux: written with care, not yet run by us.)
 
 ## What runs on your machine
 

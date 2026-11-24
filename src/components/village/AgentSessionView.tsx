@@ -23,7 +23,7 @@ import {
   VILLAGE_TYPE_CLASS,
 } from './village-status'
 import { openVillageImages, pressVillageView } from './village-actions'
-import { AgentPanelHeaderTabs } from './AgentPanelTabs'
+import { AgentPanelHeaderTabs, setAgentPanelTab } from './AgentPanelTabs'
 import { ParkedBanner } from './ParkedBanner'
 import { agentEngineFileUrl } from '../../lib/agent-engine-client'
 import { groupThread, threadImages, toolRunShape, type ThreadItem } from '../../lib/village/village-thread'
@@ -71,10 +71,12 @@ export function AgentSetupWords({ agent }: { agent: EngineAgentState }) {
   const mode = agent.permissionMode || agent.effectivePermissionMode
   const thinking = agent.runtime === 'hermes' ? null : agent.effort || (agent.resolvedEffort ? `${agent.resolvedEffort} (default)` : null)
   const words = [modelLabel(agent), mode ? `mode ${mode}` : null, thinking ? `thinking ${thinking}` : null].filter(Boolean)
+  // A click opens its Settings page, where the mode is switched (the owner, 2026-11-24: "i cant flip them from the
+  // oasis": since the header shows the mode as words, the words lead to the control).
   return (
-    <span data-agent-setup className="min-w-0 truncate text-[10px] text-white/70" title="Model, permission mode and thinking: change them on its Settings page">
+    <button type="button" data-agent-setup onClick={() => setAgentPanelTab('settings')} className="min-w-0 truncate text-left text-[10px] text-white/70 underline-offset-2 hover:text-white hover:underline" title="Model, permission mode and thinking: click to change them (its Settings page)">
       {words.join(' · ')}
-    </span>
+    </button>
   )
 }
 

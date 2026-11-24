@@ -23,10 +23,12 @@ export function AccountsSettings() {
             When one account runs out of usage, agents go on on the next by themselves, also at night. In auto they use
             the account whose week ends first, so neither account&apos;s tokens are left at a reset.
           </div>
+          {view.strategy && <div className="mb-1.5 text-[11px] text-emerald-200/90" data-accounts-strategy>{view.strategy}</div>}
           {shownAccounts(view).map(account => {
             const out = Boolean(account.exhaustedUntil && account.exhaustedUntil > now)
             return (
-              <div key={account.id} className="flex items-center justify-between gap-2 py-1 text-xs" data-account-row={account.id}>
+              <div key={account.id} className="py-1" data-account-row={account.id}>
+              <div className="flex items-center justify-between gap-2 text-xs">
                 <span className="min-w-0 truncate text-gray-300" title={account.email || undefined}>
                   {account.cli ? 'CLI login' : account.label}
                   <span className="text-gray-500">{account.plan ? ` · ${account.plan}` : ''}</span>
@@ -36,6 +38,8 @@ export function AccountsSettings() {
                     ? `out until ${new Date(account.exhaustedUntil!).toString().slice(4, 21)}`
                     : `${windowText(account, 'five_hour')} · ${windowText(account, 'seven_day')}`}
                 </span>
+              </div>
+              {account.permissions && <div className="text-[10px] text-gray-500" data-account-permissions>{account.permissions}</div>}
               </div>
             )
           })}

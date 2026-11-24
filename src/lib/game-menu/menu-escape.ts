@@ -22,12 +22,19 @@ export interface EscapeSnapshot {
   reachedBubble: boolean
   defaultPrevented: boolean
   menuPhase: MenuPhase
+  /**
+   * The mouse was steering the camera when Escape came (locked, or the lock ended a moment before). That Escape
+   * frees the mouse and nothing else; the next one opens the menu (the owner, 24 Nov: on a Mac the keydown reaches
+   * the page while still locked and went straight to the menu).
+   */
+  mouseLook?: boolean
 }
 
 const BASE_STATES: ReadonlySet<InputState> = new Set<InputState>(['orbit', 'noclip', 'third-person'])
 
 export function menuShouldOpenOnEscape(s: EscapeSnapshot): boolean {
   if (s.menuPhase !== 'closed') return false
+  if (s.mouseLook) return false
   if (!BASE_STATES.has(s.inputState)) return false // placing, painting, typing, inside an agent
   if (s.uiLayers > 0 || s.typing || s.selectedObject || s.agentOpen) return false
   if (!s.reachedBubble || s.defaultPrevented) return false // a panel took the key

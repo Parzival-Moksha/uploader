@@ -7,8 +7,7 @@ export type ConfigTabId =
   | 'fonts'
   | 'sound'
   | 'controls'
-  | 'bolts'
-  | 'world-vfx'
+  | 'vfx'
   | 'agents'
   | 'experiments'
   | 'misc'
@@ -27,8 +26,9 @@ export const CONFIG_TABS: ConfigTabDefinition[] = [
   { id: 'fonts',     emoji: '🅰',  label: 'Fonts',     tooltip: 'UI typography — spellbook + menus',              accent: '#FDE68A' },
   { id: 'sound',     emoji: '🔊', label: 'Sound',     tooltip: 'Audio — volumes, spatial, spell sounds',         accent: '#7DD3FC' },
   { id: 'controls',  emoji: '🎮', label: 'Controls',  tooltip: 'Camera, sensitivity, mode',                      accent: '#34D399' },
-  { id: 'bolts',     emoji: '⚔',  label: 'Bolts',     tooltip: 'Combat-bolt visual designs',                     accent: '#FB923C' },
-  { id: 'world-vfx', emoji: '✨', label: 'World VFX', tooltip: 'Conjuration + placement + portal effects',       accent: '#F472B6' },
+  // Bolts and World VFX are one tab since 2026-11-24 (the owner: "bolts tab in settings gets merged to world VFX which
+  // gets renamed to just VFX"). The settings themselves are unchanged, so saved values keep.
+  { id: 'vfx',       emoji: '✨', label: 'VFX',       tooltip: 'Sky and ground changes, conjuring, placement, portals, combat bolts', accent: '#F472B6' },
   { id: 'agents',    emoji: '🤖', label: 'Agents',    tooltip: 'Agent behavior',                                 accent: '#22D3EE' },
   { id: 'experiments', emoji: '🧪', label: 'Experiments', tooltip: 'Try-before-shipping toggles (splash screen, …)', accent: '#F0ABFC' },
   { id: 'misc',      emoji: '⚙',  label: 'Misc',      tooltip: 'Anything else / advanced',                       accent: '#D4D4D8' },

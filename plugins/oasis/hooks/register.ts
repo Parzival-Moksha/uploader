@@ -83,9 +83,9 @@ async function oasisStatus($: EngineInterface, engine: string): Promise<string> 
 }
 
 /** /oasis: show this session in the Oasis, starting and opening it when needed. Returns the line to print. */
-async function openOasis($: EngineInterface, engine: string, sessionId: string, cwd: string, lite = false): Promise<string> {
-  // Already open in a tab? Then the engine walks that tab's camera here; no second tab.
-  try {
+async function openOasis($: EngineInterface, engine: string, sessionId: string, cwd: string, lite = false, update = false): Promise<string> {
+  // Already open in a tab? Then the engine walks that tab's camera here; no second tab. (/oasis update goes on.)
+  if (!update) try {
     const res = await post($, engine, '/bridge/open', { sessionId, cwd })
     if (res.ok) {
       const { agentId, clients } = JSON.parse(res.text) as { agentId?: string | null; clients?: number }
@@ -102,13 +102,16 @@ async function openOasis($: EngineInterface, engine: string, sessionId: string, 
   if (home) argv.push('--home', home)
   // /oasis lite: on a machine without the Oasis, install the small one (about 30 MB) instead of the full one.
   if (lite) argv.push('--lite')
+  // /oasis update: the only way the Oasis replaces itself (plain /oasis says when a newer one is ready).
+  if (update) argv.push('--update')
   try {
     const ran = await $.process.run(argv, { timeoutMs: LAUNCH_TIMEOUT_MS })
     const said = ran.stdout.trim().split(/\r?\n/).filter(Boolean)
+    const news = said.filter(line => /^(The Oasis \S+ is available|The Oasis .*is the newest|An update to |The update to |This Oasis was not installed by)/.test(line)).join(' ')
     if (ran.exitCode === 0) {
       const installed = said.some(line => line.startsWith('Installed the Oasis'))
       const started = said.some(line => /^Started the |started in its own window/.test(line))
-      return `${installed ? 'Installed the Oasis, started it and opened it' : started ? 'Started the Oasis and opened it' : 'Opened the Oasis'} in your browser. This session will be in front of you there.`
+      return `${news ? `${news} ` : ''}${installed ? 'Installed the Oasis, started it and opened it' : started ? 'Started the Oasis and opened it' : 'Opened the Oasis'} in your browser. This session will be in front of you there.`
     }
     return said.slice(-2).join(' ') || `The Oasis launcher failed (exit ${ran.exitCode}).`
   } catch {
@@ -207,7 +210,7 @@ export const register: Register = on => {
     const started = await next(e)
     engine = ((await $.env.get('OASIS_ENGINE_URL')) || engine).replace(/\/+$/, '')
     sessionId = await $.session.id()
-    await $.command.register({ name: 'oasis', description: 'Open the Oasis on this session (installs and starts it if needed); /oasis status, /oasis lite' })
+    await $.command.register({ name: 'oasis', description: 'Open the Oasis on this session (installs and starts it if needed); /oasis status, /oasis lite, /oasis update' })
     let polling = false
     $.clock.every(POLL_MS, () => {
       if (polling) return
@@ -234,7 +237,7 @@ export const register: Register = on => {
   on('command.run', { command: 'oasis' }, async ($, e) => {
     const asked = e.args.trim().toLowerCase()
     if (asked === 'status') return { text: await oasisStatus($, engine) }
-    return { text: await openOasis($, engine, await $.session.id(), await $.session.cwd(), asked === 'lite') }
+    return { text: await openOasis($, engine, await $.session.id(), await $.session.cwd(), asked === 'lite', asked === 'update') }
   })
 
   // The reply as it streams, so the Oasis shows it word by word like this window does.

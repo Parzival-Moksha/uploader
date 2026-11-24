@@ -3,7 +3,7 @@
 // The ground melts into the next one, like the sky (the owner, 2026-11-20: "it would be super cool if it could
 // be the same as for changing the sky where it kind of melts from one to the other"). BaseGround mounts this for
 // 1.6 s with the OLD ground texture on a plane over the new one; a noise mask in world space eats it away, with
-// a hot rim on each patch (Glitch: square blocks). The style follows Settings > World VFX > Sky change; Off skips.
+// a hot rim on each patch (Glitch: square blocks). The style follows Settings > VFX > Sky change; Off skips.
 // Lit like the ground (a MeshStandardMaterial with a discard added), so the old ground does not jump in brightness.
 
 import { useEffect, useMemo, useRef } from 'react'

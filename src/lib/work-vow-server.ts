@@ -12,7 +12,8 @@ import { missionForAgent } from './village/mission-dispatch'
 import { isMissionFile, parseMission, type Mission } from './village/village-missions'
 import { isCarbonFile, parseCarbonMission } from './village/carbon-missions'
 import { questionsDir, rewriteBoard, tellAgent } from './village/carbon-server'
-import { addOwnNote, finishOwnMissionText, formatRunNote, markRunStart, ownMissionFileName, ownMissionText, ownNotes, runLine, type RunResult } from './village/own-mission'
+import { addOwnNote, commitBonusPct, commitReminder, commitStateAt, finishOwnMissionText, formatRunNote, markCommitted, markRunStart, ownMissionFileName, ownMissionText, ownNotes, runLine, COMMIT_GRACE_MS, type Commitment, type RunResult } from './village/own-mission'
+import { engine } from './village/carbon-server'
 import {
   addManualTime,
   removeManualTime,
@@ -31,6 +32,9 @@ import {
   releaseWorkHolder,
   setWorkMission,
   setRunPaused,
+  addCommitInBook,
+  cancelCommitInBook,
+  commitForStart,
   extendRunInBook,
   finishRunInBook,
   recordRun,
@@ -386,7 +390,14 @@ const cleanMinutes = (minutes: number | null) => (minutes !== null && Number.isF
  * Start his own mission: a new one (`title`) or one from his list (`file`). `minutes` null: open-ended.
  * `notify`: the agent his notes go to at the end, null for nobody. A run already going ends first.
  */
-export async function startOwnMission(input: { title?: string; file?: string; minutes: number | null; notify: string | null }, now = Date.now()): Promise<OwnMissionOutcome> {
+export async function startOwnMission(input: { title?: string; file?: string; minutes: number | null; notify: string | null; commit?: string }, now = Date.now()): Promise<OwnMissionOutcome> {
+  // A committed mission: its file and its length; inside its window it carries its bonus.
+  let commit: { commit: Commitment; onTime: boolean } | null = null
+  if (input.commit) {
+    commit = commitForStart(await serial(readBook), input.commit, now)
+    if (!commit) return { ok: false, status: 409, error: 'that commitment is not open any more' }
+    input = { ...input, file: commit.commit.file, title: undefined, minutes: commit.commit.minutes }
+  }
   const minutes = cleanMinutes(input.minutes)
   let file: string
   let title: string
@@ -415,7 +426,15 @@ export async function startOwnMission(input: { title?: string; file?: string; mi
   const closed = await serial(async () => {
     const book = await readBook()
     const before = closeRun(book, now)
-    const next = setWorkMission(before.book, { file, title: title.slice(0, 140), priority: 0, run: { plannedSeconds: minutes ? minutes * 60 : null, notify: input.notify, pausedAt: null, pausedMs: 0, counted: 0 } }, now)
+    // Started from his list inside a commitment's window (without saying so): it is that commitment.
+    if (!commit) {
+      const due = (before.book.commits || []).find(c => c.file === file && commitStateAt(c, now) === 'pending' && Math.abs(now - c.at) <= COMMIT_GRACE_MS)
+      if (due) commit = { commit: due, onTime: true }
+    }
+    const carry = commit?.onTime ? { commit: { id: commit.commit.id, bonusPct: commit.commit.bonusPct } } : {}
+    let next = setWorkMission(before.book, { file, title: title.slice(0, 140), priority: 0, run: { plannedSeconds: minutes ? minutes * 60 : null, notify: input.notify, pausedAt: null, pausedMs: 0, counted: 0, ...carry } }, now)
+    // On time it carries the bonus; outside its window it is used up as missed (it runs as a plain mission).
+    if (commit) next = { ...next, commits: (next.commits || []).map(c => (c.id === commit!.commit.id ? { ...c, state: commit!.onTime ? 'started' as const : 'missed' as const, startedAt: now } : c)) }
     await writeBook(next)
     return { ...before, snapshot: workSnapshot(next, now) }
   })
@@ -423,6 +442,79 @@ export async function startOwnMission(input: { title?: string; file?: string; mi
   if (!input.file) void rewriteBoard()
   return { ok: true, snapshot: closed.snapshot, file, ...(closed.result ? { ended: closed.result } : {}) }
 }
+
+/**
+ * Commit a mission for a day and a time (the owner, 2026-11-24): a file in his list, and the commitment in the book with
+ * the bonus it earns if kept (bigger the further ahead). Its time must be at least a minute from now, at most 60 days.
+ */
+export async function commitOwnMission(input: { title: string; at: number; minutes: number; notify: string | null }, now = Date.now()): Promise<{ ok: true; commit: Commitment; snapshot: WorkSnapshot } | { ok: false; status: number; error: string }> {
+  const title = input.title.replace(/\s+/g, ' ').trim()
+  if (!title) return { ok: false, status: 400, error: 'a mission needs a title' }
+  const minutes = cleanMinutes(input.minutes)
+  if (!minutes) return { ok: false, status: 400, error: 'a committed mission needs its length' }
+  if (!(input.at >= now + 60_000) || input.at > now + 60 * 86_400_000) return { ok: false, status: 400, error: 'pick a time from a minute ahead to 60 days ahead' }
+  const file = await newOwnMissionFile({ title, minutes, started: false }, now)
+  const commit: Commitment = { id: `c${now.toString(36)}`, file, title: title.slice(0, 140), at: input.at, minutes, madeAt: now, bonusPct: commitBonusPct(now, input.at), notify: input.notify, state: 'pending' }
+  const target = ownMissionPath(file)
+  if (target) await withFile(target, async () => { try { await fs.writeFile(target, markCommitted(await readText(target), commit), 'utf8') } catch { /* the book has it */ } })
+  const snapshot = await serial(async () => {
+    const next = addCommitInBook(await readBook(), commit)
+    await writeBook(next)
+    return workSnapshot(next, now)
+  })
+  void rewriteBoard()
+  startCommitReminders()
+  return { ok: true, commit, snapshot }
+}
+
+/** Call a commitment off: it leaves the list (nothing earned or lost). */
+export function cancelOwnCommit(id: string, now = Date.now()): Promise<WorkSnapshot> {
+  return serial(async () => {
+    const book = await readBook()
+    const next = cancelCommitInBook(book, id)
+    if (next !== book) await writeBook(next)
+    return workSnapshot(next, now)
+  })
+}
+
+// ─── the reminder when a committed mission is due ───────────────────────────
+// An open Oasis page rings its bell (work-vow-client). With no page open, he gets a Telegram line, through the engine's
+// "tell the owner" (the agent named in OASIS_COMMIT_REMINDER_AGENT, else Mission Wall, else Anorak), once per commitment.
+
+const reminderHolder = globalThis as unknown as { __oasisCommitReminders?: ReturnType<typeof setInterval> }
+
+async function remindDueCommits(now = Date.now()): Promise<void> {
+  const due = await serial(async () => {
+    const book = await readBook()
+    const pageOpen = Boolean(book.holder && now - book.holder.at < 2 * 60_000)
+    const list = (book.commits || []).filter(c => commitStateAt(c, now) === 'pending' && !c.remindedAt && now >= c.at - 60_000 && now <= c.at + COMMIT_GRACE_MS)
+    if (!list.length || pageOpen) return []
+    book.commits = book.commits!.map(c => (list.some(d => d.id === c.id) ? { ...c, remindedAt: now } : c))
+    await writeBook(book)
+    return list
+  })
+  if (!due.length) return
+  const e = await engine()
+  if (e.error) return
+  const wanted = (process.env.OASIS_COMMIT_REMINDER_AGENT || 'Mission Wall').toLowerCase()
+  const from = e.agents.find(a => a.name.toLowerCase() === wanted) || e.agents.find(a => /^anorak/i.test(a.name))
+  if (!from) return
+  for (const c of due) {
+    try {
+      await fetch(`${e.base}/api/cmd`, { method: 'POST', headers: e.headers, body: JSON.stringify({ cmd: 'tellOwner', agentId: from.id, text: commitReminder(c) }), signal: AbortSignal.timeout(6000) })
+    } catch { /* the page rings when he comes back */ }
+  }
+}
+
+/** Once a minute while the page server runs (one timer, also across hot reloads). */
+export function startCommitReminders(): void {
+  if (process.env.OASIS_NO_COMMIT_REMINDERS === '1' || process.env.VITEST) return
+  if (reminderHolder.__oasisCommitReminders) clearInterval(reminderHolder.__oasisCommitReminders)
+  reminderHolder.__oasisCommitReminders = setInterval(() => { void remindDueCommits().catch(() => {}) }, 60_000)
+  reminderHolder.__oasisCommitReminders.unref?.()
+}
+startCommitReminders()
+export { remindDueCommits }
 
 /** Save a mission for later: into his list (the Carbon tab), with his scores. */
 export async function saveOwnMission(input: { title: string; minutes: number | null; ease?: number; impact?: number; urgency?: number }, now = Date.now()): Promise<{ ok: true; file: string } | { ok: false; status: number; error: string }> {

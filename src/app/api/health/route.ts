@@ -12,5 +12,7 @@ import { NextResponse } from 'next/server'
 const BUILD_ID = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 
 export async function GET() {
-  return NextResponse.json({ status: 'ok', timestamp: Date.now(), buildId: BUILD_ID })
+  // version: a packaged Oasis's release (baked in by its start script); the updater asks for it to know that the
+  // new version, not any server on the port, is the one answering.
+  return NextResponse.json({ status: 'ok', timestamp: Date.now(), buildId: BUILD_ID, version: process.env.NEXT_PUBLIC_OASIS_VERSION || null })
 }

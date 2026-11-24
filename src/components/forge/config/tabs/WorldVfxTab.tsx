@@ -1,8 +1,8 @@
 'use client'
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// WORLD VFX TAB — Conjuration VFX picker, Placement VFX picker, placement
-// duration, and the Portal Transition lab. Agent walk + embodied-action
+// VFX TAB (Settings > VFX; it was World VFX, and Bolts joined it 2026-11-24) — sky and ground changes, conjuration and
+// placement VFX, the Portal Transition lab, and the Bolt Lab at the end. Agent walk + embodied-action
 // toggles moved to AgentsTab — that's where players look for them.
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -10,6 +10,7 @@ import { useOasisStore } from '@/store/oasisStore'
 import type { PlacementVfxType } from '@/lib/forge/placement-types'
 import { PortalTransitionSettingsPanel } from '../../PortalTransitionSettingsPanel'
 import { SkyTransitionSettings } from '../SkyTransitionSettings'
+import { BoltsTab } from './BoltsTab'
 
 const CONJURE_VFX_OPTIONS = [
   { id: 'random' as const, label: 'Random', desc: 'Different effect each time', icon: '\u{1F3B2}' },
@@ -125,6 +126,11 @@ export function WorldVfxTab() {
 
       <section>
         <PortalTransitionSettingsPanel />
+      </section>
+
+      {/* The Bolt Lab (it was its own tab, Bolts, until 2026-11-24). */}
+      <section className="border-t border-white/10 pt-3" data-vfx-section="bolts">
+        <BoltsTab />
       </section>
     </div>
   )

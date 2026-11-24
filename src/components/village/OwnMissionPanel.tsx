@@ -7,10 +7,10 @@
 // Ended: kept or not, its minutes and XP, who was told. Logic: lib/village/own-mission.ts; book: work-vow-server.ts.
 
 import { useCallback, useEffect, useState } from 'react'
-import { easeFromMinutes, OWN_MISSION_AGENT, runClock, stepMinutes } from '../../lib/village/own-mission'
+import { commitBonusPct, commitInWindow, commitStateAt, commitWhen, easeFromMinutes, minutesLabel, OWN_MISSION_AGENT, runClock, stepMinutes, COMMIT_GRACE_MS, type Commitment } from '../../lib/village/own-mission'
 import { formatClock, type WorkSnapshot } from '../../lib/village/work-vow'
 import { useOasisStore } from '../../store/oasisStore'
-import { endOwnRun, extendOwnRun, noteOwnRun, notifyOwnRun, pauseOwnRun, readOwnRunNotes, RUN_ANSWER_GRACE_MS, saveOwnRun, setRunDraft, startOwnRun } from './work-vow-client'
+import { commitOwnRun, uncommitOwnRun, endOwnRun, extendOwnRun, noteOwnRun, notifyOwnRun, pauseOwnRun, readOwnRunNotes, RUN_ANSWER_GRACE_MS, saveOwnRun, setRunDraft, startOwnRun } from './work-vow-client'
 
 const GREEN = '#34d399'
 const AMBER = '#fbbf24'
@@ -237,6 +237,16 @@ export function NewMission({ onStarted }: { onStarted?: () => void }) {
   const [notify, setNotify] = useState<{ on: boolean; agent: string }>({ on: true, agent: '' })
   const agent = notify.agent || defaultAgent(names)
   const [later, setLater] = useState(false)
+  // Commit: a day (0 = today … 13) and a time; the length is the minutes above.
+  const [committing, setCommitting] = useState(false)
+  const [dayOffset, setDayOffset] = useState(1)
+  const [clock, setClock] = useState(() => { const d = new Date(Date.now() + 3600_000); return `${String(d.getHours()).padStart(2, '0')}:00` })
+  const commitAt = (() => {
+    const [h, m] = clock.split(':').map(Number)
+    const d = new Date()
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate() + dayOffset, h || 0, m || 0).getTime()
+  })()
+  const commitBonus = commitBonusPct(Date.now(), commitAt)
   const [scores, setScores] = useState<{ ease: number | null; impact: number; urgency: number }>({ ease: null, impact: 3, urgency: 3 })
   const [busy, setBusy] = useState(false)
   const [note, setNote] = useState('')
@@ -268,6 +278,17 @@ export function NewMission({ onStarted }: { onStarted?: () => void }) {
     reset()
     onStarted?.()
   }
+  const commit = async () => {
+    if (!title.trim() || busy || !length) return
+    setBusy(true)
+    setError('')
+    const answer = await commitOwnRun({ title: title.trim(), at: commitAt, minutes: length, notify: notify.on ? agent : null })
+    setBusy(false)
+    if (answer.error) return setError(answer.error)
+    setCommitting(false)
+    reset()
+    setNote(`Committed: “${title.trim()}”, ${commitWhen(commitAt)}${commitBonus ? `, +${commitBonus}% if kept` : ''}. The bell rings when it is due.`)
+  }
   const save = async () => {
     if (!title.trim() || busy) return
     setBusy(true)
@@ -295,16 +316,18 @@ export function NewMission({ onStarted }: { onStarted?: () => void }) {
         autoFocus
         maxLength={140}
         onChange={event => setTitle(event.target.value)}
-        onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); void (later ? save() : start()) } }}
+        onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); void (committing ? commit() : later ? save() : start()) } }}
         placeholder="What: Academy, an hour with Conrad…"
         className="mc-field mt-1 w-full px-2 py-1 text-[14px] text-white outline-none placeholder:text-white/35"
       />
       <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[12.5px] text-white/80">
         <MinutesStepper value={minutes} onChange={setMinutes} disabled={openEnded} />
-        <label className="flex items-center gap-1" title="No set length: it counts up until you end it">
-          <input type="checkbox" checked={openEnded} onChange={event => setOpenEnded(event.target.checked)} />
-          open-ended
-        </label>
+        {!committing && (
+          <label className="flex items-center gap-1" title="No set length: it counts up until you end it">
+            <input type="checkbox" checked={openEnded} onChange={event => setOpenEnded(event.target.checked)} />
+            open-ended
+          </label>
+        )}
       </div>
       <div className="mt-1.5">
         <NotifySwitch on={notify.on} agent={agent} onChange={(on, name) => setNotify({ on, agent: name })} />
@@ -316,12 +339,97 @@ export function NewMission({ onStarted }: { onStarted?: () => void }) {
           {scoreSelect('urgency', scores.urgency)}
         </div>
       )}
+      {committing && (
+        <div data-own-mission="commit-when" className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[12.5px] text-white/80">
+          <select value={dayOffset} onChange={event => setDayOffset(Number(event.target.value))} className="mc-field px-1 py-1 text-[13px] text-white outline-none">
+            {Array.from({ length: 14 }, (_, i) => {
+              const d = new Date(Date.now() + i * 86_400_000)
+              const label = d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
+              return <option key={i} value={i}>{i === 0 ? `today (${label})` : i === 1 ? `tomorrow (${label})` : label}</option>
+            })}
+          </select>
+          <span>at</span>
+          <input type="time" value={clock} onChange={event => setClock(event.target.value || clock)} className="mc-field px-1 py-0.5 text-[13px] text-white outline-none" />
+          <span className="basis-full text-[11px] text-white/55">Kept if you start it within 15 minutes of its time and run it to its length. The further ahead, the bigger the bonus: +20% a day ahead, +50% three days, +100% a week.</span>
+        </div>
+      )}
       <div className="mt-2 flex flex-wrap gap-1.5">
-        {!later && <button type="button" data-own-mission="start" disabled={busy || !title.trim()} onClick={() => { void start() }} className="mc-btn" style={INLINE_BTN} data-tone="go">▶ Start</button>}
-        <button type="button" data-own-mission="later" disabled={busy || (later && !title.trim())} onClick={() => { if (later) void save(); else setLater(true) }} className="mc-btn" style={INLINE_BTN}>{later ? 'Save to my list' : 'Save for later'}</button>
-        <button type="button" disabled={busy} onClick={() => (later ? setLater(false) : reset())} className="mc-btn" style={INLINE_BTN}>{later ? 'back' : 'cancel'}</button>
+        {committing && (
+          <button type="button" data-own-mission="commit" disabled={busy || !title.trim() || !length || commitAt < Date.now() + 60_000} onClick={() => { void commit() }} className="mc-btn" style={INLINE_BTN} data-tone="go" title="Commit it: the bell rings when it is due, and Telegram if no Oasis page is open">
+            Commit · {commitWhen(commitAt)} · {commitAt < Date.now() + 60_000 ? 'pick a later time' : commitBonus ? `+${commitBonus}% if kept` : 'no bonus under an hour ahead'}
+          </button>
+        )}
+        {!later && !committing && <button type="button" data-own-mission="start" disabled={busy || !title.trim()} onClick={() => { void start() }} className="mc-btn" style={INLINE_BTN} data-tone="go">▶ Start</button>}
+        {!later && !committing && <button type="button" data-own-mission="commit-open" disabled={busy} onClick={() => { setCommitting(true); setOpenEnded(false) }} className="mc-btn" style={INLINE_BTN} title="For a day and a time: worth more the further ahead">Commit…</button>}
+        {!committing && <button type="button" data-own-mission="later" disabled={busy || (later && !title.trim())} onClick={() => { if (later) void save(); else setLater(true) }} className="mc-btn" style={INLINE_BTN}>{later ? 'Save to my list' : 'Save for later'}</button>}
+        <button type="button" disabled={busy} onClick={() => (committing ? setCommitting(false) : later ? setLater(false) : reset())} className="mc-btn" style={INLINE_BTN}>{later || committing ? 'back' : 'cancel'}</button>
       </div>
       {error && <div className="mt-1 text-[12px] text-rose-300">{error}</div>}
+    </div>
+  )
+}
+
+/** One committed mission in the list: when, what, how long, the bonus; Start when it is due, × to call it off. */
+function CommitRow({ c, canStart }: { c: Commitment; canStart: boolean }) {
+  const [busy, setBusy] = useState(false)
+  const now = Date.now()
+  const state = commitStateAt(c, now)
+  const due = state === 'pending' && commitInWindow(c, now)
+  const go = async (job: () => Promise<unknown>) => { if (busy) return; setBusy(true); await job(); setBusy(false) }
+  const color = state === 'kept' ? GREEN : state === 'missed' ? RED : due ? GREEN : '#f1dca8'
+  return (
+    <div data-own-mission="commit-row" className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-white/5 py-1 text-[12.5px]">
+      <span className="shrink-0 tabular-nums" style={{ color }}>{commitWhen(c.at)}</span>
+      <span className="min-w-0 flex-1 break-words text-white">{c.title} <span className="text-white/55">· {minutesLabel(c.minutes * 60)}{c.bonusPct ? ` · +${c.bonusPct}%` : ''}</span></span>
+      {state === 'kept' && <span style={{ color: GREEN }}>kept ✓</span>}
+      {state === 'missed' && <span style={{ color: RED }}>missed</span>}
+      {state === 'started' && <span style={{ color: AMBER }}>running</span>}
+      {/* Start only when it is due: starting a later one early would cost its bonus. */}
+      {state === 'pending' && canStart && due && (
+        <button type="button" disabled={busy} onClick={() => { void go(() => startOwnRun({ commit: c.id, minutes: null, notify: c.notify ?? null })) }} className="mc-btn" style={{ ...INLINE_BTN, minWidth: 0, padding: '5px 10px 4px' }} data-tone={due ? 'go' : undefined} title={due ? `On time: +${c.bonusPct}% if you keep it` : 'Outside its window: it runs without the bonus, and the commitment counts as missed'}>
+          ▶ {due ? 'Start' : 'start now'}
+        </button>
+      )}
+      {state === 'pending' && !due && (
+        <button type="button" disabled={busy} onClick={() => { if (window.confirm(`Call off "${c.title}" (${commitWhen(c.at)})?`)) void go(() => uncommitOwnRun(c.id)) }} className="text-[13px] text-white/45 hover:text-rose-200" title="Call it off">✕</button>
+      )}
+    </div>
+  )
+}
+
+/** His committed missions: today's and the coming days'. */
+export function CommittedList({ snapshot, title = 'Committed' }: { snapshot: WorkSnapshot; title?: string }) {
+  const list = snapshot.commits || []
+  if (!list.length) return null
+  const running = Boolean(snapshot.active?.run)
+  return (
+    <div data-own-mission="committed" className="mc-card mt-2 px-2 py-1.5">
+      <div className="mc-label">{title}</div>
+      {list.map(c => <CommitRow key={c.id} c={c} canStart={!running} />)}
+    </div>
+  )
+}
+
+/** The bar over the counter when a committed mission is due: Start, with its bonus, until its window closes. */
+export function CommitDueBar({ snapshot, bottom }: { snapshot: WorkSnapshot; bottom: number }) {
+  const [busy, setBusy] = useState(false)
+  if (snapshot.active?.run) return null
+  const now = Date.now()
+  const due = (snapshot.commits || []).find(c => commitStateAt(c, now) === 'pending' && commitInWindow(c, now) && now >= c.at - 60_000)
+  if (!due) return null
+  const until = new Date(due.at + COMMIT_GRACE_MS).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+  return (
+    <div
+      data-own-mission="commit-due-bar"
+      className="mc-scope fixed left-3 z-[calc(var(--z-hud)_+_11)] flex max-w-[calc(100vw-24px)] flex-wrap items-center gap-2 rounded-xl border-2 bg-slate-950/90 px-3 py-2 text-white backdrop-blur-md"
+      style={{ bottom, borderColor: AMBER, animation: 'oasis-commit-due 1.2s ease-in-out infinite' }}
+    >
+      <style>{'@keyframes oasis-commit-due { 0%, 100% { box-shadow: 0 0 10px rgba(251,191,36,0.35) } 50% { box-shadow: 0 0 34px rgba(251,191,36,0.95) } }'}</style>
+      <span className="text-[15px] font-bold" style={{ color: AMBER }}>⏰ Due now</span>
+      <span className="max-w-[260px] truncate text-[14px] font-bold">{due.title}</span>
+      <span className="text-[12px] text-white/70">{minutesLabel(due.minutes * 60)}{due.bonusPct ? ` · +${due.bonusPct}% if kept` : ''}</span>
+      <button type="button" disabled={busy} onClick={() => { setBusy(true); void startOwnRun({ commit: due.id, minutes: null, notify: due.notify ?? null }).finally(() => setBusy(false)) }} className="mc-btn" style={{ ...INLINE_BTN, minWidth: 0, padding: '6px 12px 5px' }} data-tone="go">▶ Start</button>
+      <span className="text-[11px] text-white/55">on time until {until}</span>
     </div>
   )
 }

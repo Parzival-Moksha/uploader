@@ -25,6 +25,17 @@ export function MiscTab({ consoleControl }: SharedTabProps) {
     <div className="space-y-3">
       {/* The agent engine and the page server: a light each, since when, and Restart (scripts/oasis-supervisor.mjs). */}
       <ServicesSettings />
+      {/* A packaged Oasis: its version, and how to update it (no network, no button: the update itself runs from
+          Claude Code or the start script, where it can stop and restart the servers and give the old version back). */}
+      {process.env.NEXT_PUBLIC_OASIS_VERSION && (
+        <section data-setting="oasis-version">
+          <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-1.5 font-mono">Version</div>
+          <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2">
+            <div className="text-[11px] font-medium text-gray-200">The Oasis {process.env.NEXT_PUBLIC_OASIS_VERSION}</div>
+            <div className="text-[9px] text-gray-400">To update: <span className="font-mono">/oasis update</span> in Claude Code, or <span className="font-mono">node scripts/oasis.mjs update</span> in the Oasis folder. Your worlds and agents stay.</div>
+          </div>
+        </section>
+      )}
       <AppWindowSection />
       <MenuFeelSettings />
       {consoleControl && (

@@ -171,6 +171,8 @@ export function registerStoreHandler(): () => void {
 
     switch (cmd.type) {
       case 'SELECT_OBJECT':
+        // Play mode: a click selects only what you use (play-mode.ts); the ground disc and the decorations wait for build.
+        if (!require('./play-mode').selectableNow(cmd.payload.id, store)) break
         store.selectObject(cmd.payload.id)
         break
       case 'DELETE_OBJECT': {

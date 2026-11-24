@@ -24,11 +24,12 @@ import { Journal, journalFileFor } from './journal.js';
 import { restartLine, transcriptTurnOpen, wasMidTurn } from './resume.js';
 import { Characters, characterNote, cardStamp, charactersDirFor } from './character.js';
 import { Looks } from './looks.js';
-import { Accounts, CACHE_COLD_MS, CLI, accountsFilesFor, paceLine } from './accounts.js';
+import { Accounts, CACHE_COLD_MS, CLI, accountsFilesFor, inheritedPermissions, inheritedSettingsArgs, paceLine } from './accounts.js';
 import { tinyTurn } from './probe.js';
 import { LIMIT_RESUME_TEXT } from './agent.js';
 import { CHECK_EVERY_MS as NET_CHECK_EVERY_MS, Network, fileCheck, spanText } from './network.js';
 import { ProcWatch, RUNAWAY_WINDOW_MS } from './procs.js';
+import { ScratchKeeper } from './scratch.js';
 import { Scheduler, DEFAULT_PROMPT, EVERY, REPEATS, appointmentLabel, describeSchedule, localDate, normalizeAppointment, normalizeSchedule, parseWhen, scheduleSettingsFileFor } from './schedule.js';
 import os from 'node:os';
 import { readOlderHistory } from './history.js';
@@ -167,6 +168,8 @@ const hub = {
   /** An account's own Claude folder (a full login), for which plugins it has (worldtools.js). */
   accountConfigDir: (id) => accounts.configDirOf(id),
   isFullLogin: (id) => accounts.isFullLogin(id),
+  /** The owner's main permission settings, for an agent on an account's own Claude folder (accounts.js). */
+  inheritedSettingsArgs: () => inheritedSettingsArgs(),
   accountLabel: (id) => accountLabel(id),
   noteAccount: (id, account) => accounts.noteAccount(id, account),
   recordRateLimit: (id, info) => accounts.record(id, info),
@@ -334,7 +337,10 @@ function accountAsk(agent) {
 /** Per account, the week used against the week gone and the dry date at the last 6 h's rate (accounts.js paceLine). */
 function paceLines() {
   const t = now();
-  return accounts.view(t).accounts.filter((a) => !a.sameAs).map((a) => paceLine(accountLabel(a.id), a.pace, t));
+  const lines = accounts.view(t).accounts.filter((a) => !a.sameAs).map((a) => paceLine(accountLabel(a.id), a.pace, t));
+  // auto spends the account that resets first; when that would leave the next one dry before its own reset, say so.
+  const warn = accounts.spendWarning(t);
+  return warn ? [...lines, warn] : lines;
 }
 
 /** Every account is out: start a process on the one that comes back first (a start spends nothing). */
@@ -393,6 +399,20 @@ const procWatch = process.env.OASIS_PROC_WATCH === '0' ? null : new ProcWatch({
   },
 });
 procWatch?.start();
+
+// ─── test installs left behind, and the disk (scratch.js) ─────────────────────────────────────────────
+// The real engine (4530) sweeps; another only with OASIS_SCRATCH_SWEEP=1 (and 0 turns it off). The disk check always runs.
+const scratch = new ScratchKeeper({
+  log: (...a) => console.log(new Date().toISOString().slice(11, 19), ...a),
+  say: (line) => telegram?.say(line),
+});
+scratch.checkDisk();
+setInterval(() => scratch.checkDisk(), 10 * 60_000).unref();
+if (process.env.OASIS_SCRATCH_SWEEP === '1' || (PORT === 4530 && process.env.OASIS_SCRATCH_SWEEP !== '0')) {
+  const sweep = () => { void scratch.sweep().catch((e) => hub.log(`scratch: sweep failed: ${e.message}`)); };
+  setTimeout(sweep, 10 * 60_000).unref();
+  setInterval(sweep, 60 * 60_000).unref();
+}
 
 // ─── the internet line (network.js) ───────────────────────────────────────────────────────────────
 /** Agents carried on at once when the line is back, and the pause between those groups (two dozen must not fire together). */
@@ -1189,7 +1209,7 @@ const server = http.createServer(async (req, res) => {
       }
       return sendJson(res, 200, { ok: true, ...network.view() });
     }
-    if (req.method === 'GET' && url.pathname === '/health') return sendJson(res, 200, { ok: true, agents: agents.size, clients: clients.size, restart: restartInfo(), network: network.view(), procs: procWatch?.view() || null, accounts: accounts.view(), pace: paceLines(), claude: resolveClaude(), ears: earsStatus(), clipWatchdog: clipWatchdogState(), liveScribe: { model: LIVE_SCRIBE_MODEL, ready: hasLiveScribe() }, places: { missions: setting('missionsDir'), grill: setting('grillFile'), questions: setting('questionsDir') } });
+    if (req.method === 'GET' && url.pathname === '/health') return sendJson(res, 200, { ok: true, agents: agents.size, clients: clients.size, restart: restartInfo(), network: network.view(), procs: procWatch?.view() || null, scratch: scratch.view(), disk: scratch.disk.line, accounts: accounts.view(), pace: paceLines(), claude: resolveClaude(), ears: earsStatus(), clipWatchdog: clipWatchdogState(), liveScribe: { model: LIVE_SCRIBE_MODEL, ready: hasLiveScribe() }, places: { missions: setting('missionsDir'), grill: setting('grillFile'), questions: setting('questionsDir') } });
     if (req.method === 'GET' && url.pathname === '/api/agents') return sendJson(res, 200, snapshots());
     if (req.method === 'GET' && url.pathname === '/api/sessions') return sendJson(res, 200, await commands.listSessions({}));
     if (req.method === 'POST' && url.pathname === '/hook') {
@@ -1429,6 +1449,7 @@ server.listen(PORT, HOST, () => {
   journal.beat();
   // Telegram first (it only starts polling on the next tick): a resumed agent that owes a reply there is known to it.
   agentHours.start();
-  telegram = startTelegram({ port: PORT, root: ROOT, log: hub.log, journal, listAgents: snapshots, send: (agentId, text, opts) => commands.send({ agentId, text, ...(opts?.source ? { source: opts.source } : {}) }), interrupt: (agentId) => commands.interrupt({ agentId }) });
+  telegram = startTelegram({ port: PORT, root: ROOT, log: hub.log, journal, listAgents: snapshots, send: (agentId, text, opts) => commands.send({ agentId, text, ...(opts?.source ? { source: opts.source } : {}) }), interrupt: (agentId) => commands.interrupt({ agentId }),
+    respond: (agentId, requestId, opts) => commands.respond({ agentId, requestId, ...opts }), pages: () => [...clients].filter((ws) => ws.readyState === 1 && ws.canSee).length });
   void restoreRoster();
 });

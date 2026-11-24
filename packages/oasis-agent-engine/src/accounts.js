@@ -325,39 +325,89 @@ export class Accounts {
     return w.seven_day?.resetsAt || w.seven_day_opus?.resetsAt || null;
   }
 
+  /** Leave an account when its 5-hour window or its week is this full; take it again only below the second figure. */
+  static ROOM = { fiveLeave: 0.9, fiveEnter: 0.8, weekLeave: 0.98, weekEnter: 0.95 };
+
+  /** Whether an account has room now (a figure not known counts as room; a reset already past clears it). */
+  hasRoom(id, now = this.now(), staying = false) {
+    const w = this.state[this.aliasOf(id) || id]?.windows || {};
+    const R = Accounts.ROOM;
+    const over = (win, leave, enter) => {
+      const x = w[win];
+      if (!x || typeof x.utilization !== 'number' || (x.resetsAt && x.resetsAt <= now)) return false;
+      return x.utilization >= (staying ? leave : enter);
+    };
+    return !over('five_hour', R.fiveLeave, R.fiveEnter) && !over('seven_day', R.weekLeave, R.weekEnter);
+  }
+
+  /** The order auto spends accounts in: the week that resets soonest first (its tokens are lost at the reset). */
+  spendOrder(list, now = this.now()) {
+    return [...list].sort((a, b) => (this.weeklyReset(a.id) ?? Infinity) - (this.weeklyReset(b.id) ?? Infinity) || a.priority - b.priority);
+  }
+
   /**
    * The account a turn of this agent should run on: { id, label, why? } or null when every account is out.
-   * o: { pin, current (its account now), chrome (Claude in Chrome on), idleMs (since its last turn), movedAt (its last
-   * move), loads ({ accountId: agents active on it, this one not counted }) }. See the head of this file.
+   * A pin, then the village default, else auto: the account whose week resets soonest, as long as it has room (its
+   * 5-hour window not nearly full, its week not used up); then the next. An agent on a later account comes back as soon
+   * as the first has room again. Claude in Chrome agents follow the same order among full logins (the CLI's own, or
+   * an account with a Claude folder of its own), and go to a token account only when no full login is left.
+   * (The owner, 24 Nov: "push toward using the account that resets next... so we never leave tokens on the table".)
    */
-  choose({ pin = null, current = null, chrome = false, idleMs = Infinity, movedAt = 0, loads = {} } = {}, now = this.now()) {
+  choose({ pin = null, current = null, chrome = false } = {}, now = this.now()) {
     const ok = this.available(now);
     if (!ok.length) return null;
     const resolve = (id) => (id && id !== 'auto' ? ok.find((a) => a.id === id || (id === CLI && a.id === this.aliasOf(CLI))) : null);
     const pinned = resolve(pin);
     if (pinned) return { id: pinned.id, label: pinned.label };
-    // Chrome tools only exist on a full login: the CLI login itself (never its token, even when it is one quota with
-    // one), else an account with a Claude folder of its own.
-    if (chrome && !this.isExhausted(CLI, now)) return { id: CLI, label: this.get(CLI).label };
-    if (chrome) {
-      const full = ok.filter((a) => a.configDir).sort((a, b) => a.priority - b.priority)[0];
-      if (full) return { id: full.id, label: full.label };
-    }
     const byDefault = resolve(this.villageDefault);
     if (byDefault) return { id: byDefault.id, label: byDefault.label };
     const canon = (id) => (id === CLI && this.aliasOf(CLI) ? this.aliasOf(CLI) : id);
-    const score = (a) => this.roomPerHour(a.id, now) / (1 + (loads[a.id] || 0));
-    const ranked = [...ok].sort((a, b) => score(b) - score(a) || a.priority - b.priority);
-    const best = ranked[0];
-    const mine = current ? ok.find((a) => a.id === canon(current)) : null;
-    if (mine && idleMs < CACHE_COLD_MS) {
-      // Warm: it stays, unless its account runs dry before its reset while the best one would not, and it has not moved lately.
-      const hot = this.pace(mine.id, now)?.dryBeforeReset;
-      const cool = best.id !== mine.id && !this.pace(best.id, now)?.dryBeforeReset && score(best) > score(mine);
-      if (!(hot && cool && now - (movedAt || 0) >= MOVE_GAP_MS)) return { id: mine.id, label: mine.label };
-      return { id: best.id, label: best.label, why: `${mine.label} runs ahead of its weekly reset` };
+    // Chrome: full logins only while there is one. The CLI login itself, never its token, even when one quota with one.
+    let pool = ok;
+    if (chrome) {
+      const full = [...ok.filter((a) => a.configDir), ...(!this.isExhausted(CLI, now) ? [this.get(CLI)] : [])];
+      if (full.length) pool = full.filter((a, i) => full.findIndex((b) => b.id === a.id) === i);
     }
-    return { id: best.id, label: best.label };
+    const order = this.spendOrder(pool, now);
+    const mine = current ? canon(current) : null;
+    const pick = order.find((a) => this.hasRoom(a.id, now, canon(a.id) === mine || a.id === current)) || order[0];
+    const why = mine && pick.id !== mine && pick.id !== current
+      ? (order[0].id === pick.id ? `${pick.label} resets first and has room` : `${order[0].label} is nearly full for now`)
+      : undefined;
+    return { id: pick.id, label: pick.label, ...(why ? { why } : {}) };
+  }
+
+  /** auto's rule in one line, for the accounts card: "spending Yahoo first: it resets Tue 21:00". */
+  strategyLine(now = this.now()) {
+    const ok = this.available(now);
+    if (!ok.length) return null;
+    if (this.villageDefault && this.villageDefault !== 'auto') return `village default: ${this.get(this.villageDefault)?.label || this.villageDefault} (auto is off)`;
+    const order = this.spendOrder(ok, now);
+    const first = order[0];
+    const reset = this.weeklyReset(first.id);
+    if (this.hasRoom(first.id, now, true)) return `spending ${first.label} first: ${reset ? `it resets ${day(reset)}` : 'its reset is not known yet'}`;
+    const next = order.find((a) => this.hasRoom(a.id, now));
+    return next ? `spending ${next.label} while ${first.label} is nearly full; back to ${first.label} when it has room` : `every account is nearly full: spending ${first.label}`;
+  }
+
+  /**
+   * The guard: the account spent first runs dry long before its reset at the current rate, and the next one would then
+   * run dry before its own. Said in /health's pace lines rather than silently spread. -> a line, or null.
+   */
+  spendWarning(now = this.now()) {
+    const order = this.spendOrder(this.available(now), now);
+    if (order.length < 2) return null;
+    const [S, O] = order;
+    const ps = this.pace(S.id, now);
+    const po = this.pace(O.id, now);
+    if (!ps?.dryAt || !ps.dryBeforeReset || ps.resetsAt - ps.dryAt < 6 * 3_600_000) return null;
+    if (!po || po.used === null) return null;
+    const rs = ps.perHour || 0;
+    const ro = po.perHour || 0;
+    const usedThen = po.used + ro * ((ps.dryAt - now) / 3_600_000);
+    const dryO = ps.dryAt + (Math.max(0, 1 - usedThen) / Math.max(1e-9, rs + ro)) * 3_600_000;
+    if (dryO >= po.resetsAt) return null;
+    return `⚠ at this pace ${S.label} runs dry ${day(ps.dryAt)}, ${Math.round((ps.resetsAt - ps.dryAt) / 3_600_000)} h before its reset, and ${O.label} would then run dry ${day(dryO)}, before its own reset (${day(po.resetsAt)}): slow down`;
   }
 
   /**
@@ -396,6 +446,7 @@ export class Accounts {
       villageDefault: this.villageDefault,
       firstReset: this.firstReset(now),
       allExhausted: this.allExhausted(now),
+      strategy: this.strategyLine(now),
       accounts: this.all().map((a) => ({
         id: a.id, label: a.label, email: a.email, plan: a.plan, priority: a.priority, cli: a.id === CLI, sameAs: a.id === CLI ? aliased : null,
         exhaustedUntil: (this.state[a.id]?.exhaustedUntil || 0) > now ? this.state[a.id].exhaustedUntil : null,
@@ -404,6 +455,8 @@ export class Accounts {
         pace: a.id === CLI && aliased ? null : this.pace(a.id, now),
         readAt: this.readAt(a.id),
         fullLogin: this.isFullLogin(a.id),
+        // Which mode its agents run in (when they have none of their own) and where that comes from: the accounts card.
+        permissions: permissionsLine(a, inheritedPermissions()),
       })),
     };
   }
@@ -429,6 +482,52 @@ export function paceLine(label, p, now = Date.now()) {
   const early = p.resetsAt - p.dryAt;
   const ahead = early >= 86_400_000 ? `${Math.round(early / 86_400_000)} days` : `${Math.max(1, Math.round(early / 3_600_000))} h`;
   return `${head}; at the last 6 h's rate ${rate}: dry ${day(p.dryAt)}, ${ahead} before its reset (${reset})`;
+}
+
+/** "agents run in auto (your Claude settings)" / "… (taken from your main Claude settings)". */
+export function permissionsLine(account, inh) {
+  const mode = inh?.mode || 'default';
+  if (!account.configDir) return `agents without a mode of their own run in ${mode} (your Claude settings)`;
+  if (inh?.mode) return `agents without a mode of their own run in ${mode}, taken from your main Claude settings`;
+  const own = readJson(path.join(account.configDir, 'settings.json'))?.permissions?.defaultMode;
+  return own ? `agents without a mode of their own run in ${own}, from this account's own Claude folder` : 'agents without a mode of their own run in default (no mode in your Claude settings)';
+}
+
+/** Modes an account's own folder may inherit from the main settings: never bypassPermissions (only an agent itself). */
+const INHERITABLE_MODES = new Set(['default', 'manual', 'acceptEdits', 'auto', 'plan', 'dontAsk']);
+
+/**
+ * What an account with a Claude folder of its own takes over from the owner's main folder (24 Nov: his main
+ * settings.json says defaultMode "auto"; Yahoo's folder had none, so 24 agents moved there ran in "default" and asked
+ * him for every shell command). Only his own permission settings: the default mode (as written, never higher, never
+ * bypassPermissions), his allow / deny / ask rules and extra directories, and skipAutoPermissionPrompt. Not the rest
+ * (enabledPlugins would name plugins that folder does not have; remote control, notifications, the theme).
+ * -> { mode, from, settings } or null when the main folder names no mode or rules.
+ */
+export function inheritedPermissions(env = process.env) {
+  const file = path.join(env.OASIS_MAIN_CLAUDE_DIR || path.join(os.homedir(), '.claude'), 'settings.json');
+  const main = readJson(file);
+  const p = main?.permissions && typeof main.permissions === 'object' ? main.permissions : null;
+  if (!p) return null;
+  const permissions = {};
+  if (typeof p.defaultMode === 'string' && INHERITABLE_MODES.has(p.defaultMode)) permissions.defaultMode = p.defaultMode;
+  for (const k of ['allow', 'deny', 'ask', 'additionalDirectories']) if (Array.isArray(p[k]) && p[k].length) permissions[k] = p[k].filter((x) => typeof x === 'string');
+  if (!Object.keys(permissions).length) return null;
+  const settings = { permissions, ...(permissions.defaultMode === 'auto' && main.skipAutoPermissionPrompt === true ? { skipAutoPermissionPrompt: true } : {}) };
+  return { mode: permissions.defaultMode || null, from: file, settings };
+}
+
+let inheritedFile = { text: null, path: null };
+/** The --settings file for an agent on an account's own folder (rewritten only when the main settings changed). */
+export function inheritedSettingsArgs(env = process.env) {
+  const inh = inheritedPermissions(env);
+  if (!inh) return [];
+  const text = JSON.stringify(inh.settings);
+  if (text !== inheritedFile.text) {
+    const p = path.join(os.tmpdir(), 'oasis-agent-engine-inherited-settings.json');
+    try { fs.writeFileSync(p, text); inheritedFile = { text, path: p }; } catch { return []; }
+  }
+  return ['--settings', inheritedFile.path];
 }
 
 /** The main Claude folder's projects (where every session's history lives). */

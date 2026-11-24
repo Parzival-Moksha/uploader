@@ -31,7 +31,10 @@ if (OASIS_BASE) {
 // Hook DefaultLoadingManager → React-subscribable world load state. Exposes
 // progress to the loading bar UI and the portal transition gating logic.
 import { installWorldLoadProgress } from '../lib/world-load-progress'
+import { installLoadTracker } from '../lib/load-tracker'
 installWorldLoadProgress()
+// What loads now, bytes done of total, per kind (the loading bar), and one download per avatar or model file
+installLoadTracker()
 
 import { useOasisStore } from '../store/oasisStore'
 
@@ -89,6 +92,7 @@ import { VillageVoiceWidget } from './village/VillageVoiceWidget'
 import { VillageScreenBackdrop } from './village/VillageScreenBackdrop'
 import { ConnectionWarning } from './forge/ConnectionWarning'
 import { getVillageScreen, openVillagePicker, subscribeVillageScreen } from './village/village-actions'
+import { setPlayModeActive } from '../lib/play-mode'
 import { openSummonMenu } from './village/summon-request'
 import { useAcademyEnabled } from './village/academy-store'
 import { installTestHarness } from '@/lib/test-harness'
@@ -124,6 +128,7 @@ import { useFlopCaps } from '@/lib/use-flop-caps'
 import { GameMenu, OPEN_CONFIG_EVENT, OPEN_HELP_EVENT } from './game-menu/GameMenu'
 import { CharacterMenu } from './village/CharacterMenu'
 import { GameMenuRailButton } from './game-menu/GameMenuRailButton'
+import { CharacterRailButton } from './village/CharacterRailButton'
 import { GameMenuCameraDrift } from './game-menu/GameMenuCameraDrift'
 import { AgentSelectionLayer } from './village/AgentSelectionLayer'
 import { GameTooltip } from './forge/GameTooltip'
@@ -1461,6 +1466,14 @@ export default function Scene() {
   const activeWorldWriteKnown = Boolean(activeWorldMeta) || isViewMode
   const readOnlyForcesRp1 = Boolean(activeWorldWriteKnown && !activeWorldCanWrite)
   const effectiveRp1Mode = settings.rp1Mode || readOnlyForcesRp1
+  // Play mode hides the build tools: every way into building leaves play first (the spellbook does it per spell).
+  const rp1ModeRef = useRef(settings.rp1Mode)
+  rp1ModeRef.current = settings.rp1Mode
+  const leavePlayForBuilding = useCallback(() => {
+    setSettings(prev => prev.rp1Mode ? { ...prev, rp1Mode: false } : prev)
+  }, [])
+  // What a click may select follows the mode (lib/play-mode.ts, read by event-bus.ts).
+  useEffect(() => { setPlayModeActive(effectiveRp1Mode) }, [effectiveRp1Mode])
   const isPortalZeroWorld = activeWorldId === WELCOME_HUB_WORLD_ID
   const playableWorldId = isViewMode ? (viewingWorldId || activeWorldId) : activeWorldId
   const playableWorldReady = isViewMode
@@ -1637,7 +1650,7 @@ export default function Scene() {
   useEffect(() => {
     if (typeof window === 'undefined') return
     // Also what completes the first quest, now that the Wizard button on the rail is gone.
-    const open = () => { setWizardOpen(true); completeQuest('open-wizard') }
+    const open = () => { leavePlayForBuilding(); setWizardOpen(true); completeQuest('open-wizard') }
     window.addEventListener('oasis:open-wizard', open)
     return () => window.removeEventListener('oasis:open-wizard', open)
   }, [])
@@ -1645,14 +1658,28 @@ export default function Scene() {
   // New event hooks for the standalone Sky / Lights panels.
   useEffect(() => {
     if (typeof window === 'undefined') return
-    const openSky = () => setSkyPanelOpen(true)
-    const openLights = () => setLightsPanelOpen(true)
+    const openSky = () => { leavePlayForBuilding(); setSkyPanelOpen(true) }
+    const openLights = () => { leavePlayForBuilding(); setLightsPanelOpen(true) }
     window.addEventListener('oasis:open-sky-panel', openSky)
     window.addEventListener('oasis:open-lights-panel', openLights)
     return () => {
       window.removeEventListener('oasis:open-sky-panel', openSky)
       window.removeEventListener('oasis:open-lights-panel', openLights)
     }
+  }, [])
+
+  // The Place menu is not mounted in play (hideEditTools): a request for it in play leaves play and is sent again
+  // once the menu is there, instead of opening nothing (Battlemage's "click does nothing", 24 Nov).
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const onPlace = (event: Event) => {
+      const detail = (event as CustomEvent<Record<string, unknown> | undefined>).detail
+      if (!rp1ModeRef.current || detail?.afterLeavingPlay) return
+      leavePlayForBuilding()
+      window.setTimeout(() => window.dispatchEvent(new CustomEvent('oasis:open-place-menu', { detail: { ...(detail || {}), afterLeavingPlay: true } })), 60)
+    }
+    window.addEventListener('oasis:open-place-menu', onPlace)
+    return () => window.removeEventListener('oasis:open-place-menu', onPlace)
   }, [])
 
   useEffect(() => {
@@ -1906,7 +1933,9 @@ export default function Scene() {
     const worldKey = playableWorldId || activeWorldId
     if (!worldKey || autoBuildWorldRef.current === worldKey) return
     autoBuildWorldRef.current = worldKey
-    setSettings(prev => prev.rp1Mode ? { ...prev, rp1Mode: false } : prev)
+    // A world starts in play (walk, look, talk; a click selects nothing in the world), not build: the owner kept
+    // selecting the ground disc by accident (24 Nov). Picking a creation spell or opening a build tool leaves play.
+    setSettings(prev => prev.rp1Mode ? prev : { ...prev, rp1Mode: true })
   }, [activeWorldCanWrite, activeWorldId, playableWorldId, playableWorldReady, readOnlyForcesRp1])
 
   useEffect(() => {
@@ -2110,7 +2139,7 @@ export default function Scene() {
         <color attach="background" args={['#07111a']} />
 
         {worldSkyBackground && <SkyBackground backgroundId={worldSkyBackground} />}
-        {/* One sky melts, rips or glitches into the next (Settings > World VFX > Sky change). */}
+        {/* One sky melts, rips or glitches into the next (Settings > VFX > Sky change). */}
         <SkyTransition />
 
         {/* ─═̷─═̷─🎮 CAMERA CONTROLLER — ONE owner, ONE useFrame, ZERO fights ─═̷─═̷─🎮 */}
@@ -2262,7 +2291,7 @@ export default function Scene() {
 
       {/* Main game rail: the HUD layer; the place layer while Settings, World or Profile is open (src/lib/ui-kit/layers.ts). */}
       <div style={{ zIndex: railMenuOpen ? layerZ('place') : layerZ('hud', 50) }} className="fixed left-4 top-4 flex flex-col gap-2 select-none max-[700px]:left-2 max-[700px]:top-2 max-[700px]:gap-1.5">
-        {/* Always on screen: Menu, World, Spells, Agents. Profile, Settings and Help open from the main menu. */}
+        {/* Always on screen: Menu, World, Spells, Character, Agents. Profile, Settings and Help open from the main menu. */}
         <GameMenuRailButton />
         <ProfileButton hideRailButton />
 
@@ -2300,6 +2329,9 @@ export default function Scene() {
             setSpellbookOpen(open => !open)
           }}
         />
+
+        {/* The Character menu's own button, always on screen like a game's char button (K). */}
+        {!hostedMode && <CharacterRailButton />}
 
         {/* ─═̷─ AgentQuickLauncher rail button retired 2026-05-20.
             All agent summoning lives in the Spellbook now (B key,

@@ -7,7 +7,8 @@
 import * as THREE from 'three'
 import { useOasisStore } from '../../store/oasisStore'
 import { useInputManager, type InputState } from '../../lib/input-manager'
-import { selectNextAgentForN } from '../../store/slices/agentEngineSlice'
+import { isDecisionInFlight, selectNextAgentForN, type EngineDecisionState } from '../../store/slices/agentEngineSlice'
+import { getAgentEngineClient } from '../../lib/agent-engine-client'
 import { isStageWorldName } from '../../lib/village/village-stage'
 import { getSelectedVillageAgent } from '../../lib/village/agent-selection'
 import { dismissVillageAgent } from './village-leave'
@@ -363,6 +364,36 @@ export function applyVillageView(next: VillageView): boolean {
   }
   setVillageScreen(next.kind === 'screen' ? next.agentId : null)
   return true
+}
+
+/**
+ * The permission card the open agent waits on (its first; not one seen through a hook, which is answered where the
+ * session runs), or null. While it is there the keyboard is on it: Enter allows, Esc denies (the owner, 2026-11-24:
+ * "three waiting agents are three key presses, not three walks", with N between them).
+ */
+export function pendingPermissionCard(agentId: string | null): EngineDecisionState | null {
+  if (!agentId) return null
+  const engine = useOasisStore.getState().agentEngine
+  const agent = engine.agents[agentId]
+  if (!agent?.owned) return null
+  return agent.decisions.find(d => d.requestKind === 'permission' && !d.readOnly && !isDecisionInFlight(engine, d.requestId)) ?? null
+}
+
+function answerCard(agentId: string, card: EngineDecisionState, allow: boolean): void {
+  getAgentEngineClient()
+    .respondPermission(agentId, card.requestId, { allow })
+    .catch(error => showNotice(`${allow ? 'Allow' : 'Deny'} failed: ${error instanceof Error ? error.message : String(error)}`, 'error'))
+}
+
+/** Esc in an open agent (its panel or its full screen): a waiting permission card is denied; else the view closes. */
+export function villageEscape(): boolean {
+  const focused = useOasisStore.getState().agentEngine.focusedAgentId
+  const card = pendingPermissionCard(focused)
+  if (focused && card) {
+    answerCard(focused, card, false)
+    return true
+  }
+  return pressVillageView('Esc')
 }
 
 /** E, F or Esc, from a key or a button (the panel's "F screen", the full screen's "E panel" and close). */
@@ -727,6 +758,15 @@ export function handleVillageKeyDown(event: KeyboardEvent): boolean {
       return true
     }
   }
+  // Enter with a permission card waiting (and the text box not being typed in): allow it.
+  if ((event.code === 'Enter' || event.code === 'NumpadEnter') && !event.shiftKey && !event.ctrlKey && !event.altKey && !event.metaKey
+    && !event.repeat && !isTypingTarget(event.target) && village.focusedAgentId) {
+    const card = pendingPermissionCard(village.focusedAgentId)
+    if (card) {
+      answerCard(village.focusedAgentId, card, true)
+      return true
+    }
+  }
   const target = villageViewTarget()
   const selectedNow = getSelectedVillageAgent()
   const action = villageKeyAction({
@@ -757,6 +797,8 @@ export function handleVillageKeyDown(event: KeyboardEvent): boolean {
     // the owner (the widget at the bottom left shows it, with Send and Stop).
     case 'view': {
       const key = villageViewKey(event.code)
+      // Esc with a permission card waiting denies it (villageEscape); E and F still change the view.
+      if (key === 'Esc' && village.focusedAgentId && pendingPermissionCard(village.focusedAgentId)) return villageEscape()
       return key ? applyVillageView(nextVillageView(currentVillageView(), key, target)) : false
     }
     // The box doesn't hold the keyboard until you click it: Enter sends what you dictated.

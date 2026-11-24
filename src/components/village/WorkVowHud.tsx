@@ -12,7 +12,7 @@ import { GAME_HUD_TEXT } from '../forge/GameKeycap'
 import { useOasisStore } from '../../store/oasisStore'
 import { getMissionState, subscribeMissions } from './village-mission-store'
 import { MindcraftWindow, clearBand, openMindcraft, overlayObstacles } from './MindcraftView'
-import { LastRun, NewMission, RunningMission, runningClock, TimeUpBar } from './OwnMissionPanel'
+import { CommitDueBar, CommittedList, LastRun, NewMission, RunningMission, runningClock, TimeUpBar } from './OwnMissionPanel'
 import { useLiveWork } from './useLiveWork'
 import { getWorkVowState, setWorkFocus, setWorkMission, startWorkVow, subscribeWorkVow } from './work-vow-client'
 
@@ -155,6 +155,7 @@ function Detail({ snapshot, liveSeconds, liveAgents, onClose }: { snapshot: Work
           <NewMission />
         </>
       )}
+      <CommittedList snapshot={snapshot} />
       <button type="button" onClick={() => { onClose(); openMindcraft() }} className="mc-btn mt-2">
         Mindcraft
       </button>
@@ -289,6 +290,7 @@ export function WorkVowHud() {
     <>
       {/* While the panel is open it shows the same +5 / +15 / done itself; the bar would sit half under it. */}
       {!open && <TimeUpBar snapshot={snapshot} bottom={counterTop} />}
+      {!open && <CommitDueBar snapshot={snapshot} bottom={counterTop} />}
       <button
         ref={counterRef}
         type="button"

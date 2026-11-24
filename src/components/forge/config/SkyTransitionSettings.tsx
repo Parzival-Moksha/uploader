@@ -1,6 +1,6 @@
 'use client'
 
-// Settings > World VFX > Sky change: how one sky gives way to the next.
+// Settings > VFX > Sky change: how one sky gives way to the next.
 
 import { SKY_TRANSITION_STYLES, setSkyTransitionStyle, useSkyTransitionStyle } from '@/components/forge/SkyTransition'
 

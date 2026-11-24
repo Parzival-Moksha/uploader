@@ -7,7 +7,7 @@
 //   an agent earns its working minutes × the priority (0 to 1) of the mission it is on.
 // The missions' priority is the agents' multiplier, not the owner's: "I don't even do them. You do the missions."
 
-import { endRun, runIsDue, type RunResult, type RunState } from './own-mission'
+import { commitInWindow, commitStateAt, endRun, runIsDue, type Commitment, type RunResult, type RunState } from './own-mission'
 
 export const WORK_VALOR = { mission: 1, agent: 1, mindcraft: 1, free: 0.7 }
 /** No key, mouse, walking or dictation for this long: the counter stops. */
@@ -94,6 +94,8 @@ export interface WorkDay {
   tabs?: Record<string, WorkTabRecord>
   /** His own missions that ended this day (started from Mindcraft's small panel). */
   runs?: WorkRunRecord[]
+  /** XP from committed missions kept this day (their bonus on top of their minutes). */
+  commitBonusXp?: number
 }
 
 export interface WorkTabRecord {
@@ -155,6 +157,8 @@ export interface WorkFile {
   agentMissions?: Record<string, string>
   /** The last own mission that ended: the counter shows its result for a while. */
   lastRun?: RunResult
+  /** His missions committed for a day and a time (own-mission.ts). */
+  commits?: Commitment[]
   /** Agent hours: the latest event booked per agent and kind, so a replayed or doubled event is not booked twice. */
   marks?: Record<string, number>
 }
@@ -168,7 +172,7 @@ function parseRun(value: unknown): WorkRunRecord | null {
   const r = value as Partial<WorkRunRecord> | null
   if (!r || typeof r !== 'object' || typeof r.file !== 'string' || typeof r.title !== 'string') return null
   const n = (x: unknown) => (typeof x === 'number' && Number.isFinite(x) && x > 0 ? x : 0)
-  return { file: r.file, title: r.title, plannedSeconds: n(r.plannedSeconds) || null, seconds: n(r.seconds), counted: n(r.counted), away: n(r.away), kept: r.kept === true, xp: n(r.xp), startedAt: n(r.startedAt), endedAt: n(r.endedAt), told: typeof r.told === 'string' ? r.told : '' }
+  return { file: r.file, title: r.title, plannedSeconds: n(r.plannedSeconds) || null, seconds: n(r.seconds), counted: n(r.counted), away: n(r.away), kept: r.kept === true, xp: n(r.xp), startedAt: n(r.startedAt), endedAt: n(r.endedAt), told: typeof r.told === 'string' ? r.told : '', ...(n(r.bonusXp) ? { bonusXp: n(r.bonusXp), bonusPct: n(r.bonusPct) } : {}) }
 }
 
 /** A file from disk, made safe: anything missing or odd is dropped, never the days that are fine. */
@@ -217,6 +221,7 @@ export function parseWorkFile(value: unknown): WorkFile {
     for (const [tab, t] of Object.entries(day.tabs || {})) {
       if (t && typeof t === 'object' && num(t.seconds)) (parsed.tabs ||= {})[tab] = { seconds: num(t.seconds), from: num(t.from), to: num(t.to), ...(typeof t.client === 'string' && t.client ? { client: t.client } : {}) }
     }
+    if (num(day.commitBonusXp)) parsed.commitBonusXp = num(day.commitBonusXp)
     for (const r of Array.isArray(day.runs) ? day.runs : []) {
       const run = parseRun(r)
       if (run) (parsed.runs ||= []).push(run)
@@ -233,8 +238,14 @@ export function parseWorkFile(value: unknown): WorkFile {
         pausedAt: num(run.pausedAt) || null,
         pausedMs: num(run.pausedMs),
         counted: num(run.counted),
+        ...(run.commit && typeof run.commit.id === 'string' ? { commit: { id: run.commit.id, bonusPct: num(run.commit.bonusPct) } } : {}),
       }
     }
+  }
+  for (const c of Array.isArray(raw.commits) ? raw.commits : []) {
+    if (!c || typeof c.id !== 'string' || typeof c.file !== 'string' || !num(c.at) || !num(c.minutes)) continue
+    const state = (['pending', 'started', 'kept', 'missed', 'cancelled'] as const).find(s => s === c.state) || 'pending'
+    ;(file.commits ||= []).push({ id: c.id, file: c.file, title: String(c.title || c.file), at: num(c.at), minutes: num(c.minutes), madeAt: num(c.madeAt), bonusPct: num(c.bonusPct), notify: typeof c.notify === 'string' && c.notify ? c.notify : null, state, ...(num(c.startedAt) ? { startedAt: num(c.startedAt) } : {}), ...(num(c.remindedAt) ? { remindedAt: num(c.remindedAt) } : {}) })
   }
   const last = raw.lastRun ? parseRun(raw.lastRun) : null
   if (last) file.lastRun = { ...last, line: typeof raw.lastRun?.line === 'string' ? raw.lastRun.line : '' }
@@ -313,7 +324,7 @@ export function daySeconds(day: WorkDay | undefined): number {
 
 function rawDayXp(day: WorkDay | undefined): number {
   if (!day) return 0
-  return day.freeXp + (day.agentXp || 0) + (day.manual || []).reduce((sum, m) => sum + m.xp, 0) + Object.values(day.missions).reduce((sum, mission) => sum + mission.xp, 0)
+  return day.freeXp + (day.agentXp || 0) + (day.commitBonusXp || 0) + (day.manual || []).reduce((sum, m) => sum + m.xp, 0) + Object.values(day.missions).reduce((sum, mission) => sum + mission.xp, 0)
 }
 
 export function dayXp(day: WorkDay | undefined): number {
@@ -556,12 +567,25 @@ export function extendRunInBook(input: WorkFile, seconds: number, now: number): 
  * (a second page ending the same run at the same moment changes nothing). Null: nothing to end.
  */
 export function finishRunInBook(input: WorkFile, now: number, startedAt?: number, onlyIfDue = false): { file: WorkFile; result: Omit<RunResult, 'told' | 'line'> } | null {
+  // (a committed mission's bonus: see below)
   const active = input.active
   if (!active?.run || (startedAt !== undefined && active.startedAt !== startedAt)) return null
   // A page's own clock asked for the end: only if the book agrees the time is up (a stale page must not end a paused run).
   if (onlyIfDue && !runIsDue(active.startedAt, active.run, now)) return null
-  const result = endRun({ file: active.file, title: active.title, startedAt: active.startedAt, run: active.run }, now)
+  const ended = endRun({ file: active.file, title: active.title, startedAt: active.startedAt, run: active.run }, now)
   let file = setWorkMission(input, null, now)
+  // A committed mission: kept, it earns its bonus on its day; ended early, it is missed (what that costs is his to say).
+  const commit = active.run.commit
+  const bonusXp = commit && ended.kept && ended.plannedSeconds !== null ? Math.round(ended.xp * commit.bonusPct / 100) : 0
+  const result = bonusXp ? { ...ended, bonusXp, bonusPct: commit!.bonusPct } : ended
+  if (commit) {
+    file.commits = (file.commits || []).map(c => (c.id === commit.id ? { ...c, state: ended.kept ? 'kept' as const : 'missed' as const } : c))
+    if (bonusXp) {
+      const date = localDay(ended.endedAt, localOffsetMinutes(ended.endedAt))
+      const day = file.days[date] || (file.days[date] = { freeSeconds: 0, freeXp: 0, missions: {} })
+      day.commitBonusXp = (day.commitBonusXp || 0) + bonusXp
+    }
+  }
   if (result.away >= 60) {
     // The outside time, spread over the run's wall time: a run across 04:20 gives each day its share.
     const reason = `${active.title}: time outside the Oasis tab (your own mission's timer)`
@@ -572,6 +596,39 @@ export function finishRunInBook(input: WorkFile, now: number, startedAt?: number
     if (result.away - before >= 60) file = addManualTime(file, { date: localDay(result.endedAt, localOffsetMinutes(result.endedAt)), seconds: result.away - before, reason }, now)
   }
   return { file, result }
+}
+
+/** A mission committed for a day and a time. */
+export function addCommitInBook(input: WorkFile, c: Commitment): WorkFile {
+  const file: WorkFile = JSON.parse(JSON.stringify(input))
+  file.commits = [...(file.commits || []).filter(x => x.id !== c.id), c].sort((a, b) => a.at - b.at)
+  return file
+}
+
+/** Called off (by him): it leaves the list; nothing is lost or earned. */
+export function cancelCommitInBook(input: WorkFile, id: string): WorkFile {
+  if (!input.commits?.some(c => c.id === id && c.state === 'pending')) return input
+  const file: WorkFile = JSON.parse(JSON.stringify(input))
+  file.commits = file.commits!.map(c => (c.id === id ? { ...c, state: 'cancelled' as const } : c))
+  return file
+}
+
+/** Starting a committed mission: inside its window it carries its bonus; outside, it runs as a plain mission. */
+export function commitForStart(input: WorkFile, id: string, now: number): { commit: Commitment; onTime: boolean } | null {
+  const commit = input.commits?.find(c => c.id === id)
+  const state = commit ? commitStateAt(commit, now) : null
+  // Late (missed) or early, it still runs, as a plain mission; done or called off, it does not.
+  if (!commit || (state !== 'pending' && state !== 'missed')) return null
+  return { commit, onTime: state === 'pending' && commitInWindow(commit, now) }
+}
+
+/** The commitments to show: today's and the coming days', with their state now (missed once the window passed). */
+export function commitsToShow(file: WorkFile, now: number, offsetMinutes = localOffsetMinutes(now)): Commitment[] {
+  const today = localDay(now, offsetMinutes)
+  return (file.commits || [])
+    .map(c => ({ ...c, state: commitStateAt(c, now) }))
+    .filter(c => c.state !== 'cancelled' && localDay(c.at, localOffsetMinutes(c.at)) >= today)
+    .sort((a, b) => a.at - b.at)
 }
 
 /** The day keeps the ended run, and the counter shows its line for a while. */
@@ -1056,6 +1113,8 @@ export interface WorkSnapshot {
   /** His own missions that ended today, and the last one if it ended within the last 3 hours (the counter shows it). */
   runs: WorkRunRecord[]
   lastRun: RunResult | null
+  /** His committed missions: today's and the coming days'. */
+  commits: Commitment[]
   /** The agents' working hours: today, yesterday, the mark reached today and the next one. History: ?agentHours=1. */
   agentHours: { today: number; yesterday: number; best: { date: string; seconds: number } | null; mark: string | null; next: { hours: number; label: string } | null }
   /** Who books the agents' hours: the engine (it reported in the last 15 min), or open pages. */
@@ -1108,6 +1167,7 @@ export function workSnapshot(file: WorkFile, now: number, offsetMinutes = localO
     active: file.active,
     counting: Boolean(file.holder && now - file.holder.at < 60_000),
     runs: day?.runs || [],
+    commits: commitsToShow(file, now, offsetMinutes),
     lastRun: file.lastRun && now - file.lastRun.endedAt < 3 * 3600_000 ? file.lastRun : null,
     settings: { freeValor: freeValor(file), dayStartsAt: '04:20' },
     agentHoursFrom: file.engineReportAt && now - file.engineReportAt < 15 * 60_000 ? 'engine' : 'page',

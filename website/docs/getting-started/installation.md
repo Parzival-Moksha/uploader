@@ -34,6 +34,10 @@ node scripts/oasis.mjs start
 
 `node scripts/oasis.mjs stop` stops it, `node scripts/oasis.mjs status` says what runs. Windows, macOS and Linux.
 
+## Update
+
+With the plugin: `/oasis update` in Claude Code. In a clone: `node scripts/oasis.mjs update`. Your worlds, agents, keys and uploads stay. With the plugin, if anything fails the old version comes back; in a clone, a failed build keeps the old one running and the next start tries again. The version shows in the main menu under the name.
+
 ## What runs on your machine
 
 - The page, on `127.0.0.1:4516`, and the agent engine, on `127.0.0.1:4530`. Both answer this computer only, and only a browser that has the Oasis's local key.

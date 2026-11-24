@@ -20,6 +20,8 @@
 //         { run: { save: { title, minutes, ease, impact, urgency } } }  into his list, for later
 //         { run: { note: "..." } }  a note on the running one · { run: { pause: true | false } } · { run: { notify: name | null } }
 //         { run: { end: true, startedAt? } }  end it: kept or not, minutes, XP; his notes go to the agent
+//         { run: { commit: { title, at: ms, minutes, notify } } }  commit one for a day and a time (bonus if kept) · { run: { uncommit: id } }
+//         { run: { start: { commit: id, notify } } }  start a committed one
 //         { run: { extend: 300 } }  more time on the timed one (from now if its time is up)
 //         { run: { end: 'due', startedAt } }  a page saw the time run out: ended only if the book agrees
 //   GET   ?run=1: the running one's notes
@@ -29,7 +31,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 import { guardAgentRoute } from '@/lib/local-request-guard'
-import { extendOwnMission, endOwnMission, noteOwnMission, notifyOwnMission, ownMissionNotes, pauseOwnMission, saveOwnMission, startOwnMission, declareAgentMission, editManualTime, reportAgentWork, reportWorkBeat, setWorkSettings, switchWorkMission, workDaySummary, workAgentHours, workMindcraft, workMissionTimers, workMissionActivity, workRebuilt, workVowSnapshot } from '@/lib/work-vow-server'
+import { cancelOwnCommit, commitOwnMission, extendOwnMission, endOwnMission, noteOwnMission, notifyOwnMission, ownMissionNotes, pauseOwnMission, saveOwnMission, startOwnMission, declareAgentMission, editManualTime, reportAgentWork, reportWorkBeat, setWorkSettings, switchWorkMission, workDaySummary, workAgentHours, workMindcraft, workMissionTimers, workMissionActivity, workRebuilt, workVowSnapshot } from '@/lib/work-vow-server'
 import { clientLabel, isAutomationRequest, type AgentWorkReport } from '@/lib/village/work-vow'
 import { fromOasisPage } from '@/lib/village/own-mission'
 
@@ -139,7 +141,7 @@ async function ownMissionRequest(run: Record<string, unknown>): Promise<[unknown
   const fail = (result: { error: string; status: number }): [unknown, { status: number }] => [{ error: result.error }, { status: result.status }]
   if (run.start && typeof run.start === 'object') {
     const start = run.start as Record<string, unknown>
-    const result = await startOwnMission({ title: str(start.title, 140) || undefined, file: str(start.file, 120) || undefined, minutes: minutesOf(start.minutes), notify: agentOf(start.notify) })
+    const result = await startOwnMission({ title: str(start.title, 140) || undefined, file: str(start.file, 120) || undefined, minutes: minutesOf(start.minutes), notify: agentOf(start.notify), commit: str(start.commit, 40) || undefined })
     return result.ok ? [result] : fail(result)
   }
   if (run.save && typeof run.save === 'object') {
@@ -151,6 +153,12 @@ async function ownMissionRequest(run: Record<string, unknown>): Promise<[unknown
     const result = await noteOwnMission(run.note)
     return result.ok ? [result] : fail(result)
   }
+  if (run.commit && typeof run.commit === 'object') {
+    const c = run.commit as Record<string, unknown>
+    const result = await commitOwnMission({ title: str(c.title, 140), at: typeof c.at === 'number' ? c.at : NaN, minutes: minutesOf(c.minutes) || 0, notify: agentOf(c.notify) })
+    return result.ok ? [result] : fail(result)
+  }
+  if (typeof run.uncommit === 'string') return [{ ok: true, snapshot: await cancelOwnCommit(run.uncommit) }]
   if (typeof run.extend === 'number' && run.extend > 0) return [{ ok: true, snapshot: await extendOwnMission(run.extend) }]
   if (typeof run.pause === 'boolean') return [{ ok: true, snapshot: await pauseOwnMission(run.pause) }]
   if ('notify' in run) return [{ ok: true, snapshot: await notifyOwnMission(agentOf(run.notify)) }]
