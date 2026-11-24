@@ -10,7 +10,7 @@ Tell your Claude Code (or any coding agent that can run commands):
 install the Oasis from github.com/Parzival-Moksha/uploader and open it
 ```
 
-That is all: no plugin, no slash command. It clones this repository (**about 600 MB**: every world and avatar), installs and builds it (about 7 to 10 minutes the first time on a 100 Mbit line) and opens the village in your browser. Every Claude Code session on this machine shows up there. You need Node.js 20 or later and git.
+That is all: no plugin, no slash command. It clones this repository (**about 600 MB**: every world and avatar), installs and builds it and opens the village in your browser: about 5 minutes in all on our Windows test machine and on a clean Mac, measured on 24 Nov (more on a slow line; the download alone took half a minute on a fast one). Every Claude Code session on this machine shows up there. You need Node.js 20 or later and git.
 
 By hand, the same thing:
 
