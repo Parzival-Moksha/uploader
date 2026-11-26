@@ -1,5 +1,5 @@
 // The internet line: knowing the village is offline, holding work while it is, and noticing when it is back.
-// The mission: Anorak, 21 Nov (C:/7c_oasis/docs/incidents/2026-11-21_offline-overnight.md): the PC lost its internet
+// The mission: Anorak, 21 Nov (the incident report of 21 Nov): the PC lost its internet
 // from Fri 19:26 to Sat 12:03; every running turn died with "API Error: Can't reach the API server (ENOTFOUND)", six
 // scheduled wake-ups went into the dead line one after another, and nothing went on by itself until the owner spoke.
 //

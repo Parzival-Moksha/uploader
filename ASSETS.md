@@ -55,14 +55,16 @@ The CC0 avatars state that licence inside the file (VRM metadata); the cut check
 
 | Folder | Files | Source | Licence |
 |---|---|---|---|
-| `public/animations/ual/` | 2 | Quaternius, Universal Animation Library (Standard) | CC0 1.0 |
+| `public/animations/ual/` | 3 | Quaternius, Universal Animation Library (Standard and Pro; both CC0 1.0 per their License.txt) | CC0 1.0 |
+| `public/audio/ambience/` | 2 | Adam Clark, "Nightingale song May 2012" (South Norfolk, UK; archive.org/details/NightingaleSongMay2012); trimmed, evened and levelled for the Oasis. Details in manifest.json beside the file | CC0 1.0 (the edits too) |
 | `public/audio/kenney` | 474 | Kenney (kenney.nl) | CC0 1.0 |
+| `public/audio/spells-cc0/` | 1 | the Oasis: the list of shipped sounds (manifest.json); each sound has its own row | MIT with the code |
 | `public/favicon.svg` | 1 | the Oasis | Made for the Oasis; MIT with the code |
-| `public/fonts/emoji/` | 12 | Google, Noto Emoji | SIL Open Font License 1.1 (OFL.txt beside the files) |
+| `public/fonts/emoji/` | 13 | Google, Noto Emoji | SIL Open Font License 1.1 (OFL.txt beside the files) |
 | `public/fonts/gentilis_` | 1 | SIL International, Gentilis (as a three.js typeface file) | SIL Open Font License 1.1 |
 | `public/fonts/helvetiker_` | 2 | Magenta Ltd, MgOpen Moderna as "helvetiker" (three.js typeface files) | MgOpen licence (free to use, copy and distribute) |
 | `public/fonts/inter-` | 1 | Rasmus Andersson, Inter | SIL Open Font License 1.1 |
-| `public/fonts/ui/` | 17 | Google Fonts subsets of Cinzel, Cormorant Garamond, Space Grotesk and JetBrains Mono (their project authors) | SIL Open Font License 1.1 (OFL.txt beside the files) |
+| `public/fonts/ui/` | 18 | Google Fonts subsets of Cinzel, Cormorant Garamond, Space Grotesk and JetBrains Mono (their project authors) | SIL Open Font License 1.1 (OFL.txt beside the files) |
 | `public/ground/` | 19 | Poly Haven (polyhaven.com) | CC0 1.0 |
 | `public/ground/sbs1/` | 125 | Screaming Brain Studios, Tiny Texture Pack | CC0 1.0 |
 | `public/ground/sbs2/` | 160 | Screaming Brain Studios, Tiny Texture Pack 2 | CC0 1.0 |
@@ -85,8 +87,44 @@ The CC0 avatars state that licence inside the file (VRM metadata); the cut check
 | `public/skies/` | 15 | the Oasis | Made for the Oasis (generated panoramas, 2026-11-09); MIT with the code |
 | `public/splash/` | 15 | the Oasis | Made for the Oasis (generated art); MIT with the code |
 | `public/thumbs/` | 1012 | the Oasis | Made for the Oasis (pictures of the models above); MIT with the code |
-| `public/ui/` | 107 | the Oasis | Made for the Oasis (generated art); MIT with the code |
+| `public/ui/` | 233 | the Oasis | Made for the Oasis (generated art); MIT with the code |
 | `public/voice/` | 1 | the Oasis | Made for the Oasis; MIT with the code |
+| `public/audio/spells-cc0/cc0-bubbles.ogg` | 1 | 100 CC0 SFX other_01 (rubberduck, OpenGameArt) | CC0 1.0 |
+| `public/audio/spells-cc0/cc0-cast-whoosh.ogg` | 1 | 80 CC0 RPG SFX spell_01 (rubberduck, OpenGameArt) | CC0 1.0 |
+| `public/audio/spells-cc0/cc0-glitter.ogg` | 1 | 80 CC0 RPG SFX item_gem_04 (rubberduck, OpenGameArt) | CC0 1.0 |
+| `public/audio/spells-cc0/cc0-harp-chime.ogg` | 1 | 80 CC0 RPG SFX item_misc_06 (rubberduck, OpenGameArt) | CC0 1.0 |
+| `public/audio/spells-cc0/cc0-ice-whoosh.ogg` | 1 | 100 CC0 SFX #2 misc_02 (rubberduck, OpenGameArt) | CC0 1.0 |
+| `public/audio/spells-cc0/cc0-impact-boom.ogg` | 1 | 80 CC0 RPG SFX misc_02 + 100 CC0 SFX explosion + 100 CC0 SFX #2 thunder_01 (rubberduck, OpenGameArt) | CC0 1.0 |
+| `public/audio/spells-cc0/cc0-portal-sweep.ogg` | 1 | 100 CC0 SFX #2 air_01 (rubberduck, OpenGameArt) | CC0 1.0 |
+| `public/audio/spells-cc0/cc0-shine-chord.ogg` | 1 | 100 CC0 SFX #2 misc_12 (rubberduck, OpenGameArt) | CC0 1.0 |
+| `public/audio/spells-cc0/cc0-sparkle-whoosh.ogg` | 1 | 80 CC0 RPG SFX spell_02 (rubberduck, OpenGameArt) | CC0 1.0 |
+| `public/audio/spells-cc0/cc0-swell.ogg` | 1 | 100 CC0 SFX #2 misc_37 (rubberduck, OpenGameArt) | CC0 1.0 |
+| `public/audio/spells-cc0/cc0-swoosh.ogg` | 1 | 100 CC0 SFX #2 air_02 (rubberduck, OpenGameArt) | CC0 1.0 |
+| `public/audio/spells-cc0/conjure-owner.mp3` | 1 | The owner's own incantation, his 2026-11-20 recording at 24:09, cut and levelled (was public/audio/spells/conjuration-incantation.mp3) | The owner's own recording, his to pass on with the Oasis; shipped by his decision (24 Nov 2026: 'it could super go live... my voice is all over YouTube'). |
+| `public/audio/spells-cc0/el-bolt-cast.ogg` | 1 | ElevenLabs Sound Effects, prompt: a deep, forceful magic launch, a short low whoosh with a thump; take 3 of round 2, chosen by the owner by ear 2026-11-24; trimmed, faded and levelled to -16 LUFS by Hipster | Made with ElevenLabs Sound Effects on the owner's paid plan (2026-11-24), used inside the Oasis and shipped with it. Not CC0. |
+| `public/audio/spells-cc0/el-fire-impact.ogg` | 1 | ElevenLabs Sound Effects, prompt: a short fiery magic impact, a compact fireball burst with a crackle; take 1 of 3, chosen by the owner by ear 2026-11-24; trimmed, faded and levelled to -16 LUFS by Hipster | Made with ElevenLabs Sound Effects on the owner's paid plan (2026-11-24), used inside the Oasis and shipped with it (the owner, 24 Nov: 'we pay for the MP3s... it's used inside a work... we're packaging it'). Not CC0. |
+| `public/audio/spells-cc0/el-ice-impact.ogg` | 1 | ElevenLabs Sound Effects, prompt: a short icy magic impact, crystalline ice shattering; take 2 of 3, chosen by the owner by ear 2026-11-24; trimmed, faded and levelled to -16 LUFS by Hipster | Made with ElevenLabs Sound Effects on the owner's paid plan (2026-11-24), used inside the Oasis and shipped with it (the owner, 24 Nov: 'we pay for the MP3s... it's used inside a work... we're packaging it'). Not CC0. |
+| `public/audio/spells-cc0/el-lightning-impact.ogg` | 1 | ElevenLabs Sound Effects, prompt: a short electric lightning strike impact, a sharp crackling zap; take 3 of 3, chosen by the owner by ear 2026-11-24; trimmed, faded and levelled to -16 LUFS by Hipster | Made with ElevenLabs Sound Effects on the owner's paid plan (2026-11-24), used inside the Oasis and shipped with it (the owner, 24 Nov: 'we pay for the MP3s... it's used inside a work... we're packaging it'). Not CC0. |
+| `public/audio/spells-cc0/el-music-made.ogg` | 1 | ElevenLabs Sound Effects, prompt: a short magical harp arpeggio with a soft sparkle; take 2 of 3, chosen by the owner by ear 2026-11-24; trimmed, faded and levelled to -16 LUFS by Hipster | Made with ElevenLabs Sound Effects on the owner's paid plan (2026-11-24), used inside the Oasis and shipped with it (the owner, 24 Nov: 'we pay for the MP3s... it's used inside a work... we're packaging it'). Not CC0. |
+| `public/audio/spells-cc0/el-place-object.ogg` | 1 | ElevenLabs Sound Effects, prompt: a soft magical materialize, a gentle shimmering thump; take 3 of 3, chosen by the owner by ear 2026-11-24; trimmed, faded and levelled to -16 LUFS by Hipster | Made with ElevenLabs Sound Effects on the owner's paid plan (2026-11-24), used inside the Oasis and shipped with it (the owner, 24 Nov: 'we pay for the MP3s... it's used inside a work... we're packaging it'). Not CC0. |
+| `public/audio/spells-cc0/el-portal.ogg` | 1 | ElevenLabs Sound Effects, prompt: a deep magical portal opening, a swirling whoosh with a resonant hum; take 2 of 3, chosen by the owner by ear 2026-11-24; trimmed, faded and levelled to -16 LUFS by Hipster | Made with ElevenLabs Sound Effects on the owner's paid plan (2026-11-24), used inside the Oasis and shipped with it (the owner, 24 Nov: 'we pay for the MP3s... it's used inside a work... we're packaging it'). Not CC0. |
+| `public/audio/spells-cc0/el-summon-agent.ogg` | 1 | ElevenLabs Sound Effects, prompt: an angelic choir swell with a magical shine; take 2 of 3, chosen by the owner by ear 2026-11-24; trimmed, faded and levelled to -16 LUFS by Hipster | Made with ElevenLabs Sound Effects on the owner's paid plan (2026-11-24), used inside the Oasis and shipped with it (the owner, 24 Nov: 'we pay for the MP3s... it's used inside a work... we're packaging it'). Not CC0. |
+| `public/audio/spells-cc0/el-ui-confirm.ogg` | 1 | ElevenLabs Sound Effects, prompt: a soft magical confirm chime for a game menu; take 3 of 3, chosen by the owner by ear 2026-11-24; trimmed, faded and levelled to -16 LUFS by Hipster | Made with ElevenLabs Sound Effects on the owner's paid plan (2026-11-24), used inside the Oasis and shipped with it (the owner, 24 Nov: 'we pay for the MP3s... it's used inside a work... we're packaging it'). Not CC0. |
+| `public/audio/spells-cc0/hit-critical-01.ogg` | 1 | SquigglyFish, 'Godot 4 Hit & Impact VFX + SFX' free sampler (squigglyfish.itch.io, CC0 1.0 per its LICENSE.txt; the owner's download, 24 Nov): critical_hit_01-05.wav, mono ogg | CC0 1.0 |
+| `public/audio/spells-cc0/hit-critical-02.ogg` | 1 | SquigglyFish, 'Godot 4 Hit & Impact VFX + SFX' free sampler (squigglyfish.itch.io, CC0 1.0 per its LICENSE.txt; the owner's download, 24 Nov): critical_hit_01-05.wav, mono ogg | CC0 1.0 |
+| `public/audio/spells-cc0/hit-critical-03.ogg` | 1 | SquigglyFish, 'Godot 4 Hit & Impact VFX + SFX' free sampler (squigglyfish.itch.io, CC0 1.0 per its LICENSE.txt; the owner's download, 24 Nov): critical_hit_01-05.wav, mono ogg | CC0 1.0 |
+| `public/audio/spells-cc0/hit-critical-04.ogg` | 1 | SquigglyFish, 'Godot 4 Hit & Impact VFX + SFX' free sampler (squigglyfish.itch.io, CC0 1.0 per its LICENSE.txt; the owner's download, 24 Nov): critical_hit_01-05.wav, mono ogg | CC0 1.0 |
+| `public/audio/spells-cc0/hit-critical-05.ogg` | 1 | SquigglyFish, 'Godot 4 Hit & Impact VFX + SFX' free sampler (squigglyfish.itch.io, CC0 1.0 per its LICENSE.txt; the owner's download, 24 Nov): critical_hit_01-05.wav, mono ogg | CC0 1.0 |
+| `public/audio/spells-cc0/hit-energy-01.ogg` | 1 | SquigglyFish, 'Godot 4 Hit & Impact VFX + SFX' free sampler (squigglyfish.itch.io, CC0 1.0 per its LICENSE.txt; the owner's download, 24 Nov): energy_hit_01-05.wav, mono ogg | CC0 1.0 |
+| `public/audio/spells-cc0/hit-energy-02.ogg` | 1 | SquigglyFish, 'Godot 4 Hit & Impact VFX + SFX' free sampler (squigglyfish.itch.io, CC0 1.0 per its LICENSE.txt; the owner's download, 24 Nov): energy_hit_01-05.wav, mono ogg | CC0 1.0 |
+| `public/audio/spells-cc0/hit-energy-03.ogg` | 1 | SquigglyFish, 'Godot 4 Hit & Impact VFX + SFX' free sampler (squigglyfish.itch.io, CC0 1.0 per its LICENSE.txt; the owner's download, 24 Nov): energy_hit_01-05.wav, mono ogg | CC0 1.0 |
+| `public/audio/spells-cc0/hit-energy-04.ogg` | 1 | SquigglyFish, 'Godot 4 Hit & Impact VFX + SFX' free sampler (squigglyfish.itch.io, CC0 1.0 per its LICENSE.txt; the owner's download, 24 Nov): energy_hit_01-05.wav, mono ogg | CC0 1.0 |
+| `public/audio/spells-cc0/hit-energy-05.ogg` | 1 | SquigglyFish, 'Godot 4 Hit & Impact VFX + SFX' free sampler (squigglyfish.itch.io, CC0 1.0 per its LICENSE.txt; the owner's download, 24 Nov): energy_hit_01-05.wav, mono ogg | CC0 1.0 |
+| `public/audio/spells-cc0/hit-groundslam-01.ogg` | 1 | SquigglyFish, 'Godot 4 Hit & Impact VFX + SFX' free sampler (squigglyfish.itch.io, CC0 1.0 per its LICENSE.txt; the owner's download, 24 Nov): ground_slam_01-05.wav, mono ogg | CC0 1.0 |
+| `public/audio/spells-cc0/hit-groundslam-02.ogg` | 1 | SquigglyFish, 'Godot 4 Hit & Impact VFX + SFX' free sampler (squigglyfish.itch.io, CC0 1.0 per its LICENSE.txt; the owner's download, 24 Nov): ground_slam_01-05.wav, mono ogg | CC0 1.0 |
+| `public/audio/spells-cc0/hit-groundslam-03.ogg` | 1 | SquigglyFish, 'Godot 4 Hit & Impact VFX + SFX' free sampler (squigglyfish.itch.io, CC0 1.0 per its LICENSE.txt; the owner's download, 24 Nov): ground_slam_01-05.wav, mono ogg | CC0 1.0 |
+| `public/audio/spells-cc0/hit-groundslam-04.ogg` | 1 | SquigglyFish, 'Godot 4 Hit & Impact VFX + SFX' free sampler (squigglyfish.itch.io, CC0 1.0 per its LICENSE.txt; the owner's download, 24 Nov): ground_slam_01-05.wav, mono ogg | CC0 1.0 |
+| `public/audio/spells-cc0/hit-groundslam-05.ogg` | 1 | SquigglyFish, 'Godot 4 Hit & Impact VFX + SFX' free sampler (squigglyfish.itch.io, CC0 1.0 per its LICENSE.txt; the owner's download, 24 Nov): ground_slam_01-05.wav, mono ogg | CC0 1.0 |
 
 ## What is not here, and why
 
@@ -195,9 +233,9 @@ Why: a free itch.io pack with no licence that allows passing it on.
 - `public/models/highlands-fantasy/woodcrate.glb`
 - `public/models/highlands-fantasy/woodfence.glb`
 
-### showcase 3D models made with Meshy and Tripo (6 files, 91.4 MiB)
+### showcase 3D models made with Meshy (2) and Tripo (1) (6 files, 91.4 MiB)
 
-Why: the generation service's terms, not checked.
+Why: their terms allow passing them on, on conditions not yet confirmed. Meshy: on a paid plan the outputs are the customer's own, on the free plan they come under CC BY 4.0 with credit to Meshy (Meshy Terms of Service, section 3.2, last updated 19 Sep 2026, meshy.ai/terms-of-use). Tripo: a paid user may distribute its outputs (section 5.2.2), a free user's outputs stay Tripo's (section 5.2.1; Tripo developer terms, last updated 11 Jul 2025, developers.tripo3d.ai/en/terms). All three were made through the services' APIs; which plan each account was on is being confirmed, and together they are 96 MiB.
 
 - `public/conjured/conj_mm3uhazzrh34.glb`
 - `public/conjured/conj_mm3uhazzrh34_thumb.jpg`
@@ -206,9 +244,9 @@ Why: the generation service's terms, not checked.
 - `public/conjured/conj_mn6ogn4ae05j.glb`
 - `public/conjured/conj_mn6ogn4ae05j_thumb.jpg`
 
-### Mixkit spell sounds and the owner's recordings (15 files, 1.7 MiB)
+### Mixkit spell sounds and an older incantation recording (15 files, 1.7 MiB)
 
-Why: Mixkit forbids passing its files on; the recordings are personal.
+Why: Mixkit forbids passing its files on; the older incantation is from a film, someone else's work (the owner's own recording of it ships in its place).
 
 - `public/audio/spells/conjuration-incantation.mp3`
 - `public/audio/spells/manifest.json`
@@ -226,9 +264,17 @@ Why: Mixkit forbids passing its files on; the recordings are personal.
 - `public/audio/spells/voice-1775536220869-8vaxl0.mp3`
 - `public/audio/spells/voice-1775545682433-9wal9b.mp3`
 
-### two music tracks (2 files, 3.5 MiB)
+### two music tracks by Komiku (CC0 1.0) (3 files, 6.5 MiB)
 
-Why: source unknown.
+Why: free to pass on, but not chosen for the package: other music is being picked; the Music switch is hidden while the package has none.
+
+- `public/audio/music/komiku-sweet-night-and-friends.mp3`
+- `public/audio/music/komiku-village-2018.mp3`
+- `public/audio/music/manifest.json`
+
+### a Mixkit music track (2 files, 3.5 MiB)
+
+Why: Mixkit forbids passing its files on.
 
 - `public/audio/bg/manifest.json`
 - `public/audio/bg/mixkit-piano-horror-671.mp3`

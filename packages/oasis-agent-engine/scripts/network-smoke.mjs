@@ -34,6 +34,9 @@ const fakeLog = () => (fs.existsSync(FAKE_LOG) ? fs.readFileSync(FAKE_LOG, 'utf8
 const RESUME = /^Your last turn was cut off: this PC lost its internet connection/;
 
 fs.writeFileSync(path.join(tmp, 'accounts.json'), JSON.stringify({ accounts: [] }));
+// No quiet hours for the test engine: its clock is moved hours ahead, and run late at night that lands inside the
+// default quiet hours (01:00 to 08:00), where a held wake-up rightly stays held (24 Nov, 23:30: "goes out once: 0").
+fs.writeFileSync(path.join(tmp, 'roster.schedule.local.json'), JSON.stringify({ quiet: null, dailyCap: 200 }));
 fake({});
 line(true);
 const logs = [];

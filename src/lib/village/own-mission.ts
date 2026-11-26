@@ -91,16 +91,18 @@ export interface Commitment {
   /** The run that came of it (its start), and the Telegram reminder (when sent). */
   startedAt?: number
   remindedAt?: number
+  /** Kept: the bonus XP it earned. */
+  bonusXp?: number
 }
 
 /**
- * The bonus for committing ahead: 20% × days ahead^0.83, at most +100% (×2, the vow's multiplier), none under an hour
- * ahead (that is just starting it). A day ahead +20%, three days +50%, a week +100%.
+ * The bonus for committing ahead (the owner, 2026-11-25: "if I commit 24 hours in the future, it should be two X"): it grows
+ * evenly from nothing, +100% for a day ahead (x2), at most +200% (x3) from two days ahead. Two hours ahead +8%.
  */
 export function commitBonusPct(madeAt: number, at: number): number {
   const ahead = at - madeAt
-  if (!(ahead >= 3600_000)) return 0
-  return Math.min(100, Math.round(20 * Math.pow(ahead / 86_400_000, 0.834)))
+  if (!(ahead > 0)) return 0
+  return Math.min(200, Math.round(100 * ahead / 86_400_000))
 }
 
 /** What it is now: a pending one whose window has passed unstarted is missed. */

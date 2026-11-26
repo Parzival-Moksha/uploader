@@ -5,6 +5,7 @@
 // agent's session (villageAgentKey), so it waits for that when a runtime gives it later (Hermes).
 
 import { useOasisStore } from '../../store/oasisStore'
+import { playSoundMoment } from '../../lib/sound-moments'
 import { getAgentEngineClient } from '../../lib/agent-engine-client'
 import { villageAgentKey } from '../../lib/village/village-layout'
 import { setVillageAgentSkin } from '../../lib/village/village-memory'
@@ -33,6 +34,8 @@ function whenSession(agentId: string, run: (key: string) => void): void {
 }
 
 export function afterSummon(agentId: string, choices: ArrivalChoices): void {
+  // The summoning's sound (the shipped 'summon' pick).
+  playSoundMoment('summon')
   // Taken now, while the caster still stands where the spell was cast.
   const pose = choices.here ? getPlayerAvatarPose() : null
   const world = choices.here ? currentVillageWorld() : null

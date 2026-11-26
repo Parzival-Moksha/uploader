@@ -13,7 +13,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const CHUNK = 128 * 1024;
 const cache = new Map(); // file -> {mtimeMs, size, info}
 
-/** C:\7c_oasis\spike -> C--7c-oasis-spike (every non-alphanumeric char becomes '-'). */
+/** C:\work\spike -> C--work-spike (every non-alphanumeric char becomes '-'). */
 export function encodeProjectDir(cwd) {
   return path.resolve(cwd).replace(/[^a-zA-Z0-9]/g, '-');
 }

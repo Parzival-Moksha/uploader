@@ -13,10 +13,12 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { useMindcraftLook } from './mindcraft-look'
 import { ManualTimeForm } from './ManualTimeForm'
 import { CarbonMissions } from './CarbonMissions'
-import { HoursChart, type RebuiltDays } from './MindcraftChart'
-import { CommittedList, runningClock } from './OwnMissionPanel'
+import { HoursChart, type HourBar, type RebuiltDays } from './MindcraftChart'
+import { CommitHistory, CommittedList, runningClock } from './OwnMissionPanel'
 import { useLiveWork } from './useLiveWork'
-import { useKitStyle } from '@/components/ui-kit'
+import { carbonRows, HowItCounts, siliconRows, useSecond, WorkRowList } from './WorkRows'
+import { useOasisStore as useStoreForWork } from '../../store/oasisStore'
+import { useKitStyle, kitConfirm } from '@/components/ui-kit'
 import { layerZ, raiseLayer, useLayer } from '@/lib/ui-kit/layers'
 import { setWorkInMindcraft } from './work-vow-client'
 import { addDays, formatClock, type MindcraftBook, type MindcraftDay, type WorkSnapshot, type WorkUnit } from '../../lib/village/work-vow'
@@ -30,8 +32,10 @@ export function openMindcraft(carbonFile?: string): void {
   window.dispatchEvent(new CustomEvent(MINDCRAFT_EVENT, { detail: carbonFile ? { carbon: carbonFile } : {} }))
 }
 
+// One formatter, made once: toLocaleDateString builds a new one per call, and Mindcraft re-renders every second (Perf, 25 Nov).
+const DAY_LABEL = new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' })
 function dayLabel(date: string): string {
-  return new Date(`${date}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' })
+  return DAY_LABEL.format(new Date(`${date}T12:00:00Z`))
 }
 
 /** `1:23:45`, spelled so nobody misreads it: hours, minutes, seconds. */
@@ -199,7 +203,8 @@ function TodayCard({ book, snapshot, onRemoveManual, onSaved }: { book: Mindcraf
         </div>
       )}
       <CommittedList snapshot={snapshot} title="Committed: today and the coming days" />
-      <DayList days={today} today={snapshot.date} target={snapshot.targetSeconds} onRemoveManual={onRemoveManual} empty="Nothing counted yet today." liveToday={live.mine} />
+      <CommitHistory snapshot={snapshot} />
+      <WorkRowList rows={carbonRows(snapshot.summary)} tone="carbon" empty="Nothing counted yet today." />
       <div className="flex flex-wrap gap-3 text-[13px]">
         <button type="button" className="text-amber-200/85 underline decoration-dotted" onClick={() => setManual(v => !v)}>{manual ? 'close' : 'add time by hand'}</button>
         <button type="button" className="text-amber-200/85 underline decoration-dotted" onClick={() => setEarlier(v => !v)}>{earlier ? 'hide earlier days' : 'earlier days'}</button>
@@ -210,6 +215,53 @@ function TodayCard({ book, snapshot, onRemoveManual, onSaved }: { book: Mindcraf
   )
 }
 
+/**
+ * Under the chosen tab, one big box (the owner, 2026-11-25: "three X bigger"): Carbon, today's time and its XP; Silicon,
+ * the agents' time and XP today, how many are working right now, and on what, by name. Every figure runs.
+ */
+function TodayBox({ tab, snapshot, mine, theirs, working }: { tab: 'carbon' | 'silicon'; snapshot: WorkSnapshot; mine: number; theirs: number; working: Array<{ id: string; name: string }> }) {
+  // What each working agent is on: its task in hand (the todo it is doing), else why it works, else its mission.
+  const doing = useStoreForWork(s => working.map(w => {
+    const a = s.agentEngine.agents[w.id]
+    const todo = a?.todos?.find(t => t.status === 'in_progress')
+    return `${w.name}\u0001${(todo?.activeForm || todo?.content || a?.statusReason || '').slice(0, 90)}`
+  }).join('\u0002'))
+  const list = doing ? doing.split('\u0002').map(item => { const [name, what] = item.split('\u0001'); return { name, what } }) : []
+  const carbon = tab === 'carbon'
+  const seconds = carbon ? mine : theirs
+  const xp = carbon
+    ? snapshot.today.xp + Math.max(0, mine - snapshot.today.seconds) / 60
+    : (snapshot.summary?.agentHours.xp || 0) + Math.max(0, theirs - (snapshot.agentHours?.today || 0)) / 60
+  const color = carbon ? '#f1dca8' : '#d8b4fe'
+  return (
+    <div data-mindcraft="today-box" className="mc-card mx-auto flex min-h-[100px] w-full max-w-[560px] shrink-0 flex-col items-center justify-center gap-1 px-5 py-3 text-center">
+      <div className="flex flex-wrap items-baseline justify-center gap-x-4">
+        <span className="mc-clock text-[46px] font-bold leading-none tabular-nums" style={{ color }}>{formatClock(seconds)}</span>
+        <span className="text-[22px] font-bold tabular-nums text-white/75">{Math.round(xp * 10) / 10} XP</span>
+      </div>
+      <div className="text-[13px] uppercase tracking-[0.18em] text-white/50">{carbon ? 'your time today' : "your agents' time today"}</div>
+      {!carbon && (
+        <div className="mt-1 text-[14px] leading-snug text-white/85">
+          {list.length === 0 ? 'No agent is working right now.' : (
+            <>
+              <b style={{ color }}>{list.length} working now</b>
+              {list.map(item => <div key={item.name}><b>{item.name}</b>{item.what ? <span className="text-white/60">: {item.what}</span> : null}</div>)}
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** Today's agents as rows: the ones working now on top, bigger, glowing, their timers ticking each second. */
+function SiliconToday({ snapshot }: { snapshot: WorkSnapshot }) {
+  const live = useLiveWork()
+  const now = useSecond()
+  const agents = (snapshot.summary?.agentHours.agents || []).map(a => ({ key: a.key, name: a.name, seconds: a.totalSeconds, xp: a.xp, ...(a.mission ? { mission: a.mission } : {}) }))
+  return <WorkRowList rows={siliconRows(agents, live.working, now)} tone="silicon" empty="No agent has worked yet today." />
+}
+
 export function MindcraftView({ carbonFile }: { carbonFile?: string | null } = {}) {
   useMindcraftLook() // the look (textures, typefaces) lives in mindcraft-look.tsx; this file carries its class names
   // Time in Mindcraft is work at valor 1 (the owner, 2026-11-20), wherever this view is shown.
@@ -217,7 +269,7 @@ export function MindcraftView({ carbonFile }: { carbonFile?: string | null } = {
     setWorkInMindcraft(true)
     return () => setWorkInMindcraft(false)
   }, [])
-  const [book, setBook] = useState<(MindcraftBook & { rebuilt?: RebuiltDays }) | null>(null)
+  const [book, setBook] = useState<(MindcraftBook & { rebuilt?: RebuiltDays; hours?: HourBar[] }) | null>(null)
   const [snapshot, setSnapshot] = useState<WorkSnapshot | null>(null)
   // Carbon: what the Oasis needs from him. Silicon: what the agents did. Today: his own time (the owner, 2026-11-20).
   const [tab, setTab] = useState<'carbon' | 'silicon'>('carbon')
@@ -251,7 +303,9 @@ export function MindcraftView({ carbonFile }: { carbonFile?: string | null } = {
   }
   const removeManual = (date: string, index: number) => {
     const entry = book?.owner.find(day => day.date === date)?.units.find(unit => unit.manualIndex === index)
-    if (entry && window.confirm(`Delete "${entry.label}" (${formatClock(entry.seconds)}) from ${date}?`)) void post({ manual: { date, remove: index } })
+    if (!entry) return
+    void kitConfirm({ title: `Delete "${entry.label}"?`, body: `${formatClock(entry.seconds)} on ${date}.`, confirm: 'Delete', danger: true })
+      .then(ok => { if (ok) void post({ manual: { date, remove: index } }) })
   }
 
   if (error && !book) return <div className="p-6 text-rose-200">Mindcraft can&rsquo;t read the work book: {error}</div>
@@ -261,25 +315,20 @@ export function MindcraftView({ carbonFile }: { carbonFile?: string | null } = {
   const mine = Math.max(snapshot.today.seconds, live.mine)
   const theirs = Math.max(snapshot.agentHours?.today || 0, live.agents)
   const tabs = [
-    { id: 'carbon' as const, label: 'Carbon', sub: `you today ${hms(mine)}` },
-    { id: 'silicon' as const, label: 'Silicon', sub: `agents today ${hms(theirs)}` },
+    { id: 'carbon' as const, label: 'Carbon' },
+    { id: 'silicon' as const, label: 'Silicon' },
   ]
   const vow = snapshot.commitments[0]
   return (
     <div className="mc-scope flex h-full min-h-0 flex-col gap-3">
-      <div className="flex shrink-0 flex-wrap items-end justify-between gap-3 pr-14 pt-4">
-        <div className="pl-1">
-          <div className="mc-title text-[34px] leading-none tracking-[0.06em]">Mindcraft</div>
-          <div className="mt-1.5 text-[19px] text-white/80">
-            Today <b className="tabular-nums text-white">{hms(mine)}</b>{snapshot.targetSeconds !== null && <span className="text-white/45"> / {hms(snapshot.targetSeconds)}</span>} · agents <b className="tabular-nums text-violet-200">{hms(theirs)}</b>
-          </div>
-          {vow && (
-            <div className="mc-note" style={{ fontSize: 21 }}>
-              {vow.label}.
-            </div>
-          )}
+      {/* The title in the middle, the valor selector at the right, never over each other (three columns). */}
+      <div className="grid shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-3 pr-12 pt-4">
+        <span />
+        <div>
+          <div className="mc-title text-center text-[46px] leading-none tracking-[0.08em]">Mindcraft</div>
+          {vow && <div className="mc-note text-center" style={{ fontSize: 19 }}>{vow.label}.</div>}
         </div>
-        <label className="mc-field flex items-center gap-2 px-2.5 py-1.5" title="What a minute is worth when no agent and no mission is open">
+        <label className="mc-field flex items-center gap-2 justify-self-end px-2.5 py-1.5 text-[13px]" title="What a minute is worth when no agent and no mission is open">
           Valor with nothing in focus
           <select
             value={String(snapshot.settings.freeValor)}
@@ -291,41 +340,46 @@ export function MindcraftView({ carbonFile }: { carbonFile?: string | null } = {
           </select>
         </label>
       </div>
-      <div className="flex shrink-0 flex-wrap gap-2.5 px-1 pb-1">
+      <div className="flex shrink-0 flex-wrap justify-center gap-2.5 px-1 pb-1">
         {tabs.map(item => (
-          <button key={item.id} type="button" onClick={() => setTab(item.id)} className="mc-tab" style={{ minWidth: 220 }} data-on={tab === item.id ? '1' : '0'}>
+          <button key={item.id} type="button" onClick={() => setTab(item.id)} className="mc-tab" style={{ minWidth: 200 }} data-on={tab === item.id ? '1' : '0'}>
             <div>{item.label}</div>
-            <div>{item.sub}</div>
           </button>
         ))}
       </div>
+      <TodayBox tab={tab} snapshot={snapshot} mine={mine} theirs={theirs} working={live.working} />
       {/* Carbon fills the space and scrolls inside its own list; the other tabs scroll here. */}
-      <div className={`min-h-0 flex-1 pr-1 ${tab === 'carbon' ? 'flex flex-col gap-3' : 'overflow-y-auto'}`}>
+      {/* Carbon scrolls too (the owner, 2026-11-24: in a narrow window the chart and Today stack and the list got no height). */}
+      <div className={`min-h-0 flex-1 overflow-y-auto pr-1 ${tab === 'carbon' ? 'flex flex-col gap-3' : ''}`}>
         {tab === 'carbon' && (
           <>
             {/* Top left the chart, beside it today (the owner, 2026-11-23). */}
             <div className="flex shrink-0 flex-wrap items-start gap-3">
-              <div style={{ flex: '0 1 640px', minWidth: 320 }}><HoursChart owner={book.owner} oasis={book.oasis} today={snapshot.date} liveToday={{ carbon: mine, silicon: theirs }} rebuilt={book.rebuilt ?? null} /></div>
+              <div style={{ flex: '0 1 640px', minWidth: 320 }}><HoursChart owner={book.owner} oasis={book.oasis} today={snapshot.date} liveToday={{ carbon: mine, silicon: theirs }} rebuilt={book.rebuilt ?? null} hours={book.hours ?? []} /></div>
               <TodayCard book={book} snapshot={snapshot} onRemoveManual={removeManual} onSaved={() => { void load() }} />
             </div>
-            <CarbonMissions key={carbonFile || ''} initialFile={carbonFile || null} />
+            {/* The list keeps room for itself and scrolls inside it, whatever stands above it. */}
+            <div className="flex min-h-[560px] flex-1 flex-col">
+              <CarbonMissions key={carbonFile || ''} initialFile={carbonFile || null} />
+            </div>
           </>
         )}
         {tab === 'silicon' && (
           <div className="flex flex-col gap-3">
             {/* Top left the chart; beside it the last two days, today open, each agent and its time. */}
             <div className="flex flex-wrap items-start gap-3">
-              <div style={{ flex: '0 1 640px', minWidth: 320 }}><HoursChart owner={book.owner} oasis={book.oasis} today={snapshot.date} liveToday={{ carbon: mine, silicon: theirs }} rebuilt={book.rebuilt ?? null} /></div>
-              <div className="min-w-[280px] flex-1 overflow-y-auto" style={{ maxHeight: 372 }}>
-                <DayList days={book.oasis.slice(0, 2)} today={snapshot.date} target={null} empty="No agent has finished a turn yet while an Oasis page was listening." liveToday={theirs} />
+              <div style={{ flex: '0 1 640px', minWidth: 320 }}><HoursChart owner={book.owner} oasis={book.oasis} today={snapshot.date} liveToday={{ carbon: mine, silicon: theirs }} rebuilt={book.rebuilt ?? null} hours={book.hours ?? []} /></div>
+              <div className="mc-card min-w-[280px] flex-1 overflow-y-auto px-3 py-2" style={{ maxHeight: 372 }}>
+                <div className="mb-1 flex items-baseline justify-between gap-2">
+                  <span className="mc-strong text-[14px]">Today, by agent</span>
+                  <HowItCounts label="agent hours" text={`An agent-hour is time inside an agent's turns (minus time it only waited on its helpers) plus its helpers' time; time between turns doesn't count, helpers working at once each count. 24 h of agent work in a day: alive · 72 h: superalive · 168 h: uploaded. Yesterday ${hms(snapshot.agentHours?.yesterday || 0)}.`} />
+                </div>
+                <SiliconToday snapshot={snapshot} />
+                <div className="mt-2">
+                  <DayList days={book.oasis.filter(day => day.date !== snapshot.date).slice(0, 1)} today={snapshot.date} target={null} empty="" />
+                </div>
               </div>
             </div>
-            {snapshot.agentHours && (
-              <div className="mc-card px-3 py-2 text-[14px] leading-snug">
-                <div className="mc-strong">The Oasis worked {hms(theirs)} today{snapshot.agentHours.mark ? `: ${snapshot.agentHours.mark}` : ''} · yesterday {hms(snapshot.agentHours.yesterday)}</div>
-                <div className="text-white/60">24 h of agent work in a day: alive · 72 h: superalive · 168 h: uploaded. An agent-hour is time inside an agent&rsquo;s turns (minus time it only waited on its helpers) plus its helpers&rsquo; time; time between turns doesn&rsquo;t count. Helpers working at once each count.</div>
-              </div>
-            )}
             {book.agents.length > 0 && (
               <div className="mc-card flex flex-col gap-1 px-3 py-2">
                 <div className="mc-strong text-[14px]">All days: who worked longest</div>
@@ -334,13 +388,13 @@ export function MindcraftView({ carbonFile }: { carbonFile?: string | null } = {
                 ))}
               </div>
             )}
-            {book.oasis.length > 2 && <DayList days={book.oasis.slice(2)} today={snapshot.date} target={null} empty="" />}
+            {book.oasis.length > 2 && <DayList days={book.oasis.filter(day => day.date !== snapshot.date).slice(1)} today={snapshot.date} target={null} empty="" />}
             <AgentMissionBoard today={snapshot.date} />
           </div>
         )}
       </div>
-      <div className="mc-foot shrink-0 pt-2 leading-snug" style={{ fontSize: 16, display: tab === 'carbon' ? 'none' : undefined }}>
-        Hours are what counts here. Behind them, in the counter&rsquo;s detail and your Profile level, XP is time: 1 XP a minute of work, for you and for every agent; 0.7 only for time in the world with nothing in focus. A mission&rsquo;s priority decides what comes next, not what it pays. A day runs from {snapshot.settings.dayStartsAt} to {snapshot.settings.dayStartsAt}.
+      <div className="shrink-0 pt-1.5 text-right">
+        <HowItCounts text={`Hours are what counts here. Behind them, in your Profile level, XP is time: 1 XP a minute of work, for you and for every agent; ${snapshot.settings.freeValor} for time in the world with nothing in focus. A mission's priority decides what comes next, not what it pays. A day runs from ${snapshot.settings.dayStartsAt} to ${snapshot.settings.dayStartsAt}.`} />
       </div>
     </div>
   )
@@ -385,8 +439,10 @@ export function overlayObstacles(minZ = layerZ('panel'), ignore = '[data-ui-pane
     if (!Number.isFinite(z) || z <= minZ) continue
     if (el.closest(ignore)) continue
     const box = el.getBoundingClientRect()
-    // Edge overlays only: narrow, inside the window's height band, not full-screen layers or bars.
+    // Edge overlays only: narrow, inside the window's height band, not full-screen layers or bars, and standing at the
+    // left or right edge (a loading box or a hint in the middle once squeezed Mindcraft to half the screen, 2026-11-25).
     if (box.width <= 0 || box.height <= 0 || box.width > vw * 0.4 || box.bottom < vh * 0.05 || box.top > vh * 0.95) continue
+    if (box.left > vw * 0.2 && box.right < vw * 0.8) continue
     out.push({ left: box.left, right: box.right })
   }
   return out

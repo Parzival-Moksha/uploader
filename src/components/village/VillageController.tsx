@@ -11,6 +11,9 @@ import { playVillageChime, unlockVillageAudio } from './village-sound'
 import { loadSeen, markSeen, planUnseenRestore, saveSeen } from '../../lib/village/village-seen'
 import { applyVillageMissionCounts, refreshVillageMissions } from './village-missions-client'
 import { watchVillageHomeWorlds } from './village-worlds'
+import { startVillageCome } from './village-come'
+import { VillageComingStrip } from './ComeWhenDone'
+import { setLocalVillageVoices, type VillageVoice } from '../../lib/village/village-voices'
 import { setAgentPanelTab } from './AgentPanelTabs'
 import { VillageImageViewer } from './VillageImageViewer'
 import { MarkdownReader } from './MarkdownReader'
@@ -154,8 +157,19 @@ export function VillageController() {
     }
   }, [])
 
+  // This computer's own voices (data/voices.local.json, never shipped): read once for the agents' Voice menu.
+  useEffect(() => {
+    fetch('/api/village/voices', { cache: 'no-store' })
+      .then(response => (response.ok ? response.json() : null))
+      .then((data: { local?: VillageVoice[] } | null) => { if (data?.local?.length) setLocalVillageVoices(data.local) })
+      .catch(() => {})
+  }, [])
+
   // Agents live in worlds: the village's world when unset, and a new agent's home where it was summoned.
   useEffect(() => watchVillageHomeWorlds(), [])
+
+  // Come when done (village-come.ts): who he asked to come to him when done, and who is on the way.
+  useEffect(() => startVillageCome(), [])
 
   // An agent starts needing you: a chime (heard from a background tab too) and "(2) " in the tab
   // title. Browsers allow sound only after a click or key press, so every gesture (re)unlocks it.
@@ -188,6 +202,8 @@ export function VillageController() {
       <VillageImageViewer />
       <MarkdownReader />
       <VillageMissionReader />
+      {/* Who is on the way to him (come when done), each with a wave-off. */}
+      <VillageComingStrip />
       {/* The Mindcraft work counter, bottom left: today's time and the agents' hours. A vow (a daily goal, its
           countdown and its stakes) shows only for someone who made one, so the packaged Oasis counts from the first
           minute without greeting a newcomer with "3 h to go" (no vow in a fresh book; work-vow.ts). */}

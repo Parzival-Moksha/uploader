@@ -1,5 +1,5 @@
 // /api/village/missions — Mindcraft: the owner's missions, for the mission wall in the village.
-// The missions are the markdown files in OASIS_MISSIONS_DIR (default C:\7c_oasis\docs\missions).
+// The missions are the markdown files in OASIS_MISSIONS_DIR (default: data/missions in the Oasis folder).
 //   GET    the ranked list
 //   PATCH  { file, patch: { state, who, doneWhen, ease, impact, urgency }, by }   header lines; changes go into the log
 //   POST   { file, who, text, guess? }  one more entry in the mission's log        (or { create: title, who })

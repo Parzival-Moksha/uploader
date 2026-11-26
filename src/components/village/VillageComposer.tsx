@@ -35,6 +35,7 @@ import { getVoiceTypingEngine } from '../../lib/voice/voice-typing-engine'
 import { PictureChips, useComposerPictures } from './ComposerPictures'
 import { subscribeVillageSend, subscribeVillageVoiceStop, subscribeVillageVoiceToggle, takeVillageVoiceRequest } from './village-actions'
 import { VoiceSetupLine } from './VoiceSetupLine'
+import { ComeWhenDoneToggle } from './ComeWhenDone'
 import { micErrorLine, micStatusLine } from '../../lib/voice/mic-wait'
 
 function describeError(error: unknown): string {
@@ -323,8 +324,11 @@ export function VillageComposer({ agentId, large = false, containerHeight }: {
       <VoiceSetupLine />
       <div className="flex flex-wrap items-center justify-between gap-2">
         {owned ? (
-          <span data-urgent-help title={urgentHelp(hermes)}>
-            <KitToggle checked={urgent} onChange={setUrgent} label="urgent" accent="#fbbf24" data-composer-urgent={urgent ? 'on' : 'off'} />
+          <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <span data-urgent-help title={urgentHelp(hermes)}>
+              <KitToggle checked={urgent} onChange={setUrgent} label="urgent" accent="#fbbf24" data-composer-urgent={urgent ? 'on' : 'off'} />
+            </span>
+            <ComeWhenDoneToggle agentId={agentId} />
           </span>
         ) : <span />}
         <div className="flex items-center gap-1.5">

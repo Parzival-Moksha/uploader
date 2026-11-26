@@ -1,4 +1,5 @@
 import type { WorldCommandEnvelope, WorldCommandKind } from './types'
+import { ambienceId } from '@/lib/ambience'
 
 export const WORLD_COMMAND_MAX_BYTES = 16 * 1024
 
@@ -28,6 +29,7 @@ const WORLD_COMMAND_KINDS: ReadonlySet<WorldCommandKind> = new Set([
   'light.update',
   'light.remove',
   'sky.set',
+  'ambience.set',
   'stroke.start',
   'stroke.point',
   'stroke.end',
@@ -185,6 +187,9 @@ export function validateWorldCommandPayloadShape(kind: WorldCommandKind, payload
       return validateWorldLight(payload.light)
     case 'sky.set':
       return hasString(payload, 'skyBackgroundId') ? null : 'sky.set missing skyBackgroundId'
+    case 'ambience.set':
+      // only the four names (Merge Goat: an unchecked string would be saved into the world and sent to the room)
+      return hasString(payload, 'ambience') && ambienceId(payload.ambience) === payload.ambience ? null : 'ambience.set: ambience must be off, wind, birds or drone'
     case 'stroke.start':
       if (!hasString(payload, 'strokeId') || !hasString(payload, 'authorId')) return 'stroke.start missing id/author'
       return isRecord(payload.style) ? null : 'stroke.start missing style'

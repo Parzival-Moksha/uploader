@@ -39,7 +39,7 @@ import { PORTAL_GATE_VARIANT_DEFS, type PortalGateVariant } from '../../lib/port
 import { portalThumbPath } from '../../lib/portal-thumbnails'
 import { EnvironmentTab } from './wizard/EnvironmentTab'
 import { CatalogCategories } from './wizard/CatalogCategories'
-import { KitButton, KitPanel, KitTabs } from '@/components/ui-kit'
+import { KitButton, KitPanel, KitTabs, kitConfirm } from '@/components/ui-kit'
 import { WIZARD_DOCK_MARGIN, getWizardDockWidth, setWizardDockOpen, setWizardDockWidth, useWizardDockVersion, wizardDockGeometry } from '@/lib/forge/wizard-dock'
 import { requestCatalogThumbnails } from '../../hooks/useUnifiedThumbnailQueue'
 import {
@@ -416,7 +416,9 @@ function GalleryItem({ asset, onDelete, onRequestDelete, onPreview, isInWorld, o
                   // Warn about high-poly models (Meshy rig limit: 300k faces)
                   const tris = asset.metadata?.triangleCount || 0
                   if (tris > 300000) {
-                    if (!window.confirm(`This model has ${Math.round(tris / 1000)}k triangles — Meshy rig limit is 300k. Remesh first to reduce poly count, then rig. Continue anyway?`)) return
+                    void kitConfirm({ title: 'Rig a heavy model?', body: `This model has ${Math.round(tris / 1000)}k triangles; Meshy rigs up to 300k. Remesh first to lower the count, then rig.`, confirm: 'Rig anyway' })
+                      .then(ok => { if (ok) onRig(asset.id) })
+                    return
                   }
                   onRig(asset.id)
                 }}

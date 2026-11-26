@@ -34,6 +34,7 @@ import {
   type ClientAgentSessionCacheRecord,
 } from '@/lib/agent-session-cache-client'
 import { readBrowserStorage, removeBrowserStorage, writeBrowserStorage } from '@/lib/browser-storage'
+import { kitConfirm } from '@/components/ui-kit'
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CONSTANTS
@@ -1437,7 +1438,7 @@ function MindcraftTab({
             className="text-[8px] px-1.5 py-0.5 rounded bg-teal-500/20 text-teal-400 cursor-pointer">RES</button>
         )}
         <button
-          onClick={async e => { e.stopPropagation(); if (confirm(`Delete #${m.id}?`)) { await fetch(`/api/missions/${m.id}`, { method: 'DELETE' }); fetchMissions() } }}
+          onClick={async e => { e.stopPropagation(); if (await kitConfirm({ title: `Delete mission #${m.id}?`, confirm: 'Delete', danger: true })) { await fetch(`/api/missions/${m.id}`, { method: 'DELETE' }); fetchMissions() } }}
           className="text-[8px] text-red-400/30 hover:text-red-400 cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity">🗑</button>
       </div>
     </div>

@@ -26,7 +26,7 @@ import * as THREE from 'three'
 import { PLAYER_BASE_STATS, PASSIVE_MANA_INTERVAL_MS } from '@/lib/player-progression'
 import { useAudioManager } from '@/lib/audio-manager'
 import { setPlayerSpellCasting } from '@/lib/player-avatar-runtime'
-import { preloadSpellSoundManifest, resolveSpellSoundUrl } from '@/lib/spell-sounds'
+import { preloadSpellSoundManifest, spellSoundFor } from '@/lib/spell-sounds'
 import { useOasisStore } from '@/store/oasisStore'
 import { getPvpEnabled, onHitAward, onRemoteBolt, sendPvpCast, sendPvpReportHit, type PvpHitAwardEvent, type PvpRemoteBolt } from '@/lib/pvp-bridge'
 import { VILLAGE_TARGET_PREFIX, damageVillageAgent } from '@/lib/village/village-combat'
@@ -47,6 +47,7 @@ import {
 import type { CombatSpellId, SpellCastResponse } from './bolts/types'
 import { collectActorTargets, resolveCombatAim, strikePointFor, worldImpactAlong, type CombatAim } from './bolts/aim'
 import { BOLT_MAX_RANGE_M, createBolt, segmentSphereEntry, stepBolt, type ActorTarget, type FlyingBolt, type Vec3 } from './bolts/flight'
+import { ImpactFx, type ImpactFxKind } from './impact-fx/ImpactFx'
 import { playBoltSound, preloadBoltSounds } from './bolts/bolt-audio'
 
 // Firebolt designs
@@ -194,13 +195,18 @@ const EXPLOSION_SOUND_ID = 'mixkit-explosion-hit'
 /** The cast is a whoosh: the explosion sound (the old firebolt default) belongs to the impact. */
 const CAST_WHOOSH_ID = 'mixkit-magic-sparkle-whoosh'
 
-function castSoundUrl(spell: CombatSpellId, settings: OasisSettings): string | null {
+/** The cast's sound and level: the owner's own, else the shipped pick for this spell (spell-sounds.ts). */
+function castSound(spell: CombatSpellId, settings: OasisSettings): { url: string; volume: number } | null {
   const id = settings.spellSounds?.[spell]
-  return resolveSpellSoundUrl(!id || id === EXPLOSION_SOUND_ID ? CAST_WHOOSH_ID : id)
+  return spellSoundFor([spell, 'bolt-cast'], !id || id === EXPLOSION_SOUND_ID ? CAST_WHOOSH_ID : id)
 }
 
-function playImpactSound(position: Vec3) {
-  if (!playBoltSound(resolveSpellSoundUrl(EXPLOSION_SOUND_ID), position, 0.9)) useAudioManager.getState().play('fireboltHit')
+const IMPACT_KEY: Record<CombatSpellId, string> = { firebolt: 'impact-fire', 'lightning-bolt': 'impact-lightning', 'ice-bolt': 'impact-ice' }
+
+/** A bolt landing: its element's impact pick, else 'impact', else the owner's explosion. */
+function playImpactSound(position: Vec3, spell: CombatSpellId) {
+  const impact = spellSoundFor([IMPACT_KEY[spell], 'impact'], EXPLOSION_SOUND_ID)
+  if (!playBoltSound(impact?.url ?? null, position, 0.9 * (impact?.volume ?? 1))) useAudioManager.getState().play('fireboltHit')
 }
 
 // ─═̷─═̷─💧 MANA, as the client knows it ─═̷─═̷─💧
@@ -221,7 +227,15 @@ function debugLog(): BoltDebugEntry[] | null {
   return host.__oasisBolts.log
 }
 
+/** A hit effect from the Godot sampler (impact-fx): a firebolt's critical hit, a lightning bolt's energy hit. */
+interface HitFx { id: string; kind: ImpactFxKind; position: Vec3 }
+const HIT_SCALE = 0.85
+const HIT_FX_CAP = 10
+/** Which bolts land with a ported hit effect instead of their design's own burst (the owner, 24 Nov). */
+const HIT_FX_FOR: Partial<Record<CombatSpellId, ImpactFxKind>> = { firebolt: 'critical', 'lightning-bolt': 'energy' }
+
 interface FxState {
+  hits: HitFx[]
   bolts: FlyingBolt[]
   trails: TrailFx[]
   impacts: ImpactFx[]
@@ -229,7 +243,7 @@ interface FxState {
   plasma: PlasmaFilamentBolt[]
   strikes: ThunderboltStrike[]
 }
-const emptyFx = (): FxState => ({ bolts: [], trails: [], impacts: [], markers: [], plasma: [], strikes: [] })
+const emptyFx = (): FxState => ({ hits: [], bolts: [], trails: [], impacts: [], markers: [], plasma: [], strikes: [] })
 const v3 = (v: THREE.Vector3): Vec3 => [v.x, v.y, v.z]
 
 // ─═̷─═̷─🎯 THE LAYER ─═̷─═̷─🎯
@@ -342,11 +356,8 @@ export function CombatBoltLayer({ enabled, settings }: { enabled: boolean; setti
       window.setTimeout(() => {
         if (hitsSomething) {
           const pos: Vec3 = [end.x, end.y, end.z]
-          fxRef.current.impacts = [...fxRef.current.impacts.slice(-IMPACT_CAP), {
-            kind: 'plasma', id: randomId(), position: pos, age: 0, ttl: 0.7, seed: strikeSeed,
-            groundingTargets: actorHits.slice(1).map(h => h.actor.center),
-          }]
-          playImpactSound(pos)
+          fxRef.current.hits = [...fxRef.current.hits.slice(-HIT_FX_CAP), { id: randomId(), kind: 'energy', position: pos }]
+          playImpactSound(pos, 'lightning-bolt')
           if (actorHits.length > 0) for (const h of actorHits) reportHit(id, h.actor.id, h.actor.center, local)
           else if (aim.impactObjectId) reportHit(id, aim.impactObjectId, pos, local)
           bump()
@@ -404,7 +415,8 @@ export function CombatBoltLayer({ enabled, settings }: { enabled: boolean; setti
       if (log.length > 40) log.splice(0, log.length - 40)
     }
 
-    if (!playBoltSound(castSoundUrl(spell, s), null, 0.8)) useAudioManager.getState().play('fireboltCast')
+    const cast = castSound(spell, s)
+    if (!playBoltSound(cast?.url ?? null, null, 0.8 * (cast?.volume ?? 1))) useAudioManager.getState().play('fireboltCast')
     setPlayerSpellCasting(true)
     window.setTimeout(() => setPlayerSpellCasting(false), BOLT_CAST_ANIMATION_MS)
 
@@ -455,7 +467,7 @@ export function CombatBoltLayer({ enabled, settings }: { enabled: boolean; setti
 
   useEffect(() => {
     void preloadSpellSoundManifest().then(() => {
-      preloadBoltSounds([resolveSpellSoundUrl(EXPLOSION_SOUND_ID), resolveSpellSoundUrl(CAST_WHOOSH_ID)])
+      preloadBoltSounds([spellSoundFor('impact', EXPLOSION_SOUND_ID)?.url, spellSoundFor('firebolt', CAST_WHOOSH_ID)?.url])
     })
   }, [])
 
@@ -471,7 +483,8 @@ export function CombatBoltLayer({ enabled, settings }: { enabled: boolean; setti
       aimPoint: origin.clone().addScaledVector(direction, hit?.distance ?? BOLT_MAX_RANGE_M),
       impactDistance: hit?.distance ?? null, impactObjectId: hit?.objectId ?? null, aimedActor: null, fromHand: true,
     }
-    playBoltSound(castSoundUrl(bolt.spell, settingsRef.current), [origin.x, origin.y, origin.z], 0.8)
+    const cast = castSound(bolt.spell, settingsRef.current)
+    playBoltSound(cast?.url ?? null, [origin.x, origin.y, origin.z], 0.8 * (cast?.volume ?? 1))
     spawn(bolt.spell, bolt.design || 'A', aim, bolt.speed, bolt.damage, bolt.id, false)
   }), [scene, spawn])
 
@@ -539,7 +552,7 @@ export function CombatBoltLayer({ enabled, settings }: { enabled: boolean; setti
   useFrame((_, rawDelta) => {
     const fx = fxRef.current
     const flash = flashRef.current
-    const alive = fx.bolts.length + fx.trails.length + fx.impacts.length + fx.markers.length + fx.plasma.length + fx.strikes.length
+    const alive = fx.bolts.length + fx.trails.length + fx.impacts.length + fx.hits.length + fx.markers.length + fx.plasma.length + fx.strikes.length
     if (alive === 0 && flash.alpha <= 0) return
     // A long frame (tab hidden, a hitch) must not teleport bolts through what they should hit.
     const delta = Math.min(rawDelta, 0.1)
@@ -561,8 +574,15 @@ export function CombatBoltLayer({ enabled, settings }: { enabled: boolean; setti
           // Burst a hand's breadth in front of the surface, not inside it.
           const back = unit(bolt.velocity)
           const p: Vec3 = step.impact.actor ? step.impact.position : [step.impact.position[0] - back[0] * 0.12, step.impact.position[1] - back[1] * 0.12, step.impact.position[2] - back[2] * 0.12]
-          fx.impacts = [...fx.impacts.slice(-IMPACT_CAP), look.impact(p, bolt)]
-          playImpactSound(p)
+          const hitKind = HIT_FX_FOR[bolt.spell]
+          if (hitKind) {
+            // A surface hit (often the ground): lift the burst so it is not half buried.
+            const at: Vec3 = step.impact.actor ? p : [p[0], p[1] + 0.3, p[2]]
+            fx.hits = [...fx.hits.slice(-HIT_FX_CAP), { id: randomId(), kind: hitKind, position: at }]
+          } else {
+            fx.impacts = [...fx.impacts.slice(-IMPACT_CAP), look.impact(p, bolt)]
+          }
+          playImpactSound(p, bolt.spell)
           if (step.impact.targetId) reportHit(bolt.id, step.impact.targetId, p, bolt.local)
           const entry = bolt.local ? debugLog()?.find(e => e.id === bolt.id) : undefined
           if (entry && !entry.impact) { entry.impact = p; entry.impactTarget = step.impact.targetId }
@@ -595,8 +615,8 @@ export function CombatBoltLayer({ enabled, settings }: { enabled: boolean; setti
         const age = s.age + delta
         if (!thunderboltPhase(s.age).justStruck && thunderboltPhase(age).justStruck) {
           flash.alpha = 0.7
-          fx.impacts = [...fx.impacts.slice(-IMPACT_CAP), { kind: 'thunder', id: randomId(), position: s.groundPoint, age: 0, ttl: 0.85, seed: s.seed }]
-          playImpactSound(s.groundPoint)
+          fx.hits = [...fx.hits.slice(-HIT_FX_CAP), { id: randomId(), kind: 'energy', position: [s.groundPoint[0], s.groundPoint[1] + 0.4, s.groundPoint[2]] }]
+          playImpactSound(s.groundPoint, 'lightning-bolt')
           const local = (s as ThunderboltStrike & { local?: boolean }).local !== false
           if (s.target) {
             const [tx, ty, tz] = s.target.position
@@ -623,6 +643,9 @@ export function CombatBoltLayer({ enabled, settings }: { enabled: boolean; setti
       {fx.bolts.map(b => <BoltView key={b.id} bolt={b} />)}
       {fx.impacts.map(i => <ImpactView key={i.id} fx={i} />)}
       {fx.markers.map(m => <CometTailHitMarkerMesh key={m.id} marker={m} />)}
+      {fx.hits.map(h => (
+        <ImpactFx key={h.id} kind={h.kind} position={h.position} scale={HIT_SCALE} onDone={() => { fxRef.current.hits = fxRef.current.hits.filter(x => x.id !== h.id); bump() }} />
+      ))}
       {fx.plasma.map(b => <PlasmaFilamentMesh key={b.id} bolt={b} />)}
       {fx.strikes.map(s => <ThunderboltMesh key={s.id} strike={s} />)}
     </group>
@@ -678,6 +701,9 @@ const BoltWarmup = memo(function BoltWarmup() {
       {set.impacts.map(i => <ImpactView key={i.id} fx={i} />)}
       <PlasmaFilamentMesh bolt={set.plasma} />
       <ThunderboltMesh strike={set.strike} />
+      <ImpactFx kind="critical" position={[0, 0, 0]} hold={0.1} />
+      <ImpactFx kind="energy" position={[0, 0, 0]} hold={0.1} />
+      <ImpactFx kind="groundslam" position={[0, 0, 0]} hold={0.1} />
     </group>
   )
 })

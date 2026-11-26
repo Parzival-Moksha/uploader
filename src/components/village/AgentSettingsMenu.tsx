@@ -32,7 +32,7 @@ import {
   subscribePanelLook,
 } from '../../lib/village/panel-look'
 import { ACCENT_SWATCHES } from '../../lib/village/village-tags'
-import { SPEECH_SPEED, VILLAGE_VOICES, villageVoice } from '../../lib/village/village-voices'
+import { SPEECH_SPEED, VILLAGE_VOICES, getLocalVoicesVersion, localVillageVoices, subscribeLocalVoices, villageVoice } from '../../lib/village/village-voices'
 import type { EngineAgentState } from '../../store/slices/agentEngineSlice'
 import { AvatarGallery } from '../forge/AvatarGallery'
 import { pressVillageFollow, useVillageFollowView } from './follow-view'
@@ -71,6 +71,8 @@ function avatarLabel(path: string | null): { name: string; thumb: string | null 
 
 /** Voice and speed of one agent. */
 function VoiceSection({ agent, agentKey }: { agent: Pick<EngineAgentState, 'id' | 'name' | 'speak' | 'voiceChoice'>; agentKey: string }) {
+  useSyncExternalStore(subscribeLocalVoices, getLocalVoicesVersion, () => 0)
+  const localVoices = localVillageVoices()
   useSyncExternalStore(subscribeVoiceSettings, getVoiceSettingsVersion, () => 0)
   const speech = useSyncExternalStore(subscribeVillageSpeech, getVillageSpeech, () => null)
   const settings = getAgentVoiceSettings(agentKey, agent.name, agent.voiceChoice)
@@ -90,6 +92,12 @@ function VoiceSection({ agent, agentKey }: { agent: Pick<EngineAgentState, 'id' 
           className="min-w-0 flex-1 rounded border border-white/15 bg-black/60 px-1 py-1 text-[11px] text-white"
         >
           {VILLAGE_VOICES.map(voice => <option key={voice.key} value={voice.key}>{voice.name} · {voice.sound}</option>)}
+          {/* This computer's own voices (data/voices.local.json: a clone stays on its machine; local-voices-server.ts). */}
+          {localVoices.length > 0 && (
+            <optgroup label="This computer's own voices">
+              {localVoices.map(voice => <option key={voice.key} value={voice.key}>{voice.name} · {voice.sound}</option>)}
+            </optgroup>
+          )}
         </select>
         <button
           type="button"

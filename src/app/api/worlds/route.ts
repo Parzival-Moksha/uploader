@@ -74,6 +74,7 @@ export async function POST(request: Request) {
         groundTiles: state.groundTiles,
         lights: state.lights,
         skyBackgroundId: state.skyBackgroundId,
+        ambience: state.ambience,
         customGroundPresets: state.customGroundPresets,
         agentWindows: state.agentWindows || [],
         agentAvatars: state.agentAvatars || [],

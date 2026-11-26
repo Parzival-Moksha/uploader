@@ -20,6 +20,7 @@ export type PlacementVfxType =
   | 'dimensionalmaw'
   | 'hexstorm'
   | 'singularitydrop'
+  | 'groundslam'
   | 'random'
 
 export const PLACEMENT_VFX_LIST: Exclude<PlacementVfxType, 'random'>[] = [
@@ -31,6 +32,7 @@ export const PLACEMENT_VFX_LIST: Exclude<PlacementVfxType, 'random'>[] = [
   'dimensionalmaw',
   'hexstorm',
   'singularitydrop',
+  'groundslam',
   'quantumcollapse',
   'phoenixascension',
   'dimensionalrift',

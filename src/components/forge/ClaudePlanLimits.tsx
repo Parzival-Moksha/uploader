@@ -5,7 +5,8 @@
 // logged into, so a switched login can't be mistaken for the other one. A number Claude Code doesn't give is
 // said so, never shown as zero. Rechecks every minute while the Profile is open; ↻ asks right away.
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, useSyncExternalStore } from 'react'
+import { getCachedStatus, loadCachedJson, persistCachedJson, subscribeCachedJson, useCachedJson } from '@/lib/cached-json'
 
 interface PlanWindow { key: string; label: string; percent: number; resetsText: string | null; timeZone: string | null; resetsAt: number | null }
 interface PlanUsage {
@@ -55,29 +56,27 @@ function Meter({ window: w, now }: { window: PlanWindow; now: number }) {
   )
 }
 
+const PLAN_URL = '/api/claude-plan'
+persistCachedJson(PLAN_URL)
+
 export function ClaudePlanLimits() {
-  const [usage, setUsage] = useState<PlanUsage | null>(null)
+  // Kept for the page's life (src/lib/cached-json.ts): asking Claude Code takes ~10 s the first time, so the
+  // menu shows the last answer at once and asks again behind it, every minute while shown.
+  const usage = useCachedJson<PlanUsage>(PLAN_URL, 60_000, 60_000) || null
   const [loading, setLoading] = useState(false)
   const [now, setNow] = useState(() => Date.now())
-  const [missing, setMissing] = useState(false)
+  const missing = useSyncExternalStore(listener => subscribeCachedJson(PLAN_URL, listener), () => [403, 404].includes(getCachedStatus(PLAN_URL)), () => false)
+  useEffect(() => { setNow(Date.now()) }, [usage])
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 30_000)
+    return () => window.clearInterval(timer)
+  }, [])
 
   const load = useCallback((fresh = false) => {
     setLoading(true)
-    fetch(`/api/claude-plan${fresh ? '?fresh=1' : ''}`)
-      .then(response => {
-        if (response.status === 404 || response.status === 403) { setMissing(true); return null }
-        return response.json()
-      })
-      .then((data: PlanUsage | null) => { if (data) setUsage(data) })
-      .catch(() => {})
-      .finally(() => { setLoading(false); setNow(Date.now()) })
+    const ask = fresh ? fetch(`${PLAN_URL}?fresh=1`).catch(() => null).then(() => loadCachedJson(PLAN_URL)) : loadCachedJson(PLAN_URL)
+    void ask.finally(() => setLoading(false))
   }, [])
-
-  useEffect(() => {
-    load()
-    const timer = window.setInterval(() => load(), 60_000)
-    return () => window.clearInterval(timer)
-  }, [load])
 
   // Hosted (no local Claude Code): nothing to show.
   if (missing) return null

@@ -366,6 +366,22 @@ export function applyVillageView(next: VillageView): boolean {
   return true
 }
 
+let restoringUntil = 0
+
+/**
+ * Open a view again after a reload (Debugger's reload-resume.ts): the same as E or F would (applyVillageView), and
+ * quietly: an unheard spoken line is not said because of it (it waits for the next time he opens that agent).
+ */
+export function restoreVillageView(view: VillageView): boolean {
+  restoringUntil = Date.now() + 5000
+  return applyVillageView(view)
+}
+
+/** True for a few seconds after restoreVillageView (VillageVoice says nothing for that opening). */
+export function isVillageViewRestoring(): boolean {
+  return Date.now() < restoringUntil
+}
+
 /**
  * The permission card the open agent waits on (its first; not one seen through a hook, which is answered where the
  * session runs), or null. While it is there the keyboard is on it: Enter allows, Esc denies (the owner, 2026-11-24:

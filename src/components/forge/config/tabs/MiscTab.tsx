@@ -32,7 +32,7 @@ export function MiscTab({ consoleControl }: SharedTabProps) {
           <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-1.5 font-mono">Version</div>
           <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2">
             <div className="text-[11px] font-medium text-gray-200">The Oasis {process.env.NEXT_PUBLIC_OASIS_VERSION}</div>
-            <div className="text-[9px] text-gray-400">To update: <span className="font-mono">/oasis update</span> in Claude Code, or <span className="font-mono">node scripts/oasis.mjs update</span> in the Oasis folder. Your worlds and agents stay.</div>
+            <div className="text-[9px] text-gray-400">To update: <span className="font-mono">node scripts/oasis.mjs update</span> in the Oasis folder (with the Claude Code plugin: <span className="font-mono">/oasis update</span>). Your worlds and agents stay.</div>
           </div>
         </section>
       )}

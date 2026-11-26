@@ -2,7 +2,7 @@
 
 // The ground melts into the next one, like the sky (the owner, 2026-11-20: "it would be super cool if it could
 // be the same as for changing the sky where it kind of melts from one to the other"). BaseGround mounts this for
-// 1.6 s with the OLD ground texture on a plane over the new one; a noise mask in world space eats it away, with
+// 3 s with the OLD ground texture on a plane over the new one; a noise mask in world space eats it away, with
 // a hot rim on each patch (Glitch: square blocks). The style follows Settings > VFX > Sky change; Off skips.
 // Lit like the ground (a MeshStandardMaterial with a discard added), so the old ground does not jump in brightness.
 
@@ -11,7 +11,8 @@ import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
 import type { SkyTransitionStyle } from './SkyTransition'
 
-const DURATION = 1.6
+// 3 s, as long as the sky change and its sound.
+const DURATION = 3.0
 
 export function GroundFade({ texture, color, size, y, style, onDone }: {
   texture: THREE.Texture | null

@@ -33,6 +33,7 @@ const PLACEMENT_VFX_OPTIONS: Array<{ id: PlacementVfxType; label: string; desc: 
   { id: 'dimensionalmaw', label: 'Dimensional Maw', desc: 'Vertical rift tears the object in', icon: '⧉' },
   { id: 'hexstorm', label: 'Hex Storm', desc: 'Impossible glyph rings and polyhedra', icon: '⚡' },
   { id: 'singularitydrop', label: 'Singularity Drop', desc: 'Black core impact with gravity smoke', icon: '●' },
+  { id: 'groundslam', label: 'Ground Slam', desc: 'Shock ring, glowing cracks, rocks and dust', icon: '⛰' },
   { id: 'runeflash', label: 'Rune Flash', desc: 'Arcane circle glows on ground', icon: '✦' },
   { id: 'sparkburst', label: 'Spark Burst', desc: '200 particles shower outward', icon: '☄' },
   { id: 'portalring', label: 'Portal Ring', desc: 'Glowing ring rises through object', icon: '◎' },

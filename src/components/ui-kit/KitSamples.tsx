@@ -4,7 +4,8 @@
 // (2026-11-19, 7:25: "three big buttons… the picture and the icon and the colours rhyme"). "Use this" sets the
 // one style of every menu.
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { CURSOR_KINDS, CURSOR_SETS, cursorUrl, type CursorKind, type CursorSetId } from '@/lib/ui-kit/cursors'
 import { MENU_STYLES, TOGGLE_LOOKS, setMenuLook, useMenuLook, type MenuStyleId, type ToggleLookId } from '@/lib/ui-kit/menu-look'
 import { KitButton, KitCard, KitPanel, KitToggleOverride, KitPickTile, KitProgress, KitSlider, KitStyleOverride, KitTabs, KitTextField, KitTileButton, KitToggle, kitConfirm } from './index'
 
@@ -73,6 +74,53 @@ function ToggleSample({ design }: { design: ToggleLookId }) {
   )
 }
 
+const CURSOR_NAMES: Record<CursorKind, string> = {
+  arrow: 'Arrow', hand: 'Click', text: 'Typing', grab: 'Grab', grabbing: 'Holding', move: 'Move',
+  'resize-h': 'Resize', 'resize-v': 'Resize', 'resize-d': 'Resize', 'resize-d2': 'Resize', busy: 'Busy', no: 'Not allowed',
+}
+
+/** One cursor to try: hovering the square wears it (an inline important cursor, above the set in use). */
+function CursorTry({ set, kind }: { set: Exclude<CursorSetId, 'system'>; kind: CursorKind }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const { hot: [x, y], fallback } = CURSOR_KINDS[kind]
+  useEffect(() => {
+    ref.current?.style.setProperty('cursor', `image-set(url(${cursorUrl(set, kind)}) 1x, url(${cursorUrl(set, kind, true)}) 2x) ${x} ${y}, ${fallback}`, 'important')
+  }, [set, kind, x, y, fallback])
+  return (
+    <div ref={ref} title={`${CURSOR_NAMES[kind]}: hover to try`} className="flex flex-col items-center gap-0.5 rounded border border-white/10 bg-black/25 p-1 hover:border-white/40">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={cursorUrl(set, kind, true)} alt="" width={32} height={32} draggable={false} className="pointer-events-none" />
+      <span className="pointer-events-none text-[9px] opacity-60">{CURSOR_NAMES[kind]}</span>
+    </div>
+  )
+}
+
+export function KitCursorSamples() {
+  const look = useMenuLook()
+  return (
+    <section data-experiment="cursors">
+      <h3 className="text-[11px] font-black uppercase tracking-[0.16em] text-fuchsia-200">Cursors</h3>
+      <p className="mt-1 text-[11px] leading-relaxed text-white/60">The mouse in every part of the Oasis. Hover a square to try that cursor; &quot;Use this&quot; wears the set everywhere. Also at the top right of Settings.</p>
+      <KitPanel className="mt-3">
+        <div className="flex flex-col gap-3">
+          {CURSOR_SETS.map(set => (
+            <div key={set.id} data-cursor-sample={set.id} className="flex items-center gap-3">
+              <div className="w-[150px] shrink-0">
+                <div className="text-[13px] font-semibold">{set.label}{look.cursor === set.id ? ' · in use' : ''}</div>
+                <div className="text-[10px] leading-snug opacity-60">{set.blurb}</div>
+              </div>
+              <div className="grid flex-1 grid-cols-[repeat(auto-fill,minmax(52px,1fr))] gap-1.5">
+                {set.id !== 'system' && (Object.keys(CURSOR_KINDS) as CursorKind[]).map(kind => <CursorTry key={kind} set={set.id as Exclude<CursorSetId, 'system'>} kind={kind} />)}
+              </div>
+              <KitButton variant={look.cursor === set.id ? 'plain' : 'primary'} onClick={() => setMenuLook({ cursor: set.id })}>{look.cursor === set.id ? 'In use' : 'Use this'}</KitButton>
+            </div>
+          ))}
+        </div>
+      </KitPanel>
+    </section>
+  )
+}
+
 export function KitToggleSamples() {
   return (
     <section data-experiment="switches">
@@ -86,6 +134,8 @@ export function KitToggleSamples() {
 export function KitSamples() {
   return (
     <>
+    <KitCursorSamples />
+    <div className="mt-6" />
     <KitToggleSamples />
     <section data-experiment="menu-styles" className="mt-6">
       <h3 className="text-[11px] font-black uppercase tracking-[0.16em] text-fuchsia-200">Menu styles</h3>

@@ -1,5 +1,4 @@
-// Test installs and the disk (the Hacker's proposal with Hustler, 24 Nov: 48 throwaway Oasis test installs, C:/oasis-*,
-// had eaten about 115 GB; C/7c_oasis/docs/missions/white-hat.md).
+// Test installs and the disk (on 24 Nov leftover Oasis test installs had eaten about 115 GB).
 //
 //   - Every test install lives in one scratch root, C:/oasis-scratch/<agent>/<name> (OASIS_SCRATCH_ROOT), and each test
 //     deletes its own folder when it ends. What is left behind is swept here: a folder at exactly that depth whose
@@ -21,6 +20,46 @@ export const DISK_ALERT_GB = 15;
 export const DISK_REARM_GB = 20;
 
 const norm = (p) => String(p || '').replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
+
+/** The file that says a folder is the scratch root (written by the helper that makes C:/oasis-scratch/<agent>/). */
+export const ROOT_MARKER = '.oasis-scratch-root';
+
+/**
+ * Why this root must not be swept, or null when it is the scratch root (Merge Goat and the Hacker, 24 Nov: a wrong
+ * OASIS_SCRATCH_ROOT, C:/ or a home folder, would make every day-old folder two levels down sweepable). It must be
+ * named oasis-scratch, hold the marker file, and be neither a drive root nor under C:/Users/<user> or Program Files.
+ * guardHome: false only for tests, whose temporary folders live under the user's folder.
+ */
+export function rootProblem(root, { guardHome = true } = {}) {
+  let r;
+  try { r = fs.realpathSync(path.resolve(root)); } catch { return 'the folder does not exist'; }
+  if (path.basename(r).toLowerCase() !== 'oasis-scratch') return 'not named oasis-scratch';
+  if (path.parse(r).root.toLowerCase() === r.toLowerCase() || path.dirname(r) === r) return 'a drive root';
+  const n = r.replace(/\\/g, '/').toLowerCase();
+  if (/^[a-z]:\/program files[^/]*(\/|$)/.test(n)) return 'under Program Files';
+  if (guardHome && /^[a-z]:\/users\/[^/]+(\/|$)/.test(n)) return "under a user's own folder";
+  if (!fs.existsSync(path.join(r, ROOT_MARKER))) return `no ${ROOT_MARKER} marker in it`;
+  return null;
+}
+
+export const DEFAULT_SCRATCH_ROOT = 'C:/oasis-scratch';
+
+/**
+ * The engine marks the built-in scratch root once, at start (making it if it is missing), so the sweep can run. Only
+ * that one: a root set by OASIS_SCRATCH_ROOT is never marked here (a wrong setting must not mark itself and pass the
+ * guard); mark it by hand. Windows only. -> true when the marker is there afterwards.
+ */
+export function ensureDefaultMarker(root = SCRATCH_ROOT, env = process.env) {
+  if (process.platform !== 'win32' || env.OASIS_SCRATCH_ROOT || root !== DEFAULT_SCRATCH_ROOT) return false;
+  try {
+    fs.mkdirSync(root, { recursive: true });
+    const marker = path.join(root, ROOT_MARKER);
+    if (!fs.existsSync(marker)) fs.writeFileSync(marker, 'The Oasis scratch root: test installs live in <agent>/<name> below and are swept by the engine after a day without a process (scratch.js).\n');
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 /** The newest modification time in a folder, looking two levels down (enough to see a test still writing). */
 export function newestMtime(dir, depth = 2) {
@@ -105,6 +144,9 @@ export class ScratchKeeper {
     this.say = o.say || (() => {});
     this.root = o.root || SCRATCH_ROOT;
     this.prune = o.prune || (() => runPnpmPrune(this.log));
+    this.guardHome = o.guardHome !== false;
+    /** Why the sweep is off (the root is not recognised), or null: known from the start, for /health. */
+    this.off = rootProblem(this.root, { guardHome: this.guardHome });
     this.lastSweep = null;
     this.disk = diskView(null);
     this.alerted = false;
@@ -112,6 +154,15 @@ export class ScratchKeeper {
 
   /** Remove what is left behind. -> the removed folders. */
   async sweep(now = Date.now()) {
+    // Before anything: is this the scratch root at all? If not, nothing is removed and /health says why.
+    const problem = rootProblem(this.root, { guardHome: this.guardHome });
+    if (problem) {
+      if (this.off !== problem) this.log(`scratch: sweep off: root not recognised (${this.root}: ${problem})`);
+      this.off = problem;
+      this.lastSweep = { at: now, removed: [], note: `sweep off: root not recognised (${problem})` };
+      return [];
+    }
+    this.off = null;
     const folders = scratchFolders(this.root);
     if (!folders.length) { this.lastSweep = { at: now, removed: [] }; return []; }
     const procs = await processesInScratch(this.root);
@@ -147,7 +198,7 @@ export class ScratchKeeper {
   }
 
   view() {
-    return { root: this.root, lastSweep: this.lastSweep, disk: this.disk };
+    return { root: this.root, ...(this.off ? { line: `scratch sweep off: root not recognised (${this.off})` } : {}), lastSweep: this.lastSweep, disk: this.disk };
   }
 }
 

@@ -26,7 +26,7 @@ import { cwdLabel, formatAgo, formatBytes } from './village-status'
 import { FolderBrowser } from './FolderBrowser'
 import { getKeychainState, keyStates, openKeychain, refreshKeychain, subscribeKeychain } from './keychain-store'
 import { showNotice } from '../forge/GlobalNotice'
-import { KitButton, KitPanel, KitSelectField, KitTabs, KitTextField, KitTileButton, kitConfirm } from '@/components/ui-kit'
+import { KitButton, KitPanel, KitSelectField, KitTabs, KitTextField, KitTileButton, kitConfirm, kitPrompt } from '@/components/ui-kit'
 import { CUSTOM_MODEL_VALUE, cleanModelId, mergeModelLists, type ModelOption } from '../../lib/village/village-models'
 import { useLayer, zFor } from '@/lib/ui-kit/layers'
 
@@ -279,8 +279,9 @@ function ModelSelect({ value, models, onChange }: { value: string; models: Model
       onChange={event => {
         let model: string | null = event.target.value
         if (model === CUSTOM_MODEL_VALUE) {
-          model = cleanModelId(window.prompt('Model id (any the Claude Code CLI takes, e.g. claude-fable-5-2)', ''))
-          if (!model) return
+          void kitPrompt({ title: 'Another model', label: 'Model id', body: 'Any the Claude Code CLI takes.', placeholder: 'claude-fable-5-2', confirm: 'Use it' })
+            .then(typed => { const id = cleanModelId(typed); if (id) onChange(id) })
+          return
         }
         onChange(model || '')
       }}

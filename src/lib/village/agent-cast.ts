@@ -36,6 +36,8 @@ export const CAST_CLIPS: Record<CastPhase, string> = {
 }
 
 export const INCANTATION_URL = '/audio/spells/conjuration-incantation.mp3'
+/** Last resort for an agent's conjuring when neither the shipped 'conjure' pick nor the owner's recording loads (about 4.8 s). */
+export const INCANTATION_FALLBACK_URL = '/audio/spells-cc0/cc0-swell.ogg'
 
 /** World tools that change the world (by name, after the MCP prefix). Looking, listing and generating media do not. */
 const WORLD_CHANGE_TOOLS = new Set([

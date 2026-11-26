@@ -1,5 +1,5 @@
 // Processes the agents leave behind, and ones that run away. Windows only (elsewhere a no-op).
-// The Hacker's finding, 22 Nov (C:/7c_oasis/docs/missions/white-hat.md): 96 orphaned Git-Bash processes, nearly all
+// The Hacker's finding, 22 Nov (the white-hat mission): 96 orphaned Git-Bash processes, nearly all
 // `tail -f <log> | grep --line-buffered …` log watchers from Monitor or background Bash. An agent's tool ends by killing
 // its bash.exe; on Windows that doesn't take the MSYS children with it (no shared process group or job object),
 // `tail -f` never ends, and `grep` waits on `tail`. A runaway `sed` held a core overnight the same way.

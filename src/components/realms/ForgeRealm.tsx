@@ -116,9 +116,10 @@ export function ForgeRealm() {
       {terrainParams && <TerrainMesh params={terrainParams} />}
 
       {/* ░▒▓ WORLD OBJECTS — shared renderer for all placed assets ▓▒░ */}
-      <WorldObjectsRenderer />
+      {/* Own boundaries: a model or a font still loading never holds up the ground (24 Nov: the realm waited ~30 s for a font). */}
+      <Suspense fallback={null}><WorldObjectsRenderer /></Suspense>
 
-      <PortalGateLayer />
+      <Suspense fallback={null}><PortalGateLayer /></Suspense>
       {/* World menu trips: a portal a step ahead, the walk in, the travel view, the roll out (WorldTravelDirector). */}
       <WorldTravelDirector />
       {/* The village profile is single-player for now: no room connection, no remote avatars. */}

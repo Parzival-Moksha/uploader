@@ -38,7 +38,7 @@ import {
   subscribeAcademy,
   useAcademyEnabled,
 } from './academy-store'
-import { getKeychainState, refreshKeychain, setKeychainShown, subscribeKeychain } from './keychain-store'
+import { getKeychainState, refreshKeychainIfOlder, setKeychainShown, subscribeKeychain } from './keychain-store'
 import { SkillMapBoard } from './VillageAcademyMap'
 import { KeychainPanel } from './VillageAcademyKeychain'
 import { AcademySheet } from './VillageAcademyReader'
@@ -49,6 +49,10 @@ import { DEFAULT_PROFILE_AVATAR_3D_URL } from '../../lib/profile-defaults'
 import { getWorkVowState, subscribeWorkVow } from './work-vow-client'
 import { topmostLayer, useLayer } from '@/lib/ui-kit/layers'
 import { useRailMenuExclusion } from '@/hooks/useRailMenuExclusion'
+import { invalidateCachedJson, persistCachedJson, useCachedJson } from '@/lib/cached-json'
+
+const PROFILE_URL = '/api/profile'
+persistCachedJson(PROFILE_URL)
 
 interface Profile {
   xp: number
@@ -118,7 +122,7 @@ function CharacterTabView({ profile, onPickAvatar }: { profile: Profile | null; 
   const keys = useSyncExternalStore(subscribeKeychain, () => getKeychainState().keys, () => getKeychainState().keys)
   const trainees = useSyncExternalStore(subscribeAcademy, () => getAcademyState().trainees, () => getAcademyState().trainees)
   const academy = useAcademyEnabled()
-  useEffect(() => { void refreshKeychain() }, [])
+  useEffect(() => { void refreshKeychainIfOlder() }, [])
 
   if (!profile) return <div className={`${TEXT.note} p-8 text-center`}>Reading your character…</div>
   const level = levelProgressNumbers(profile.xp, profile.levelProgress, profile.xpToNext)
@@ -225,7 +229,8 @@ function CharacterTabView({ profile, onPickAvatar }: { profile: Profile | null; 
 function Menu() {
   const { tab, focusKey, focusNonce } = useCharacterState()
   const academy = useAcademyEnabled()
-  const [profile, setProfile] = useState<Profile | null>(null)
+  // Kept for the page's life (src/lib/cached-json.ts): the menu opens on what is known, refreshed behind it.
+  const profile = useCachedJson<Profile>(PROFILE_URL, 30_000) || null
   const [picking, setPicking] = useState(false)
   const setAvatar3dUrl = useOasisStore(s => s.setAvatar3dUrl)
   const { reader, readerMap, trainees } = useSyncExternalStore(subscribeAcademy, getAcademyState, getAcademyState)
@@ -233,13 +238,7 @@ function Menu() {
   const sheetTrainee = useSyncExternalStore(subscribeAcademy, () => readerTrainee(), () => null)
   const sheetSkill = readerMap && reader ? sheetContent?.skills.find(skill => skill.id === reader) || null : null
 
-  const loadProfile = useCallback(() => {
-    fetch('/api/profile', { cache: 'no-store' })
-      .then(response => (response.ok ? response.json() : null))
-      .then(data => { if (data) setProfile(data as Profile) })
-      .catch(() => {})
-  }, [])
-  useEffect(loadProfile, [loadProfile])
+  const loadProfile = useCallback(() => { void invalidateCachedJson(PROFILE_URL) }, [])
 
   // The Academy's data: the village polls it already; elsewhere the menu does while it is open.
   useEffect(() => (isVillageProfileClient() ? undefined : startAcademyRefresh()), [])

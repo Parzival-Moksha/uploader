@@ -9,9 +9,14 @@
 //   node me.mjs home here            make the spot you stand on your home (facing the plaza): no desk any more
 //   node me.mjs home <x> <z>         your home at x, z in the world the owner is in
 //   node me.mjs home clear           back to your desk on the ring
+//   node me.mjs come "<why>"         walk to the owner, wherever he is, with something he is waiting for: your
+//                                    <spoken> line is said when you get there. Only for what he asked to be told
+//                                    about or what blocks him, never a routine "finished" (at most once in 15 min)
+//   node me.mjs come later           he asked you to come when something is done and it is not yet: your turn's
+//                                    end does not walk you over; the next finished turn does
 //
 // A home is yours: build on the ground around it with the free world tools, within your budget (your card says
-// how much). Homes live on the Oasis page server (OASIS_PAGE_URL, default http://127.0.0.1:4516); the owner's
+// how much). Homes live on the Oasis page server (OASIS_PAGE_URL, else port OASIS_WEB_PORT, default 4516); the owner's
 // open page answers here / x z / clear, because only it knows the world it shows and where you stand.
 //
 // The pictures are rendered by the Oasis page the owner has open, so they show the world as it is now. They are
@@ -25,7 +30,8 @@ const args = process.argv.slice(2);
 const flag = (name) => { const i = args.indexOf(name); if (i === -1) return null; const value = args[i + 1]; args.splice(i, 2); return value || null; };
 const agent = flag('--agent') || flag('--session') || process.env.OASIS_AGENT_ID || '';
 const base = (process.env.OASIS_ENGINE_URL || 'http://127.0.0.1:4530').replace(/\/+$/, '');
-const pageBase = (process.env.OASIS_PAGE_URL || 'http://127.0.0.1:4516').replace(/\/+$/, '');
+// The page server: OASIS_PAGE_URL, else the port the supervisor gave it (OASIS_WEB_PORT: a packaged Oasis may not use 4516).
+const pageBase = (process.env.OASIS_PAGE_URL || `http://127.0.0.1:${Number(process.env.OASIS_WEB_PORT) || 4516}`).replace(/\/+$/, '');
 const [action, ...rest] = args;
 
 async function cmd(body) {
@@ -53,7 +59,7 @@ async function whoAmI() {
 async function homes(body) {
   let response;
   try {
-    response = await fetch(`${pageBase}/api/village/homes`, body ? { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) } : {});
+    response = await fetch(`${pageBase}/api/village/homes`, body ? { method: 'POST', headers: { 'content-type': 'application/json', ...tokenHeaders() }, body: JSON.stringify(body) } : { headers: tokenHeaders() });
   } catch {
     throw new Error(`the Oasis page server does not answer at ${pageBase}`);
   }
@@ -97,6 +103,34 @@ async function home(args) {
   console.log("No Oasis page has answered yet: it will be done when the owner's page is open (the request waits an hour).");
 }
 
+/** Come to the owner (/api/village/come on the page server; lib/village/come-when-done.ts). */
+async function come(args) {
+  const me = await whoAmI();
+  const later = args.length === 1 && args[0] === 'later';
+  const why = args.join(' ').trim();
+  if (!later && !why) throw new Error('why are you coming? node me.mjs come "<a few words: what he is waiting for>" (or: come later)');
+  let response;
+  try {
+    response = await fetch(`${pageBase}/api/village/come`, { method: 'POST', headers: { 'content-type': 'application/json', ...tokenHeaders() }, body: JSON.stringify(later ? { op: 'later', agent: me.key } : { op: 'call', agent: me.key, why }) });
+  } catch {
+    throw new Error(`the Oasis page server does not answer at ${pageBase}`);
+  }
+  const json = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(json.error || `the page server answered ${response.status}`);
+  const result = json.results?.[0];
+  if (later) {
+    console.log(result === 'held'
+      ? 'Kept: this turn\'s end will not walk you to him. When the thing is done, your next finished turn does (or run node me.mjs come "<why>").'
+      : 'He has not asked you to come when something is done: nothing to keep.');
+  } else if (result === 'coming') {
+    console.log('On your way: your avatar walks to the owner, in whatever world he is in, and your <spoken> line is said when you get there. He can wave you off.');
+  } else if (result === 'too-soon') {
+    console.log('Not now: you came to him less than 15 minutes ago. Put it in your reply instead; he reads it when he opens you.');
+  } else {
+    console.log(`The page server answered: ${result || 'nothing changed'}`);
+  }
+}
+
 function printCard(c) {
   const line = (label, value) => { if (value) console.log(`${label.padEnd(7)} ${value}`); };
   line('name', c.name);
@@ -130,8 +164,11 @@ try {
   } else if (action === 'home') {
     need();
     await home(rest);
+  } else if (action === 'come') {
+    need();
+    await come(rest);
   } else {
-    console.log('usage: node me.mjs card | look | around | who "<text>" | role "<sentence>" | home [here | <x> <z> | clear]   [--agent <name, agent id or session id>]');
+    console.log('usage: node me.mjs card | look | around | who "<text>" | role "<sentence>" | home [here | <x> <z> | clear] | come "<why>" | come later   [--agent <name, agent id or session id>]');
     process.exitCode = action ? 1 : 0;
   }
 } catch (error) {

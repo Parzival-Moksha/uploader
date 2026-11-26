@@ -12,6 +12,7 @@ import type { WorldVisibility } from '@/lib/xp'
 import { completeQuest } from '@/lib/quests'
 import { useUILayer } from '@/lib/input-manager'
 import { useOasisCapabilities } from '@/lib/oasis-mode-client'
+import { kitConfirm } from '@/components/ui-kit'
 
 interface SnapshotMeta {
   id: string
@@ -428,9 +429,8 @@ export function RealmSelector({
                   <button
                     onClick={(e) => {
                       e.stopPropagation()
-                      if (confirm(`Delete world "${world.name}"?`)) {
-                        deleteWorldById(world.id)
-                      }
+                      void kitConfirm({ title: `Delete world "${world.name}"?`, confirm: 'Delete', danger: true })
+                        .then(ok => { if (ok) deleteWorldById(world.id) })
                     }}
                     className="opacity-0 group-hover:opacity-60 hover:!opacity-100 px-2 py-1 text-red-500 text-xs transition-opacity"
                     title="Delete world"

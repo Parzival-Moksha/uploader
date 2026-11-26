@@ -70,7 +70,6 @@ import { VillageSubagentMinis } from './VillageSubagentMinis'
 import { VillageShow } from './VillageShow'
 import { VillageEyes } from './VillageEyes'
 import { VillagePresence } from './VillagePresence'
-import { VillageMissionWall } from './VillageMissionWall'
 import { VillageAcademyTree } from './VillageAcademyTree'
 import { AcademyLevelTag, AcademyVillageBody, useAcademyStone, useAcademyTrainee } from './VillageAcademyTrainee'
 import { VillageVoice } from './VillageVoice'
@@ -114,7 +113,9 @@ import { SettingsContext } from '../scene-lib/contexts'
 import { clipForPose, holdSeconds, type AgentPose } from '../../lib/village/agent-idles'
 import { CAST_CLIPS } from '../../lib/village/agent-cast'
 import { claimCompanionExit, companionRollAt, getCompanionsVersion, isCompanionRolling, subscribeCompanions } from '../../lib/village/travel-companions'
+import { isVillageComing, subscribeVillageCome } from './village-come'
 import { useCastPhase, useVillageCastWatcher } from './village-cast'
+import { TypingHologram } from './TypingHologram'
 import { DESK_SCREENS_DEFAULT, DESK_SCREEN_LIMIT, isDeskScreensMode, pickDeskScreens, type DeskDistance } from '../../lib/village/desk-screens'
 import { useKitStyle } from '@/components/ui-kit'
 import { WORLD_Z_RANGE, layerZ, useLayer } from '@/lib/ui-kit/layers'
@@ -152,6 +153,12 @@ function useAgentPoseClip(agentId: string, pose: AgentPose): string | null {
     const timer = window.setInterval(() => setRound(r => r + 1), holdSeconds(agentId) * 1000)
     return () => window.clearInterval(timer)
   }, [agentId, cycles])
+  // Dev only: localStorage 'oasis-dev-agent-pose' = a clip id makes every agent that isn't talking play it (to look at
+  // one clip on many bodies). Ignored in a production build.
+  if (process.env.NODE_ENV !== 'production' && pose !== 'talking' && typeof window !== 'undefined') {
+    const forced = window.localStorage.getItem('oasis-dev-agent-pose')
+    if (forced) return forced
+  }
   return clipForPose(agentId, pose, round, variety)
 }
 
@@ -766,7 +773,10 @@ function VillageStation({ agentId, placement, avatarUrl, windowVisible, helperLa
   const staged = isCouncilMember(agentId) && !stone
   // Settings > Agents "Agents come to me when they're stuck" (off by default, come-to-me.ts), and its own switch.
   const comeToMe = useSyncExternalStore(subscribeComeToMe, isComeToMeOn, () => false)
-  const visiting = comeToMe && isVillageComeOn(followKey) && needsSince !== null && needsSince !== heardFor && !stone && !isCouncilOn()
+  // Come when done (village-come.ts): he asked it to come when the thing was done, or it came by itself: it walks
+  // to him whatever the setting says, until he has heard it or waved it off.
+  const comingToHim = useSyncExternalStore(subscribeVillageCome, () => isVillageComing(followKey), () => false)
+  const visiting = !stone && !isCouncilOn() && (comingToHim || (comeToMe && isVillageComeOn(followKey) && needsSince !== null && needsSince !== heardFor))
   // The owner is talking to another agent (its panel or its full screen): wait a few metres back, don't interrupt.
   const ownerBusy = useOasisStore(s => s.agentEngine.focusedAgentId !== null && s.agentEngine.focusedAgentId !== agentId)
   // Sent somewhere with a right-click while selected: it walks there and stays (an order beats "Follow me"),
@@ -790,6 +800,9 @@ function VillageStation({ agentId, placement, avatarUrl, windowVisible, helperLa
     : status === 'working' ? 'working'
     : 'resting'
   const poseClip = useAgentPoseClip(agentId, pose)
+  const avatarGroup = useRef<THREE.Group>(null)
+  // Typing (its working clip, standing at a keyboard): only while that clip is what its body plays.
+  const typing = poseClip === 'authored-stand-type' && !combatPose && !castPhase && !companionRolling && !follower.walking
   const head = useRef<THREE.Group>(null)
   useEffect(() => {
     registerVillageHead(agentId, head.current)
@@ -845,7 +858,9 @@ function VillageStation({ agentId, placement, avatarUrl, windowVisible, helperLa
       {/* The agent: on its station at home, beside you when it follows (useVillageFollower moves this group). */}
       <group ref={follower.mover}>
         {/* In the F view it turns to look into the camera (its face is left of where the camera looks). */}
-        <group position={STATION.avatar} rotation-y={focused && onScreen && screenLayout ? screenLayout.faceTurn : 0}>
+        <group ref={avatarGroup} position={STATION.avatar} rotation-y={focused && onScreen && screenLayout ? screenLayout.faceTurn : 0}>
+          {/* Typing at work: a floating laptop under its hands (TypingHologram follows its hand bones). */}
+          <TypingHologram active={typing} color={color} bodyRoot={avatarGroup} />
           <VillageLeaveEffect agentId={agentId}>
           <VillageCorpseDrop agentId={agentId}>
           <VillageBodyBoundary key={avatarUrl} color={color}>
@@ -1256,8 +1271,9 @@ export function VillageWorld() {
           />
         )
       })}
-      {/* The owner's missions as framed panels behind Anorak's desk (VillageMissionWall). */}
-      {!stage && <VillageMissionWall roster={roster} placements={placements} origin={origin} />}
+      {/* The mission wall (VillageMissionWall: his missions as framed panels behind Anorak's desk, with the 3D work clock)
+          is off: the owner, 2026-11-24, works from Mindcraft now, and the panels cut through avatars. The idea stays for a
+          Mindcraft world later (missions standing in the world by priority); the component is kept, unmounted. */}
       {/* The Academy's skill tree, across the plaza from the desks (VillageAcademyTree). */}
       {!stage && <VillageAcademyTree origin={origin} />}
       <VillageCameraRig />

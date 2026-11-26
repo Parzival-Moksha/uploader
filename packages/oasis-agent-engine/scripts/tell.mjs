@@ -1,6 +1,6 @@
 // An agent tells the owner something on Telegram, on its own: for what truly needs him now (a scheduled
 // wake-up found something only he can decide, a thing broke). Once: the engine refuses a second message from
-// the same agent within 30 minutes. Questions that can wait go to C:/7c_oasis/docs/grill/open.md instead.
+// the same agent within 30 minutes. Questions that can wait go to the owner's list instead.
 //
 //   node tell.mjs "<a few lines>"
 //

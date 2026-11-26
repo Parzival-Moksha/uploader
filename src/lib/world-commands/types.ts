@@ -36,6 +36,7 @@ export type WorldCommandKind =
   | 'light.update'
   | 'light.remove'
   | 'sky.set'
+  | 'ambience.set'
   | 'stroke.start'
   | 'stroke.point'
   | 'stroke.end'
@@ -153,6 +154,7 @@ export type WorldCommandPayloadByKind = {
   'light.update': { id: string; updates: Partial<WorldLight> }
   'light.remove': { id: string }
   'sky.set': { skyBackgroundId: string }
+  'ambience.set': { ambience: string }
 
   'stroke.start': { strokeId: string; authorId: string; authorColor: string; style: PaintStrokeStyle }
   'stroke.point': { strokeId: string; point: Vec3 }

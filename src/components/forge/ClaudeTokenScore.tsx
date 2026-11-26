@@ -7,7 +7,8 @@
 // shown apart and smaller: "context re-read" is the same context read again on every turn (tens of
 // billions, cheap, not new work) and "context cached" is input stored for reuse.
 
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
+import { loadCachedJson, persistCachedJson, useCachedJson } from '@/lib/cached-json'
 
 import { ClaudePlanLimits } from './ClaudePlanLimits'
 import { TokenDailyChart, type ChartDay } from './TokenDailyChart'
@@ -52,28 +53,18 @@ function Breakdown({ c }: { c: Counts }) {
   )
 }
 
+const USAGE_URL = '/api/claude-usage'
+persistCachedJson(USAGE_URL)
+
 export function ClaudeTokenScore() {
-  const [summary, setSummary] = useState<Summary | null>(null)
+  // Kept for the page's life (src/lib/cached-json.ts): the Character menu opens on the last count at once.
+  const summary = useCachedJson<Summary>(USAGE_URL, 60_000) || null
+  // The first count on a new machine reads all transcripts: show it grow.
   useEffect(() => {
-    let cancelled = false
-    let timer: ReturnType<typeof setTimeout> | null = null
-    const load = () => {
-      fetch('/api/claude-usage')
-        .then(response => (response.ok ? response.json() : null))
-        .then((data: Summary | null) => {
-          if (cancelled || !data) return
-          setSummary(data)
-          // The first count on a new machine reads all transcripts: show it grow.
-          if (data.indexing) timer = setTimeout(load, 2500)
-        })
-        .catch(() => {})
-    }
-    load()
-    return () => {
-      cancelled = true
-      if (timer) clearTimeout(timer)
-    }
-  }, [])
+    if (!summary?.indexing) return
+    const timer = setTimeout(() => { void loadCachedJson(USAGE_URL) }, 2500)
+    return () => clearTimeout(timer)
+  }, [summary])
 
   // The plan limits show even before (or without) the counted tokens.
   if (!summary || (!anything(summary.allTime) && !summary.indexing)) return <ClaudePlanLimits />

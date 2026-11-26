@@ -34,6 +34,12 @@ import {
   type TileMotion,
 } from '@/lib/game-menu/menu-feel'
 import { GameMenuTileArt, MENU_TILES, type MenuTileId } from './GameMenuTileArt'
+import { PooledImage, keepImages } from '@/lib/ui-kit/image-pool'
+
+/** The slabs' depth, a share of their width (the owner, 24 Nov: "like 20% as deep as they are large"). */
+const TILE_DEPTH = 0.2
+/** Each tile's painting (public/ui/menu/tiles, generated 24 Nov in the spell book's style). */
+const tilePainting = (id: MenuTileId) => `/ui/menu/tiles/${id}.webp`
 import { ServicesLights } from '@/components/village/ServicesLights'
 import { requestConfigTab } from '@/components/forge/config/config-tab-request'
 import { useLayer } from '@/lib/ui-kit/layers'
@@ -286,6 +292,8 @@ function GameMenuScreen({ closing }: { closing: boolean }) {
   const [copied, setCopied] = useState(false)
 
   const tileEls = useRef<Array<HTMLButtonElement | null>>([])
+  /** The visible slabs, which the motion turns (the buttons over them stay flat: a <button> flattens 3D children). */
+  const slabEls = useRef<Array<HTMLDivElement | null>>([])
   const motions = useRef<TileMotion[]>(MENU_TILES.map(() => restingTile()))
   const inputs = useRef<TileInput[]>(MENU_TILES.map(() => ({ hovered: false, pressed: false, tiltX: 0, tiltY: 0 })))
   const stageRef = useRef<HTMLDivElement>(null)
@@ -311,7 +319,7 @@ function GameMenuScreen({ closing }: { closing: boolean }) {
         const input = inputs.current[i]
         const motion = stepTile(motions.current[i], input, style, dt)
         motions.current[i] = motion
-        const el = tileEls.current[i]
+        const el = slabEls.current[i]
         if (el) el.style.transform = tileTransform(motion)
         if (!tileAtRest(motion, input, style)) moving = true
       }
@@ -490,22 +498,44 @@ function GameMenuScreen({ closing }: { closing: boolean }) {
             <div
               key={tile.id}
               className="ogm-slot"
-              style={{ left: r.x, top: r.y, width: r.w, height: r.h, animationDelay: `${60 + i * 45}ms` }}
+              // Seen from the screen's centre, like a real grid of slabs: tiles off-centre show the sides that face
+              // the middle, even at rest (with the vanishing point at each tile's own centre, the sides hid behind it).
+              style={{ left: r.x, top: r.y, width: r.w, height: r.h, animationDelay: `${60 + i * 45}ms`, perspectiveOrigin: `${Math.round(size.w / 2 - r.x)}px ${Math.round(size.h / 2 - r.y)}px` }}
             >
+              {/* A slab, not a card (the owner, 24 Nov: "they are flat now but turn in 3d which is lame, ideally they
+                  would be like 20% as deep as they are large"): the painted face, its back and four sides folded back.
+                  It is a div the motion turns; the button over it takes the clicks and keys (Chrome flattens a
+                  button's 3D children, so the sides would not show inside one). */}
+              <div
+                ref={el => { slabEls.current[i] = el }}
+                className="ogm-slab"
+                aria-hidden
+                style={{ ['--ogm-accent' as string]: tile.accent, ['--ogm-depth' as string]: `${Math.round(r.w * TILE_DEPTH)}px`, fontSize: labelSize }}
+              >
+                <span className="ogm-face">
+                  <span className="ogm-art">
+                    <PooledImage url={tilePainting(tile.id)} alt="" className="ogm-paint" fallback={<GameMenuTileArt id={tile.id} />} />
+                  </span>
+                  <span className="ogm-shade" />
+                  <span className="ogm-text">
+                    <span className="ogm-label">{tile.label}</span>
+                    <span className="ogm-sub">{tile.sub}</span>
+                  </span>
+                </span>
+                <span className="ogm-back" />
+                <span className="ogm-side ogm-side-t" />
+                <span className="ogm-side ogm-side-b" />
+                <span className="ogm-side ogm-side-l" />
+                <span className="ogm-side ogm-side-r" />
+              </div>
               <button
                 ref={el => { tileEls.current[i] = el }}
                 type="button"
                 className="ogm-tile"
                 data-menu-tile={tile.id}
-                style={{ ['--ogm-accent' as string]: tile.accent, fontSize: labelSize }}
+                aria-label={`${tile.label}: ${tile.sub}`}
                 {...tileHandlers(i, tile.id)}
-              >
-                <span className="ogm-art"><GameMenuTileArt id={tile.id} /></span>
-                <span className="ogm-text">
-                  <span className="ogm-label">{tile.label}</span>
-                  <span className="ogm-sub">{tile.sub}</span>
-                </span>
-              </button>
+              />
             </div>
           )
         })}
@@ -545,6 +575,8 @@ function closeMainMenuWithSound() {
 }
 
 export function GameMenu() {
+  // The tiles' paintings, loaded at page start and kept (image-pool.ts): the menu never opens on empty tiles.
+  useEffect(() => { keepImages(MENU_TILES.map(tile => tilePainting(tile.id))) }, [])
   useMenuTriggers()
   const phase = useGameMenu(s => s.phase)
   const openCount = useGameMenu(s => s.openCount)
@@ -585,26 +617,52 @@ const MENU_CSS = `
 .ogm-tagline span { opacity: 0.5; }
 @keyframes ogmTitleIn { from { opacity: 0; transform: translateY(-14px); } to { opacity: 1; transform: none; } }
 
-.ogm-slot { position: absolute; perspective: 700px; pointer-events: auto; animation: ogmTileIn 380ms cubic-bezier(0.2, 0.9, 0.25, 1.1) both; }
+.ogm-slot { position: absolute; perspective: 1100px; pointer-events: auto; animation: ogmTileIn 380ms cubic-bezier(0.2, 0.9, 0.25, 1.1) both; }
 .ogm-slot:hover, .ogm-slot:focus-within { z-index: 2; }
 @keyframes ogmTileIn { from { opacity: 0; transform: translateY(22px) scale(0.94); } to { opacity: 1; transform: none; } }
+.ogm-slab {
+  position: absolute; inset: 0; display: block; color: #fff; text-align: left; pointer-events: none;
+  transform-style: preserve-3d; transform-origin: 50% 50%;
+}
+/* The button: flat, transparent, over the slab; it takes the pointer, focus and keys. */
 .ogm-tile {
-  position: absolute; inset: 0; display: block; padding: 0; margin: 0; cursor: pointer; overflow: hidden;
-  border-radius: 14px; border: 1px solid rgba(255, 255, 255, 0.2); background: #0b0f1a; color: #fff; text-align: left;
-  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.5);
+  position: absolute; inset: 0; display: block; padding: 0; margin: 0; cursor: pointer;
+  border: 0; background: transparent; outline: none; -webkit-tap-highlight-color: transparent;
+}
+/* The front: the painting and the title. */
+.ogm-face {
+  position: absolute; inset: 0; display: block; overflow: hidden; border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.2); background: #0b0f1a;
   transition: border-color 140ms ease-out, box-shadow 140ms ease-out;
-  transform-origin: 50% 50%; outline: none; -webkit-tap-highlight-color: transparent;
 }
-.ogm-tile:hover, .ogm-tile:focus-visible {
+.ogm-slot:hover .ogm-face, .ogm-slot:has(.ogm-tile:focus-visible) .ogm-face {
   border-color: var(--ogm-accent);
-  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.6), 0 0 0 1px var(--ogm-accent), 0 0 34px -6px var(--ogm-accent);
+  box-shadow: 0 0 0 1px var(--ogm-accent), 0 0 16px -4px var(--ogm-accent);
 }
+/* The slab's back, with its shadow: a shadow on the face would be painted over the sides and hide them. */
+.ogm-back { position: absolute; inset: 0; display: block; pointer-events: none; border-radius: 6px; background: #07080b;
+  transform: translateZ(calc(-1 * var(--ogm-depth))); box-shadow: 0 16px 34px rgba(0, 0, 0, 0.6); }
+.ogm-slot:hover .ogm-back, .ogm-slot:has(.ogm-tile:focus-visible) .ogm-back { box-shadow: 0 24px 48px rgba(0, 0, 0, 0.65), 0 0 30px -8px var(--ogm-accent); }
+/* The four sides, folded back from the face's edges, as deep as --ogm-depth: a slab that shows its thickness when it turns. */
+.ogm-side { position: absolute; display: block; pointer-events: none; backface-visibility: visible;
+  background: linear-gradient(180deg, #555b69, #333743); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08); }
+.ogm-side-t { left: 0; top: 0; width: 100%; height: var(--ogm-depth); transform-origin: 50% 0; transform: rotateX(-90deg);
+  background: linear-gradient(180deg, #8a90a0, #555a68); border-top: 1px solid color-mix(in srgb, var(--ogm-accent) 55%, transparent); }
+.ogm-side-b { left: 0; bottom: 0; width: 100%; height: var(--ogm-depth); transform-origin: 50% 100%; transform: rotateX(90deg);
+  background: linear-gradient(0deg, #2a2d36, #1a1c22); border-bottom: 1px solid color-mix(in srgb, var(--ogm-accent) 35%, transparent); }
+.ogm-side-l { left: 0; top: 0; width: var(--ogm-depth); height: 100%; transform-origin: 0 50%; transform: rotateY(90deg);
+  background: linear-gradient(90deg, #6a7080, #444956); border-left: 1px solid color-mix(in srgb, var(--ogm-accent) 45%, transparent); }
+.ogm-side-r { right: 0; top: 0; width: var(--ogm-depth); height: 100%; transform-origin: 100% 50%; transform: rotateY(-90deg);
+  background: linear-gradient(270deg, #6a7080, #444956); border-right: 1px solid color-mix(in srgb, var(--ogm-accent) 45%, transparent); }
 .ogm-art { position: absolute; inset: 0; display: block; }
 .ogm-art svg { display: block; }
+.ogm-paint { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+/* Darkens the painting's lower part under the title. */
+.ogm-shade { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(180deg, rgba(0,0,0,0) 45%, rgba(0,0,0,0.55) 78%, rgba(0,0,0,0.8) 100%); }
 .ogm-text { position: absolute; left: 0.9em; right: 0.9em; bottom: 0.75em; display: flex; flex-direction: column; gap: 0.15em; pointer-events: none; }
 .ogm-label { font-weight: 900; letter-spacing: 0.14em; text-transform: uppercase; line-height: 1.1; text-shadow: 0 2px 8px rgba(0, 0, 0, 0.85); }
 .ogm-label::after { content: ''; display: block; width: 2.2em; height: 0.16em; margin-top: 0.4em; border-radius: 1em; background: var(--ogm-accent); transition: width 180ms ease-out; }
-.ogm-tile:hover .ogm-label::after, .ogm-tile:focus-visible .ogm-label::after { width: 4.6em; }
+.ogm-slot:hover .ogm-label::after, .ogm-slot:has(.ogm-tile:focus-visible) .ogm-label::after { width: 4.6em; }
 .ogm-sub { font-size: 0.62em; font-weight: 600; letter-spacing: 0.04em; color: rgba(255, 255, 255, 0.72); text-shadow: 0 1px 6px rgba(0, 0, 0, 0.9); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 .ogm-invite { position: absolute; pointer-events: auto; overflow: auto; box-sizing: border-box; padding: 22px 24px; border-radius: 14px; border: 1px solid rgba(255, 157, 122, 0.5); background: rgba(20, 10, 16, 0.92); box-shadow: 0 18px 50px rgba(0, 0, 0, 0.6); animation: ogmTileIn 300ms ease-out both; user-select: text; }

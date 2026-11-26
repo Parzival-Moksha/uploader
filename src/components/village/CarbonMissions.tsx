@@ -2,16 +2,16 @@
 
 // ░▒▓ CARBON — Mindcraft's mission list: what the Oasis needs from the owner ▓▒░
 // The owner, 2026-11-20: "the Oasis needs to employ me in the most effective way possible." Every open
-// question or task for him is a file in docs/questions (7c_oasis); this lists them, highest priority first
+// question or task for him is a file in the questions folder; this lists them, highest priority first
 // (or by date, urgency, impact, ease), and opens one with its stats, its context, the options, the
 // recommendation, Anorak's guess (shown only once he has answered, so it doesn't steer him), and an answer box
 // with voice typing and quick answers. Answering writes into the file and tells Anorak.
 // Time with Mindcraft open is counted work at valor 1 (work-vow), so answering counts.
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAgentVoiceInput } from '../../hooks/useAgentVoiceInput'
 import { renderMarkdown } from '../../lib/anorak-renderers'
-import { askingAgent, quickAnswer, sortCarbon, splitCommands, type CarbonMission, type CarbonSort } from '../../lib/village/carbon-missions'
+import { ANSWER_MAX, askingAgent, quickAnswer, sortCarbon, splitCommands, type CarbonMission, type CarbonSort } from '../../lib/village/carbon-missions'
 import { setDraftText } from '../../lib/voice/village-dictation'
 import { useOasisStore } from '../../store/oasisStore'
 import { focusVillageAgent } from './village-actions'
@@ -27,7 +27,7 @@ const SORTS: Array<{ id: CarbonSort; label: string }> = [
   { id: 'impact', label: 'impact' },
   { id: 'ease', label: 'ease' },
 ]
-type Filter = 'open' | 'parked' | 'answered' | 'all'
+type Filter = 'open' | 'parked' | 'answered' | 'mine' | 'all'
 
 /** The kit's .mc-btn is a full-width block; in a row of answers each button is as wide as its words. */
 const INLINE_BTN = { display: 'inline-block', width: 'auto', minWidth: 96, padding: '10px 18px 9px' } as const
@@ -122,6 +122,7 @@ export function CarbonAnswerBox({ mission, onDone }: { mission: CarbonMission; o
 
   const submit = useCallback(async (answer: string, state: 'answered' | 'parked') => {
     if (!answer.trim() || busy) return
+    if (answer.length > ANSWER_MAX) return setError(`${answer.length.toLocaleString('en-GB')} characters: the most is ${ANSWER_MAX.toLocaleString('en-GB')}. Shorten it a little; nothing is lost from the box.`)
     if (voice.listening) voice.stop()
     setBusy(true)
     setError('')
@@ -183,6 +184,12 @@ export function CarbonAnswerBox({ mission, onDone }: { mission: CarbonMission; o
               <button type="button" data-mindcraft="not-enough" disabled={busy} onClick={() => { void notEnough() }} className="ml-auto text-[13px] text-amber-200/80 underline decoration-dotted hover:text-amber-100" title="The asker is told to add what is missing to the file; until then this mission sits at the bottom">
                 not enough to decide
               </button>
+            )}
+            {/* Long voice answers are fine (the owner, 2026-11-25): the count shows once it is long, red only past the most. */}
+            {draft.length > 2000 && (
+              <span data-mindcraft="answer-count" className="text-[12px] tabular-nums" style={{ color: draft.length > ANSWER_MAX ? '#fda4af' : 'rgba(255,255,255,0.5)' }}>
+                {draft.length.toLocaleString('en-GB')} / {ANSWER_MAX.toLocaleString('en-GB')} characters
+              </span>
             )}
             {error && <span className="text-rose-300">{error}</span>}
           </div>
@@ -277,7 +284,11 @@ function StartOwn({ mission, onStarted }: { mission: CarbonMission; onStarted: (
   )
 }
 
-export function CarbonMissions({ initialFile = null }: { initialFile?: string | null } = {}) {
+// Memo: Mindcraft re-renders every second for its live figures; this list does not use them, so the tick skips it
+// (Perf, 25 Nov: hovering a row waited behind that re-render).
+export const CarbonMissions = memo(CarbonMissionsList)
+
+function CarbonMissionsList({ initialFile = null }: { initialFile?: string | null } = {}) {
   const [missions, setMissions] = useState<CarbonMission[] | null>(null)
   const [error, setError] = useState('')
   const [sort, setSort] = useState<CarbonSort>('priority')
@@ -301,7 +312,7 @@ export function CarbonMissions({ initialFile = null }: { initialFile?: string | 
     return () => window.clearInterval(timer)
   }, [load])
 
-  const shown = useMemo(() => sortCarbon((missions || []).filter(m => filter === 'all' || m.state === filter), sort), [missions, filter, sort])
+  const shown = useMemo(() => sortCarbon((missions || []).filter(m => filter === 'all' || (filter === 'mine' ? m.by.trim().toLowerCase() === 'owner' : m.state === filter)), filter === 'mine' ? 'newest' : sort), [missions, filter, sort])
   const open = (missions || []).filter(m => m.state === 'open')
   const openMinutes = open.reduce((sum, m) => sum + (m.minutes || 0), 0)
   const current = selected ? (missions || []).find(m => m.file === selected) || null : null
@@ -328,6 +339,8 @@ export function CarbonMissions({ initialFile = null }: { initialFile?: string | 
             <select value={filter} onChange={event => setFilter(event.target.value as Filter)} onKeyDown={keepKeys}>
               <option value="open">open</option>
               <option value="parked">later</option>
+              {/* His own missions, done or not (the owner, 2026-11-25: Answered holds only what agents asked him). */}
+              <option value="mine">mine</option>
               <option value="answered">answered</option>
               <option value="all">all</option>
             </select>
@@ -351,7 +364,7 @@ export function CarbonMissions({ initialFile = null }: { initialFile?: string | 
               style={{ opacity: m.state === 'open' ? 1 : 0.6 }}
             >
               <span className="min-w-0">
-                <span className="block break-words leading-snug text-white">{m.kind === 'task' ? '☐ ' : ''}{m.title}</span>
+                <span className="block break-words leading-snug text-white">{/* A task: a small word, not "☐" (it read as a missing character, 2026-11-25). */}{m.kind === 'task' ? <span className="mr-1.5 rounded border border-white/25 px-1 align-[1px] text-[10px] uppercase tracking-[0.1em] text-white/60">task</span> : null}{m.title}</span>
                 <span className="block break-words text-[12.5px] leading-snug text-white/50">{m.by || 'someone'}{m.blocks ? ` · waits: ${m.blocks}` : ''}{m.state === 'parked' ? ` · later${m.backOn ? `, back ${m.backOn}` : ''}` : m.state !== 'open' ? ` · ${m.state}` : ''}{m.sinking ? ' · waiting for more detail' : ''}</span>
               </span>
               <span className="text-right font-bold tabular-nums" style={{ color: priorityColor(m.priority) }}>{m.priority === null ? '—' : m.priority.toFixed(2)}</span>

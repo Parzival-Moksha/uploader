@@ -3,6 +3,7 @@
 // The memory of the Oasis
 // ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
 
+import { spellSoundFor } from '../lib/spell-sounds'
 import { create } from 'zustand'
 import type { ConjuredAsset, CraftedScene, CatalogPlacement, RealmId, ObjectBehavior, ObjectInteractionAction, WorldLight, WorldLightType, GeneratedImage } from '../lib/conjure/types'
 import { DEFAULT_WORLD_LIGHTS } from '../lib/conjure/types'
@@ -265,7 +266,9 @@ function playSpatialWebSound(event: SoundEvent): void {
 function playFormsPortalRevealSound(): void {
   if (!isBrowser) return
   try {
-    useAudioManager.getState().playUrl('/audio/spells/mixkit-spellcaster-fairy-swoosh-1463.ogg', 0.9)
+    // The owner's Mixkit swoosh, or the shipped pick for a portal opening in a packaged Oasis.
+    const sound = spellSoundFor('portal', 'mixkit-spellcaster-fairy-swoosh')
+    if (sound) useAudioManager.getState().playUrl(sound.url, 0.9 * sound.volume)
   } catch {}
 }
 
@@ -791,6 +794,7 @@ interface OasisState {
   objectMeshStats: Record<string, import('../lib/conjure/types').ModelStats>  // ░▒▓ per-object mesh anatomy — extracted once when GLB loads ▓▒░
   worldLights: WorldLight[]            // per-world placeable light sources
   worldSkyBackground: string           // per-world sky preset ID; empty while a world is still loading
+  worldAmbience: string                // the world's own ambience (src/lib/ambience.ts); '' = none set
   activeWorldId: string
   worldRegistry: WorldMeta[]
   _worldReady: boolean               // ░▒▓ GUARD: true after first successful world load ▓▒░
@@ -996,6 +1000,8 @@ interface OasisState {
   clearMoveTarget: (id: string) => void
   // ─═̷─═̷─🌅 SKY ACTION ─═̷─═̷─🌅
   setWorldSkyBackground: (id: string) => void
+  /** The world's own ambience ('off' | 'wind' | 'birds' | 'drone'); saved with the world like its sky. */
+  setWorldAmbience: (id: string) => void
   applyRemoteSkyChange: (skyBackgroundId: string) => void
   // ─═̷─═̷─💡 LIGHT ACTIONS ─═̷─═̷─💡
   addWorldLight: (type: WorldLightType) => void
@@ -1490,6 +1496,7 @@ export const useOasisStore = create<OasisState>((set, get) => {
   objectMeshStats: {},
   worldLights: [],
   worldSkyBackground: '',
+  worldAmbience: '',
   activeWorldId: isBrowser ? getActiveWorldId() : 'forge-default',
   worldRegistry: [],
   _worldReady: false,  // ░▒▓ GUARD: prevents saving empty state before world load completes ▓▒░
@@ -1613,6 +1620,7 @@ export const useOasisStore = create<OasisState>((set, get) => {
       behaviors: world.behaviors || {},
       worldLights: lights,
       worldSkyBackground: world.skyBackgroundId || 'night007',
+      worldAmbience: world.ambience || '',
       customGroundPresets: mergedCustom,
       placedAgentWindows: normalizedAgentWorldState.windows,
       placedAgentAvatars: normalizedAgentWorldState.avatars,
@@ -2212,8 +2220,9 @@ export const useOasisStore = create<OasisState>((set, get) => {
             ? ''
             : String(object.value)
         const promptInitialValue = isGoogleFormsInput(currentValue) ? currentValue : ''
+        // The Oasis's own dialog (loaded here, so the store does not import the UI).
         const promptText = typeof window !== 'undefined'
-          ? window.prompt(object.placeholder || object.label, promptInitialValue)
+          ? await (await import('@/components/ui-kit')).kitPrompt({ title: object.label || 'Your answer', placeholder: object.placeholder, defaultValue: promptInitialValue, confirm: 'OK' })
           : null
         if (promptText === null) return
         const formUrl = extractFirstUrl(promptText)
@@ -2301,7 +2310,7 @@ export const useOasisStore = create<OasisState>((set, get) => {
           ? ''
           : String(object.value)
       const nextText = typeof window !== 'undefined'
-        ? window.prompt(object.placeholder || object.label, currentValue)
+        ? await (await import('@/components/ui-kit')).kitPrompt({ title: object.label || 'Your text', placeholder: object.placeholder, defaultValue: currentValue, confirm: 'OK' })
         : null
       if (nextText !== null) {
         playSpatialWebSound('buttonClick')
@@ -3435,6 +3444,11 @@ export const useOasisStore = create<OasisState>((set, get) => {
   applyRemoteSkyChange: (skyBackgroundId: string) => {
     set({ worldSkyBackground: skyBackgroundId })
   },
+  // The world's own ambience (Settings > Sound > Ambience, "The world's own"): saved with the world like its sky
+  setWorldAmbience: (id) => {
+    runLocalWorldCommand('ambience.set', { ambience: id })
+    setTimeout(() => get().saveWorldState(), 100)
+  },
   // ─═̷─═̷─💡 LIGHT CRUD — placeable light sources, per-world ─═̷─═̷─💡
   addWorldLight: (type) => {
     // Only allow one environment light per world
@@ -3524,7 +3538,7 @@ export const useOasisStore = create<OasisState>((set, get) => {
     // the load starts, overwriting the world we're about to read.
     cancelPendingSave()
     set({
-      ...(keepWorldReady ? {} : { _worldReady: false, worldSkyBackground: '' }),
+      ...(keepWorldReady ? {} : { _worldReady: false, worldSkyBackground: '', worldAmbience: '' }),
       ...(markRemote ? { _isReceivingRemoteUpdate: true } : {}),
     }) // Block saves until load completes unless this is a silent remote refresh
 
@@ -3558,6 +3572,7 @@ export const useOasisStore = create<OasisState>((set, get) => {
           behaviors: {},
           worldLights: seedDefaultLights(),
           worldSkyBackground: '',
+          worldAmbience: '',
           placedAgentWindows: [],
           placedAgentAvatars: [],
           liveAgentAvatarAudio: {},
@@ -3605,6 +3620,7 @@ export const useOasisStore = create<OasisState>((set, get) => {
         behaviors: world.behaviors || {},
         worldLights: lights,
         worldSkyBackground: world.skyBackgroundId || 'night007',
+        worldAmbience: world.ambience || '',
         customGroundPresets: mergedCustom,
         placedAgentWindows: normalizedAgentWorldState.windows,
         placedAgentAvatars: normalizedAgentWorldState.avatars,
@@ -3669,7 +3685,7 @@ export const useOasisStore = create<OasisState>((set, get) => {
       console.info('[World] Snapshot save skipped — room command authority owns the pending mutation')
       return
     }
-    const { terrainParams, terrainHeights, groundPresetId, groundTiles, craftedScenes, worldConjuredAssetIds, placedCatalogAssets, portalGates, spatialWebObjects, paintStrokes, text3dObjects, transforms, behaviors, worldLights, worldSkyBackground, viewingWorldId, customGroundPresets, placedAgentWindows, placedAgentAvatars, _loadedObjectCount, _worldLoadedAt } = get()
+    const { terrainParams, terrainHeights, groundPresetId, groundTiles, craftedScenes, worldConjuredAssetIds, placedCatalogAssets, portalGates, spatialWebObjects, paintStrokes, text3dObjects, transforms, behaviors, worldLights, worldSkyBackground, worldAmbience, viewingWorldId, customGroundPresets, placedAgentWindows, placedAgentAvatars, _loadedObjectCount, _worldLoadedAt } = get()
     const normalizedAgentWorldState = normalizeSharedAgentAvatarWorldState({
       windows: placedAgentWindows,
       avatars: placedAgentAvatars,
@@ -3712,6 +3728,7 @@ export const useOasisStore = create<OasisState>((set, get) => {
       behaviors,
       lights: worldLights,
       skyBackgroundId: worldSkyBackground,
+      ambience: worldAmbience || undefined,
       ...(relevantCustom.length > 0 && { customGroundPresets: relevantCustom }),
       agentWindows: normalizedAgentWorldState.windows,
       agentAvatars: normalizedAgentWorldState.avatars,
@@ -3909,6 +3926,7 @@ export const useOasisStore = create<OasisState>((set, get) => {
           behaviors: {},
           worldLights: defaultLights,
           worldSkyBackground: '',
+          worldAmbience: '',
           selectedObjectId: null,
           paintMode: false,
           paintBrushPresetId: null,

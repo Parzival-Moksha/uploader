@@ -9,38 +9,8 @@ import { useOasisStore } from '../../../store/oasisStore'
 import type { PlacementVfxType } from '../../../lib/forge/placement-types'
 import { SettingsContext } from '../../scene-lib/contexts'
 import { PortalTransitionSettingsPanel } from '../PortalTransitionSettingsPanel'
-
-function VolumeSlider({
-  label,
-  accent,
-  value,
-  onChange,
-}: {
-  label: string
-  accent: string
-  value: number
-  onChange: (next: number) => void
-}) {
-  const pct = Math.round(value * 100)
-  return (
-    <label className="block rounded-lg border p-2" style={{ borderColor: `${accent.replace('0.85', '0.3')}`, background: 'rgba(0,0,0,0.35)' }}>
-      <div className="mb-1 flex items-center justify-between text-[10px] font-mono">
-        <span className="text-white/65">{label}</span>
-        <span className="font-bold" style={{ color: accent }}>{pct}%</span>
-      </div>
-      <input
-        type="range"
-        min={0}
-        max={1}
-        step={0.05}
-        value={value}
-        onChange={e => onChange(parseFloat(e.target.value))}
-        className="h-1 w-full"
-        style={{ accentColor: accent }}
-      />
-    </label>
-  )
-}
+import { KitButton } from '@/components/ui-kit'
+import { requestConfigTab } from '../config/config-tab-request'
 
 interface BoltDesignOption {
   value: string
@@ -148,52 +118,16 @@ export function SettingsTab() {
           </div>
         </div>
 
-        {/* ░▒▓ SOUND LAB — volume mixers + spatial audio toggle ▓▒░ */}
-        {/* Wires up 0-1 floats that AudioManager + future PositionalAudio
-            will read. spatialAudioEnabled gates Three.js PositionalAudio
-            attached to bolts — when off, sounds play 2D at full mix. */}
-        <div>
-          <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-1.5 font-mono">
-            🔊 Sound Lab
-          </div>
-          <div className="space-y-2">
-            <VolumeSlider
-              label="Master"
-              accent="rgba(167,139,250,0.85)"
-              value={settings.masterVolume}
-              onChange={v => updateSetting('masterVolume', v)}
-            />
-            <VolumeSlider
-              label="SFX (spells, UI)"
-              accent="rgba(251,146,60,0.85)"
-              value={settings.sfxVolume}
-              onChange={v => updateSetting('sfxVolume', v)}
-            />
-            <VolumeSlider
-              label="Music"
-              accent="rgba(244,114,182,0.85)"
-              value={settings.musicVolume}
-              onChange={v => updateSetting('musicVolume', v)}
-            />
-            <VolumeSlider
-              label="Ambient (drone, world)"
-              accent="rgba(125,211,252,0.85)"
-              value={settings.ambientVolume}
-              onChange={v => updateSetting('ambientVolume', v)}
-            />
-            <label className="flex items-center gap-2 rounded-lg border border-violet-400/30 bg-violet-500/[0.06] p-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={settings.spatialAudioEnabled}
-                onChange={e => updateSetting('spatialAudioEnabled', e.target.checked)}
-                className="w-3.5 h-3.5 accent-violet-500"
-              />
-              <div className="flex-1">
-                <div className="text-[11px] font-bold text-violet-200">3D spatial audio</div>
-                <div className="text-[10px] text-white/55">Bolts emit positional sound; volume falls off with distance from the camera</div>
-              </div>
-            </label>
-          </div>
+        {/* Sound lives in one place, Settings > Sound (music and ambience switches, volumes, 3D audio); this tab had its
+            own copies of the sliders, which ignored those switches (Hustler and Hipster, 2026-11-24). */}
+        <div className="flex items-center justify-between gap-2 rounded-md border border-white/10 bg-white/[0.03] px-2 py-1.5">
+          <div className="text-[11px] text-white/70">Volumes, music, ambience and 3D audio are in Settings &gt; Sound.</div>
+          <KitButton
+            onClick={() => { requestConfigTab('sound'); window.dispatchEvent(new CustomEvent('oasis:open-config')) }}
+            data-open-sound-settings=""
+          >
+            Open Sound
+          </KitButton>
         </div>
 
         {/* ░▒▓ BOLT LAB — pick a visual design per combat spell ▓▒░ */}
@@ -255,6 +189,7 @@ export function SettingsTab() {
               { id: 'dimensionalmaw' as PlacementVfxType, label: 'Dimensional Maw', desc: 'Vertical rift tears the object in', icon: '\u29C9' },
               { id: 'hexstorm' as PlacementVfxType, label: 'Hex Storm', desc: 'Impossible glyph rings and polyhedra', icon: '\u26A1' },
               { id: 'singularitydrop' as PlacementVfxType, label: 'Singularity Drop', desc: 'Black core impact with gravity smoke', icon: '\u25CF' },
+              { id: 'groundslam' as PlacementVfxType, label: 'Ground Slam', desc: 'Shock ring, glowing cracks, rocks and dust', icon: '⛰' },
               { id: 'runeflash' as PlacementVfxType, label: 'Rune Flash', desc: 'Arcane circle glows on ground', icon: '\u2726' },
               { id: 'sparkburst' as PlacementVfxType, label: 'Spark Burst', desc: '200 particles shower outward', icon: '\u2604' },
               { id: 'portalring' as PlacementVfxType, label: 'Portal Ring', desc: 'Glowing ring rises through object', icon: '\u25CE' },

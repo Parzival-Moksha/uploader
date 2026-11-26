@@ -6,7 +6,7 @@
 
 'use client'
 
-import { useRef, useState, useEffect, useMemo, useSyncExternalStore } from 'react'
+import { Suspense, useRef, useState, useEffect, useMemo, useSyncExternalStore } from 'react'
 import { useThree } from '@react-three/fiber'
 import { Text3D, Center } from '@react-three/drei'
 import * as THREE from 'three'
@@ -254,7 +254,8 @@ export function CraftedPrimitiveMesh({ primitive }: { primitive: CraftedPrimitiv
 
   // Text primitives use a separate component
   if (primitive.type === 'text') {
-    return <CraftedTextMesh primitive={primitive} />
+    // Its own boundary: the font file loading must not hold up the rest of the world.
+    return <Suspense fallback={null}><CraftedTextMesh primitive={primitive} /></Suspense>
   }
 
   // Shader primitives — procedural GLSL effects

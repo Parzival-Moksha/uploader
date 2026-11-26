@@ -7,10 +7,11 @@ import { promises as fs } from 'node:fs'
 import path from 'node:path'
 
 import { missionsDir } from './oasis-settings'
+import { backupBeforeWrite, bookWriteRefusal, droppedDays } from './work-book-guard'
 import { appendMissionLog } from './village/village-mission-edit'
 import { missionForAgent } from './village/mission-dispatch'
 import { isMissionFile, parseMission, type Mission } from './village/village-missions'
-import { isCarbonFile, parseCarbonMission } from './village/carbon-missions'
+import { ANSWER_MAX, isCarbonFile, parseCarbonMission } from './village/carbon-missions'
 import { questionsDir, rewriteBoard, tellAgent } from './village/carbon-server'
 import { addOwnNote, commitBonusPct, commitReminder, commitStateAt, finishOwnMissionText, formatRunNote, markCommitted, markRunStart, ownMissionFileName, ownMissionText, ownNotes, runLine, COMMIT_GRACE_MS, type Commitment, type RunResult } from './village/own-mission'
 import { engine } from './village/carbon-server'
@@ -26,6 +27,7 @@ import {
   type AgentHoursDay,
   missionTimers,
   missionActivity,
+  lastHours,
   emptyWorkFile,
   formatClock,
   parseWorkFile,
@@ -48,6 +50,8 @@ import {
 } from './village/work-vow'
 
 export function workVowPath(): string {
+  // A test run without its own redirect fails here instead of reaching his book (src/test-utils/data-fence.ts).
+  if (!process.env.OASIS_WORK_VOW_STATE && (process.env.VITEST || process.env.VITEST_WORKER_ID || process.env.NODE_ENV === 'test')) throw new Error('a test run must set OASIS_WORK_VOW_STATE (the data fence does)')
   return process.env.OASIS_WORK_VOW_STATE || path.join(process.cwd(), 'data', 'work-vow.local.json')
 }
 
@@ -65,6 +69,23 @@ async function readBook(): Promise<WorkFile> {
 
 async function writeBook(file: WorkFile): Promise<void> {
   const target = workVowPath()
+  // Who may write it (work-book-guard.ts): never a test outside the temp folder; the live book only from the page server.
+  // NEXT_RUNTIME is read as process.env.NEXT_RUNTIME on purpose: Next writes that expression into its server code.
+  const refusal = bookWriteRefusal(target, { ...process.env, NEXT_RUNTIME: process.env.NEXT_RUNTIME })
+  if (refusal) {
+    console.error(`[work book] refused: ${refusal}`)
+    throw new Error(refusal)
+  }
+  // Never drop a day the file holds (the 24 Nov loss): such a write is refused and logged.
+  let before: { days?: Record<string, unknown> } | null = null
+  try { before = JSON.parse((await fs.readFile(target, 'utf8')).replace(/^﻿/, '')) } catch { /* no file yet, or unreadable: readBook said so already */ }
+  const lost = droppedDays(before, file)
+  if (lost.length) {
+    const why = `a write would drop ${lost.length} day(s) the book holds (${lost.slice(0, 5).join(', ')}${lost.length > 5 ? ', ...' : ''}): refused`
+    console.error(`[work book] ${why}`)
+    throw new Error(why)
+  }
+  await backupBeforeWrite(target, process.env, process.cwd(), (() => { try { return missionsDir() } catch { return undefined } })())
   await fs.mkdir(path.dirname(target), { recursive: true })
   const temp = `${target}.${process.pid}.tmp`
   await fs.writeFile(temp, `${JSON.stringify(file, null, 1)}\n`, 'utf8')
@@ -105,6 +126,8 @@ export interface RebuiltDays {
   firstBookDay: string
   rule: string
   days: Record<string, { carbon: number; silicon: number }>
+  /** The last hours before the rebuild, by local clock hour ("2026-11-24T14"), seconds. */
+  hours?: Record<string, { carbon: number; silicon: number }>
 }
 
 /**
@@ -112,9 +135,10 @@ export interface RebuiltDays {
  * (data/work-rebuilt.local.json). Shown in Mindcraft's chart as rebuilt; never mixed into the book. Null: not built.
  */
 export async function workRebuilt(): Promise<RebuiltDays | null> {
+  if (!process.env.OASIS_WORK_REBUILT && (process.env.VITEST || process.env.VITEST_WORKER_ID || process.env.NODE_ENV === 'test')) return null // a test without the data fence reads no real file
   const file = process.env.OASIS_WORK_REBUILT || path.join(process.cwd(), 'data', 'work-rebuilt.local.json')
   try {
-    const raw = JSON.parse((await fs.readFile(file, 'utf8')).replace(/^\uFEFF/, '')) as { firstBookDay?: unknown; rule?: unknown; days?: Record<string, { carbon?: unknown; silicon?: unknown }> }
+    const raw = JSON.parse((await fs.readFile(file, 'utf8')).replace(/^\uFEFF/, '')) as { firstBookDay?: unknown; rule?: unknown; days?: Record<string, { carbon?: unknown; silicon?: unknown }>; hours?: Record<string, { carbon?: unknown; silicon?: unknown }> }
     const days: RebuiltDays['days'] = {}
     const first = typeof raw.firstBookDay === 'string' ? raw.firstBookDay : '9999-12-31'
     for (const [date, d] of Object.entries(raw.days || {})) {
@@ -122,10 +146,31 @@ export async function workRebuilt(): Promise<RebuiltDays | null> {
       const n = (x: unknown) => (typeof x === 'number' && Number.isFinite(x) && x > 0 ? Math.min(x, 30 * 86_400) : 0)
       days[date] = { carbon: Math.min(n(d.carbon), 86_400), silicon: n(d.silicon) }
     }
-    return { firstBookDay: first, rule: typeof raw.rule === 'string' ? raw.rule : '', days }
+    const hours: NonNullable<RebuiltDays['hours']> = {}
+    for (const [hour, h] of Object.entries(raw.hours || {})) {
+      const n = (x: unknown) => (typeof x === 'number' && Number.isFinite(x) && x > 0 ? x : 0)
+      if (/^\d{4}-\d{2}-\d{2}T\d{2}$/.test(hour) && h) hours[hour] = { carbon: Math.min(n(h.carbon), 3600), silicon: Math.min(n(h.silicon), 400 * 3600) }
+    }
+    return { firstBookDay: first, rule: typeof raw.rule === 'string' ? raw.rule : '', days, hours }
   } catch {
     return null
   }
+}
+
+export interface HourBar { hour: string; carbon: number; silicon: number; rebuilt: boolean }
+
+/**
+ * The last 24 clock hours, oldest first, in seconds: from the book's hourly record, and before the record began, from
+ * the transcripts' rebuild (marked rebuilt; an hour the book saw only part of takes the larger of the two).
+ */
+export async function workHours(now = Date.now()): Promise<HourBar[]> {
+  const book = await serial(readBook)
+  const rebuilt = (await workRebuilt())?.hours || {}
+  return lastHours(book, now, 24).map(h => {
+    if (h.recorded) return { hour: h.hour, carbon: h.carbon, silicon: h.silicon, rebuilt: false }
+    const old = rebuilt[h.hour]
+    return { hour: h.hour, carbon: Math.max(h.carbon, old?.carbon || 0), silicon: Math.max(h.silicon, old?.silicon || 0), rebuilt: true }
+  })
 }
 
 /** The owner's settings: valor with nothing in focus (0 to 1). */
@@ -580,7 +625,8 @@ export async function noteOwnMission(note: string, now = Date.now()): Promise<{ 
   if (!target) return { ok: false, status: 409, error: 'no own mission is running' }
   return withFile(target, async () => {
     try {
-      const next = addOwnNote(await readText(target), text.slice(0, 4000), now)
+      // Long dictated notes stay whole (the owner, 2026-11-25); the cap only stops a runaway paste.
+      const next = addOwnNote(await readText(target), text.slice(0, ANSWER_MAX), now)
       await fs.writeFile(target, next, 'utf8')
       return { ok: true as const, notes: ownNotes(next) }
     } catch {

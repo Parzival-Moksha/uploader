@@ -2,10 +2,11 @@
 
 // ░▒▓ HELPERS — an agent's subagents as half-size copies of it, in a semicircle about 2 m behind it ▓▒░
 //
-// Body: a still clone of the parent's own loaded VRM (SkeletonUtils.clone). Geometry, textures and
-// materials are shared with the parent, so there is no second download and almost no extra memory; there
-// is no animation mixer, spring bones or expressions either. Each mini keeps the pose the parent had when
-// it appeared and stands still; a finished one stays for a minute, then goes.
+// Body: a clone of the parent's own loaded VRM (SkeletonUtils.clone). Geometry, textures and materials are
+// shared with the parent, so there is no second download and almost no extra memory. It has no animation of its
+// own: every frame it copies its parent's pose, bone by bone (the owner, 25 Nov: helpers should "inherit the
+// movements of their main agents"), so it walks when the parent walks and works, talks or idles as it does. A
+// finished one stays for a minute, then goes.
 // Click one (or press E next to it) for its work in the parent's panel.
 
 import { Component, Suspense, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
@@ -18,7 +19,6 @@ import { VRMLoaderPlugin } from '@pixiv/three-vrm'
 import { useOasisStore } from '../../store/oasisStore'
 import { useInputManager } from '../../lib/input-manager'
 import { useFrameWhen } from '../../lib/use-frame-when'
-import { staticMatrixKeeper } from '../../lib/static-matrix'
 import { hideUndrawnSubtrees } from '../../lib/forge/undrawn-subtrees'
 import { stationLocalToWorld } from '../../lib/village/village-layout'
 import { miniSeats, subagentLook, visibleSubagents, type SubagentLook } from '../../lib/village/village-subagents'
@@ -89,6 +89,7 @@ function MiniBody({ avatarUrl }: { avatarUrl: string }) {
     loader.register(parser => new VRMLoaderPlugin(parser))
   })
   const [clone, setClone] = useState<THREE.Object3D | null>(null)
+  const pairs = useRef<Array<[THREE.Object3D, THREE.Object3D]>>([])
   useEffect(() => {
     const source = ((gltf.userData as { vrm?: { scene: THREE.Object3D } }).vrm?.scene ?? gltf.scene) as THREE.Object3D
     const copy = SkeletonUtils.clone(source)
@@ -99,13 +100,31 @@ function MiniBody({ avatarUrl }: { avatarUrl: string }) {
       mesh.castShadow = false
       mesh.receiveShadow = false
     })
-    // A mini stands still (~140 skeleton nodes): no culling walk through its bones, and no
-    // matrix updates while nothing under it moves (it still follows the bob of its parent).
+    // No culling walk through its ~140 skeleton nodes (the bones are not drawn; their matrices still update).
     hideUndrawnSubtrees(copy)
+    pairs.current = bonePairs(source, copy)
     setClone(copy)
-    return staticMatrixKeeper.register(copy)
   }, [gltf])
+  // Its parent's pose, every frame: the clone has the same skeleton, so bone i takes bone i's rotation and place.
+  useFrameWhen(Boolean(clone), () => {
+    for (const [from, to] of pairs.current) {
+      to.quaternion.copy(from.quaternion)
+      to.position.copy(from.position)
+    }
+  })
   return clone ? <primitive object={clone} /> : null
+}
+
+/** The bones of a skeleton and of its clone, side by side (SkeletonUtils.clone keeps the hierarchy's order). */
+function bonePairs(source: THREE.Object3D, copy: THREE.Object3D): Array<[THREE.Object3D, THREE.Object3D]> {
+  const out: Array<[THREE.Object3D, THREE.Object3D]> = []
+  const walk = (a: THREE.Object3D, b: THREE.Object3D) => {
+    if ((a as THREE.Bone).isBone && (b as THREE.Bone).isBone) out.push([a, b])
+    const n = Math.min(a.children.length, b.children.length)
+    for (let i = 0; i < n; i++) walk(a.children[i], b.children[i])
+  }
+  walk(source, copy)
+  return out
 }
 
 function MiniPlaceholder({ color }: { color: string }) {
@@ -168,8 +187,8 @@ function Mini({ agentId, info, position, avatarUrl, labelVisible, near, overlayZ
   const running = info.look === 'running'
   const blocked = useInputManager(s => isVillageFocusBlocked(s.inputState))
   const color = SUBAGENT_LOOK_COLOR[info.look]
-  // A helper stands still in the pose its parent had (the owner, 2026-11-17: "they should just idle"); it used to
-  // bob up and down while it worked. Its ring on the ground says whether it works. No frame callback at all.
+  // A helper moves as its parent does (MiniBody copies the parent's pose every frame): it walks along when the
+  // parent walks. Its ring on the ground says whether it works.
   const onClick = (event: ThreeEvent<MouseEvent>) => {
     event.stopPropagation()
     // After the canvas click has finished dismissing other panels (as with the desks).

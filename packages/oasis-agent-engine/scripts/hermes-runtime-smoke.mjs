@@ -169,7 +169,7 @@ try {
   const s6 = (await c.cmd('listAgents')).find((a) => a.id === bad.id);
   check('no session: stopped, the sign says why', s6.status === 'error' && /no session/.test(s6.statusReason) && !s6.alive, s6.statusReason);
 
-  // 7. a working folder given as the Hermes home (2026-11-19: Hermes set up a new home in C:\7c_oasis): refused, no process
+  // 7. a working folder given as the Hermes home (2026-11-19: Hermes set up a new home in a working folder): refused, no process
   m = c.mark();
   const wrong = await c.cmd('spawnAgent', { name: 'Hermes wrong home', cwd: DESK, runtime: 'hermes', hermesHome: DESK });
   await sleep(500);

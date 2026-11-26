@@ -5,7 +5,7 @@
 // Lab, and the per-spell Spell Sounds selector.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import { KitToggle } from '@/components/ui-kit'
+import { KitSelectField, KitToggle } from '@/components/ui-kit'
 import { useContext, useState, useSyncExternalStore } from 'react'
 import { SettingsContext } from '@/components/scene-lib/contexts'
 import { useAudioManager, SOUND_OPTIONS, type SoundEvent, getFootstepVolume, setFootstepVolume, subscribeFootstepVolume } from '@/lib/audio-manager'
@@ -20,6 +20,27 @@ import {
 } from '@/lib/voice/voice-typing-engine'
 import { VoiceTypingSetup } from './VoiceTypingSetup'
 import { VoiceOutSection } from '@/components/village/VoiceOutSection'
+import { hasMusic, musicCreditLine } from '@/lib/music'
+import { AMBIENCES, AMBIENCE_SETTINGS, ambienceId, ambienceSetting, ambienceSettingHint } from '@/lib/ambience'
+import { useOasisStore } from '@/store/oasisStore'
+
+/** This world's own ambience (saved with the world, like its sky); only a world you may change can be changed. */
+function WorldAmbienceField() {
+  const worldAmbience = useOasisStore(s => s.worldAmbience)
+  const setWorldAmbience = useOasisStore(s => s.setWorldAmbience)
+  const canWrite = useOasisStore(s => s.worldRegistry.find(w => w.id === s.activeWorldId)?.canWrite !== false)
+  return (
+    <KitSelectField
+      label="This world's ambience"
+      value={ambienceId(worldAmbience)}
+      onChange={e => setWorldAmbience(ambienceId(e.target.value))}
+      options={AMBIENCES.map(a => ({ value: a.id, label: a.label }))}
+      hint={canWrite ? 'Saved with this world; everyone who visits it hears it.' : 'Set by whoever made this world.'}
+      disabled={!canWrite}
+      data-setting="world-ambience"
+    />
+  )
+}
 
 /** Your own footsteps (0 = silent; the default is a third of the old, too-loud level). */
 function FootstepSlider() {
@@ -193,18 +214,41 @@ export function SoundTab() {
             onChange={v => updateSetting('sfxVolume', v)}
           />
           <FootstepSlider />
-          <VolumeSlider
-            label="Music"
-            accent="rgba(244,114,182,0.85)"
-            value={settings.musicVolume}
-            onChange={v => updateSetting('musicVolume', v)}
+          {/* Only where there is music to play (the package ships none for now: src/lib/music.ts). */}
+          {hasMusic() && (
+            <KitToggle
+              checked={settings.musicEnabled === true}
+              onChange={next => updateSetting('musicEnabled', next)}
+              label="Music"
+              hint={settings.musicEnabled === true ? `Plays ${musicCreditLine()}.` : 'Off. Switch it on to hear the background music.'}
+              data-setting="music-enabled"
+            />
+          )}
+          {hasMusic() && settings.musicEnabled === true && (
+            <VolumeSlider
+              label="Music volume"
+              accent="rgba(244,114,182,0.85)"
+              value={settings.musicVolume}
+              onChange={v => updateSetting('musicVolume', v)}
+            />
+          )}
+          <KitSelectField
+            label="Ambience"
+            value={ambienceSetting(settings.ambience)}
+            onChange={e => updateSetting('ambience', ambienceSetting(e.target.value))}
+            options={AMBIENCE_SETTINGS.map(a => ({ value: a.id, label: a.label }))}
+            hint={ambienceSettingHint(settings.ambience)}
+            data-setting="ambience"
           />
-          <VolumeSlider
-            label="Ambient (drone, world)"
-            accent="rgba(125,211,252,0.85)"
-            value={settings.ambientVolume}
-            onChange={v => updateSetting('ambientVolume', v)}
-          />
+          {ambienceSetting(settings.ambience) === 'world' && <WorldAmbienceField />}
+          {ambienceSetting(settings.ambience) !== 'off' && (
+            <VolumeSlider
+              label="Ambience volume"
+              accent="rgba(125,211,252,0.85)"
+              value={settings.ambientVolume}
+              onChange={v => updateSetting('ambientVolume', v)}
+            />
+          )}
           <KitToggle
             checked={settings.spatialAudioEnabled}
             onChange={next => updateSetting('spatialAudioEnabled', next)}

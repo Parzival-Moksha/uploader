@@ -40,6 +40,7 @@ import {
   requestPlayerAvatarTeleport,
   setPlayerAnimationState,
   setPlayerAvatarPose,
+  setPlayerCameraOrbit,
   setPlayerSpellCasting,
   subscribePlayerAvatarTeleport,
   getPlayerCinematic,
@@ -493,10 +494,14 @@ export function PlayerAvatar({
       const [x, , z] = pose.position
       positionRef.current.set(x, sampleTerrainHeightAt(terrainHeightsRef.current, x, z), z)
       facingAngle.current = pose.yaw
-      cameraAzimuth.current = normalizeAngle(pose.yaw + Math.PI)
-      cameraElevation.current = PORTAL_ARRIVAL_TPS_CAMERA_ELEVATION
-      cameraZoomTarget.current = DEFAULT_TPS_CAMERA_ZOOM
-      cameraZoom.current = DEFAULT_TPS_CAMERA_ZOOM
+      // A reload brings the walking camera back as it was (lib/reload-resume.ts); any other teleport puts it behind.
+      const orbit = pose.camera
+      cameraAzimuth.current = normalizeAngle(orbit ? orbit.azimuth : pose.yaw + Math.PI)
+      cameraElevation.current = orbit
+        ? Math.max(MIN_ELEVATION, Math.min(MAX_ELEVATION, orbit.elevation))
+        : PORTAL_ARRIVAL_TPS_CAMERA_ELEVATION
+      cameraZoomTarget.current = orbit ? clamp01(orbit.zoom) : DEFAULT_TPS_CAMERA_ZOOM
+      cameraZoom.current = cameraZoomTarget.current
       teleportCameraResetPendingRef.current = true
       movementSuppressedUntilReleaseRef.current = true
       velocityRef.current.set(0, 0, 0)
@@ -895,6 +900,7 @@ export function PlayerAvatar({
       yaw: facingAngle.current,
       forward: [Math.sin(facingAngle.current), 0, Math.cos(facingAngle.current)],
     })
+    setPlayerCameraOrbit(cameraAzimuth.current, cameraElevation.current, cameraZoomTarget.current)
 
     // ── Animation state machine — auto-transitions based on velocity ──
     if (animControllerRef.current) {
@@ -987,12 +993,21 @@ export function PlayerAvatar({
       setPlayerAnimationState(animState === 'custom' && animControllerRef.current.customAnimationId
         ? `custom:${animControllerRef.current.customAnimationId}`
         : animState)
+      // The owner, 25 Nov: footsteps out of sync with the steps. They now play when a foot comes down in the clip
+      // that plays (its contacts are read with its stride, stride-speed.ts), at whatever rate it plays; the old
+      // fixed timer only for a clip whose feet could not be read.
+      const steps = animControllerRef.current.consumeFootsteps()
       if (animState === 'walk' || animState === 'run' || animState === 'sprint') {
-        footstepTimerRef.current += delta
-        const interval = animState === 'sprint' ? 0.25 : animState === 'run' ? 0.45 : 0.7
-        if (footstepTimerRef.current >= interval) {
+        if (steps !== null) {
+          if (steps > 0) useAudioManager.getState().playFootstep()
           footstepTimerRef.current = 0
-          useAudioManager.getState().playFootstep()
+        } else {
+          footstepTimerRef.current += delta
+          const interval = animState === 'sprint' ? 0.25 : animState === 'run' ? 0.45 : 0.7
+          if (footstepTimerRef.current >= interval) {
+            footstepTimerRef.current = 0
+            useAudioManager.getState().playFootstep()
+          }
         }
       } else {
         footstepTimerRef.current = 0

@@ -47,6 +47,9 @@ const CSS = `
 /* The counter in the HUD: a stone plate, studded along its edges (the plate's edge is tiled, not stretched). */
 .mc-hud { border: 14px solid transparent !important; border-image: url(/ui/rail/plate-silver.png) 46 fill / 14px / 3px round !important; background: none !important; border-radius: 0 !important; box-shadow: none !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; padding: 0 6px 0 2px !important; filter: drop-shadow(0 6px 9px rgba(0,0,0,0.55)); transition: transform 150ms cubic-bezier(0.2, 0.9, 0.3, 1.3), filter 150ms ease-out; transform-origin: 0% 100%; font-family: ${MC_BODY}; }
 .mc-hud:hover { transform: scale(1.06); filter: drop-shadow(0 8px 12px rgba(0,0,0,0.6)) brightness(1.18); }
+/* The kit's styles (Settings: Glass, Forged, Parchment, Rune) dress Mindcraft's frame and background; its inside keeps its own
+   look. On Parchment's light page that inside sits on a dark sheet, so its light text stays readable (2026-11-25). */
+.kit-panel[data-kit-style="parchment"] > div.mc-scope { background: linear-gradient(180deg, rgba(34,24,12,0.92) 0%, rgba(24,17,9,0.94) 100%); border-radius: 6px; padding: 0 10px 6px; box-shadow: inset 0 0 0 1px rgba(110,74,34,0.6); }
 .mc-hud[data-done="1"] { border-image-source: url(/ui/rail/plate-green.png) !important; }
 .mc-hud .mc-clock { font-family: ${MC_DISPLAY} !important; font-weight: 700; letter-spacing: 0.04em; }
 .mc-hud .mc-status { font-family: ${MC_DISPLAY} !important; font-size: 8.5px !important; letter-spacing: 0.12em; }

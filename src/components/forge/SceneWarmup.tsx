@@ -10,7 +10,8 @@ import { useEffect, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import type { PerspectiveCamera } from 'three'
 
-import { SceneWarmer, WARM_BUDGET_MS, WARM_IDLE_MS } from '../../lib/forge/scene-warmup'
+import { SceneWarmer, setActiveWarmer, WARM_BUDGET_MS, WARM_IDLE_MS } from '../../lib/forge/scene-warmup'
+import { reportWarm } from '../../lib/load-tracker'
 import { farFor, nearForHeight } from '../../lib/forge/camera-range'
 import { getAwayState } from '../../lib/away-mode'
 import { useSavedGraphicsPrefs } from '../../lib/use-graphics-prefs'
@@ -24,6 +25,10 @@ export function SceneWarmup() {
   useEffect(() => {
     const warmer = new SceneWarmer(gl, scene)
     const unwatch = warmer.watchTarget()
+    const unwatchEnvironment = warmer.watchEnvironment()
+    setActiveWarmer(warmer)
+    // The loading bar's "warming up the scene: done/total": the most waiting seen since it was last empty.
+    let warmTotal = 0
     let timer = 0
     let frame = 0
     let stopped = false
@@ -32,6 +37,9 @@ export function SceneWarmup() {
       let more = false
       if (!getAwayState().resting && document.visibilityState === 'visible') {
         try { more = warmer.tick(camera, WARM_BUDGET_MS) } catch (error) { console.warn('[scene-warmup]', error); warmer.setEnabled(false) }
+        const waiting = warmer.getStats().waiting
+        warmTotal = waiting > 0 ? Math.max(warmTotal, waiting) : 0
+        reportWarm(warmTotal - waiting, warmTotal)
       }
       // Right after the next frame while there is more, else a second from now.
       if (more) frame = requestAnimationFrame(() => { timer = window.setTimeout(run, 0) })
@@ -47,6 +55,9 @@ export function SceneWarmup() {
       window.clearTimeout(timer)
       cancelAnimationFrame(frame)
       unwatch()
+      unwatchEnvironment()
+      setActiveWarmer(null)
+      reportWarm(0, 0)
       warmer.dispose()
       delete host.__oasisWarmup
     }

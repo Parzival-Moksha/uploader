@@ -253,7 +253,7 @@ export class Agent {
     this.accountId = account?.id || null;
     this.noteChrome(account);
     const env = { CLAUDE_CODE_ATTACHMENTS_BY_PATH: '1', OASIS_AGENT_ID: this.id, ...(this.hub.url ? { OASIS_ENGINE_URL: this.hub.url } : {}), ...(account && this.hub.accountEnv ? this.hub.accountEnv(account.id) : {}) };
-    // Scratch agents live inside the 7c_oasis repo: keep them off the owner's auto-memory.
+    // Scratch agents live inside a git repository: keep them off the owner's auto-memory.
     if (path.resolve(this.cwd).toLowerCase().startsWith(SANDBOX_ROOT.toLowerCase())) env.CLAUDE_CODE_DISABLE_AUTO_MEMORY = '1';
     this.hub.log(`[${this.name}] spawn claude ${args.join(' ')} (cwd ${this.cwd})`);
     const proc = spawnClaude(args, { cwd: this.cwd, env });

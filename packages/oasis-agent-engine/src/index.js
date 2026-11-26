@@ -1,5 +1,5 @@
 // Oasis agent engine: Claude Code sessions as agents, bridged to the Oasis over one WebSocket.
-// Grew out of the 7c_oasis spike (C:/7c_oasis/spike, findings in its README).
+// Grew out of an earlier spike.
 //   ws://127.0.0.1:4530/ws   events out, commands in
 //   POST /hook               Claude Code `type:"http"` hooks (optional observation path)
 //   POST /api/cmd            same commands as the socket, for curl/debugging
@@ -29,7 +29,7 @@ import { tinyTurn } from './probe.js';
 import { LIMIT_RESUME_TEXT } from './agent.js';
 import { CHECK_EVERY_MS as NET_CHECK_EVERY_MS, Network, fileCheck, spanText } from './network.js';
 import { ProcWatch, RUNAWAY_WINDOW_MS } from './procs.js';
-import { ScratchKeeper } from './scratch.js';
+import { ScratchKeeper, ensureDefaultMarker } from './scratch.js';
 import { Scheduler, DEFAULT_PROMPT, EVERY, REPEATS, appointmentLabel, describeSchedule, localDate, normalizeAppointment, normalizeSchedule, parseWhen, scheduleSettingsFileFor } from './schedule.js';
 import os from 'node:os';
 import { readOlderHistory } from './history.js';
@@ -400,8 +400,36 @@ const procWatch = process.env.OASIS_PROC_WATCH === '0' ? null : new ProcWatch({
 });
 procWatch?.start();
 
+// ─── the Oasis services, as the supervisor sees them (scripts/oasis-supervisor.mjs) ────────────────────────────────
+// The page's lights and Settings box used to ask the dev page server's /api/oasis/services, which waits behind whatever
+// the busy dev server is compiling (9 to 21 s on 24 Nov; the owner: "'checking...' for 20+ secs... I kinda wanna see
+// them under 1s"). The supervisor answers its /status from memory in a millisecond, so the engine reads it every
+// SERVICES_EVERY_MS and passes it on over the socket every page already has: in hello, and as { type: 'services' }
+// when it changed. No supervisor (the old two-window launcher): null, and the page asks its own route as before.
+const SUPERVISOR_STATUS = process.env.OASIS_SUPERVISOR_STATUS || `http://127.0.0.1:${Number(process.env.OASIS_SUPERVISOR_PORT || 4531)}/status`;
+const SERVICES_EVERY_MS = Number(process.env.OASIS_SERVICES_EVERY_MS || 10_000);
+let servicesView = null;
+let servicesKey = '';
+async function readServices() {
+  let next = null;
+  try {
+    const r = await fetch(SUPERVISOR_STATUS, { signal: AbortSignal.timeout(2000) });
+    const body = await r.json();
+    if (Array.isArray(body?.services)) next = { supervisor: true, services: body.services, at: Date.now() };
+  } catch { next = null; }
+  // The figures that change every minute (memory) are passed on, but only a change of state or advice is news.
+  const key = JSON.stringify(next ? next.services.map((s) => [s.name, s.state, s.since, s.startedAt, s.restarts, s.tired, s.managed]) : null);
+  servicesView = next;
+  if (key !== servicesKey) { servicesKey = key; broadcast({ type: 'services', view: servicesView }); }
+  return servicesView;
+}
+void readServices();
+setInterval(() => { void readServices(); }, SERVICES_EVERY_MS).unref();
+
 // ─── test installs left behind, and the disk (scratch.js) ─────────────────────────────────────────────
 // The real engine (4530) sweeps; another only with OASIS_SCRATCH_SWEEP=1 (and 0 turns it off). The disk check always runs.
+// The built-in scratch root is marked once (scratch.js ensureDefaultMarker); only the real engine does it.
+if (PORT === 4530) ensureDefaultMarker();
 const scratch = new ScratchKeeper({
   log: (...a) => console.log(new Date().toISOString().slice(11, 19), ...a),
   say: (line) => telegram?.say(line),
@@ -1295,7 +1323,7 @@ wss.on('connection', (ws, req) => {
   for (const [id, list] of backlog) if (agents.has(id)) bl[id] = list;
   const show = pendingShow && Date.now() - pendingShow.at < 90000 && agents.has(pendingShow.agentId) ? pendingShow.agentId : undefined;
   pendingShow = null;
-  ws.send(JSON.stringify({ type: 'hello', agents: snapshots(), backlog: bl, server: { port: PORT, claude: resolveClaude().how, restart: restartInfo(), accounts: accounts.view(), network: network.view() }, ...(show ? { show } : {}) }));
+  ws.send(JSON.stringify({ type: 'hello', agents: snapshots(), backlog: bl, server: { port: PORT, claude: resolveClaude().how, restart: restartInfo(), accounts: accounts.view(), network: network.view(), services: servicesView }, ...(show ? { show } : {}) }));
   ws.on('message', async (raw) => {
     let msg;
     try { msg = JSON.parse(String(raw)); } catch { return; }

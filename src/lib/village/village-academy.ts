@@ -2,7 +2,7 @@
 // Pure: what a skill is, what a trainee has, XP and level, the tree's layout, the keys. No fs, no three.js.
 //
 // The skills, keys and level names are content, read from a private folder (OASIS_ACADEMY_DIR, see
-// academy-server.ts); this repo ships only a three-skill sample (academy-sample.ts).
+// academy-server.ts); this repo ships the film's 13 skills as its sample (academy-sample.ts).
 // A trainee is an agent, keyed by its session id. Per skill it has: none | claimed | verified.
 // Level = verified XP + half of the claimed XP (rounded down), then the highest level whose XP it reaches.
 
@@ -78,7 +78,7 @@ export interface AcademyContent {
   skills: AcademySkill[]
   keys: AcademyKey[]
   levels: AcademyLevel[]
-  /** `folder`: the private content folder; `sample`: the three skills this repo ships. */
+  /** `folder`: the private content folder; `sample`: the film's 13 skills this repo ships. */
   source: 'folder' | 'sample'
   /** Every lane a skill is in, in the content's order (or the order the skills name them). */
   lanes: AcademyLane[]

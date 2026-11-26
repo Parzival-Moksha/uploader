@@ -17,6 +17,7 @@
 // ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
 
 'use client'
+import { playSoundMoment } from '@/lib/sound-moments'
 
 import { useMemo, useEffect, useState, useCallback, useRef, useContext } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
@@ -286,6 +287,8 @@ function BaseGround({ preset }: { preset: GroundPreset }) {
     shownRef.current = { tex, color: preset.color, urlKey }
     const style = getSkyTransitionStyle()
     // Only a change of ground melts (not the first ground, nor a sharpness change of the same ground).
+    // Its sound plays with it (the shipped 'ground-change' pick), also when the melt itself is off.
+    if (previous && previous.urlKey !== urlKey) playSoundMoment('ground-change')
     if (previous && previous.urlKey !== urlKey && style !== 'off') {
       setFading(current => {
         if (current?.tex && current.tex !== previous.tex) current.tex.dispose()

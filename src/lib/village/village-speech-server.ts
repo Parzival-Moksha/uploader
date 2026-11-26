@@ -12,6 +12,7 @@ import { SPOKEN_MAX_CHARS, cleanSpoken } from '@/lib/village/village-spoken'
 import { defaultModelSpeaks, detectSpokenLanguage } from '@/lib/village/spoken-language'
 import { VOICE_OUT_MODEL, voiceOutFrom, type VoiceOutQuality } from '@/lib/village/voice-out'
 import { VILLAGE_VOICES, clampModelSpeed, villageVoice } from '@/lib/village/village-voices'
+import { localVoice } from '@/lib/village/local-voices-server'
 
 /** Voices from before each agent had its own (same ids as /api/media/voice): clips asked for by these names still resolve. */
 const OLDER_VOICES: Record<string, string> = {
@@ -44,7 +45,7 @@ export function resolveSpeechVoice(voice: unknown, env: EnvLike = process.env): 
   const key = typeof voice === 'string' ? voice.trim() : ''
   // One of the village's ten (village-voices.ts); the Merlin voice can be swapped in .env as before.
   if (key === 'merlin' && env.OASIS_MERLIN_ELEVENLABS_VOICE_ID) return env.OASIS_MERLIN_ELEVENLABS_VOICE_ID
-  const known = villageVoice(key)
+  const known = villageVoice(key) || localVoice(key, env) // this machine's own voices too (local-voices-server.ts)
   if (known) return known.id
   if (OLDER_VOICES[key]) return OLDER_VOICES[key]
   if (/^[A-Za-z0-9]{20,32}$/.test(key)) return key

@@ -34,6 +34,8 @@ import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import type { ActivePlacementVfx } from '../../store/oasisStore'
 import { useOasisStore } from '../../store/oasisStore'
+import { ImpactFx } from './impact-fx/ImpactFx'
+import { playSoundMoment } from '../../lib/sound-moments'
 import {
   DimensionalMawPlacementEffect,
   HexstormPlacementEffect,
@@ -116,6 +118,8 @@ export function PlacementVFX({ vfx, onComplete }: { vfx: ActivePlacementVfx; onC
       return <HexstormPlacementEffect vfx={vfx} onComplete={onComplete} />
     case 'singularitydrop':
       return <SingularityDropPlacementEffect vfx={vfx} onComplete={onComplete} />
+    case 'groundslam':
+      return <GroundSlamPlacementEffect vfx={vfx} onComplete={onComplete} />
   }
 }
 
@@ -143,6 +147,18 @@ export function PlacementVFXRenderer() {
 interface EffectProps {
   vfx: ActivePlacementVfx
   onComplete: (id: string) => void
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// GROUND SLAM: the Godot sampler's ground slam (impact-fx, CC0), with its sound (the 'place-groundslam' pick)
+// ═══════════════════════════════════════════════════════════════════════════════
+function GroundSlamPlacementEffect({ vfx, onComplete }: EffectProps) {
+  const played = useRef(false)
+  if (!played.current) {
+    played.current = true
+    playSoundMoment('place-groundslam')
+  }
+  return <ImpactFx kind="groundslam" position={vfx.position} scale={1.15} onDone={() => onComplete(vfx.id)} />
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

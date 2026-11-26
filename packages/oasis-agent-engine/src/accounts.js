@@ -1,5 +1,5 @@
 // Claude accounts: which subscription each agent's `claude` runs on, and moving on when one runs out.
-// The mission: C:/7c_oasis/docs/missions/account-failover.md (the limit signals as found, the plan).
+// The mission: account-failover (the limit signals as found, the plan).
 //
 // The accounts file, outside git (data/claude-accounts.local.json; scripts/add-account.mjs writes it):
 //   { "accounts": [ { "id": "yahoo", "label": "Yahoo (Max)", "token": "<claude setup-token>", "priority": 2,
@@ -466,7 +466,7 @@ const day = (ms) => new Date(ms).toLocaleString('en-GB', { weekday: 'short', day
 
 /**
  * One line per account for /health and the builders' pace (Anorak slows them when one runs ahead):
- * "Yahoo.fr: week 12% used, 21% of it gone (behind pace); at the last 6 h's rate 0.9% an hour: dry Sat 21 Nov 14:00,
+ * "Second account: week 12% used, 21% of it gone (behind pace); at the last 6 h's rate 0.9% an hour: dry Sat 21 Nov 14:00,
  * 6 days before its reset (Fri 27 Nov 08:00)".
  */
 export function paceLine(label, p, now = Date.now()) {

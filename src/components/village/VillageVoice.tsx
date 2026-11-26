@@ -16,20 +16,23 @@ import { useOasisStore } from '../../store/oasisStore'
 import { pendingSpoken, splitSpoken } from '../../lib/village/village-spoken'
 import { getAgentEngineClient } from '../../lib/agent-engine-client'
 import type { EngineAgentState } from '../../store/slices/agentEngineSlice'
-import { isVillageVoiceRequested } from './village-actions'
+import { isVillageViewRestoring, isVillageVoiceRequested } from './village-actions'
 import { getSelectedVillageAgent } from '../../lib/village/agent-selection'
 import { attentionRank } from '../../store/slices/agentEngineSlice'
 import { isFinishedNearOnly, mayVoiceFinished } from './finished-voice'
 import {
   getAgentVoiceSettings,
   getVillageSpeechDebug,
+  isVillageArrived,
   isVillageReplyHeard,
   isVillageVoiceOn,
   markVillageReplyHeard,
+  onVillageArrive,
   speakVillageAgent,
   stopVillageSpeech,
   warmVillageSpeech,
 } from './village-companion'
+import { isVillageComing } from './village-come'
 import { getCouncilStatus, isCouncilMember, isCouncilOn, noteVillageEngineConnected, noteVillageWorldChanged, offerCouncilLine, runCouncilRequest, type CouncilRequest } from './village-council'
 
 /** A reply older than this that lands while the agent is open is the past (a backlog after a reconnect). */
@@ -97,6 +100,12 @@ export function VillageVoice() {
       // Dev: window.__oasisCouncil.run({ action: 'start', agentIds: ['a0', 'a1'] }) without an engine; .status()
       ;(window as unknown as Record<string, unknown>).__oasisCouncil = { run: (request: CouncilRequest) => runCouncilRequest(request), status: () => getCouncilStatus() }
     }
+    // Come when done (village-come.ts): an agent he asked to come (or that came by itself) says its line when it
+    // arrives in front of him; still working, it says it when its reply lands (below).
+    const unarrive = onVillageArrive(agentId => {
+      const agent = useOasisStore.getState().agentEngine.agents[agentId]
+      if (agent && isVillageComing(keyOf(agent)) && agent.status !== 'working') sayUnheard(agent)
+    })
     const unsubscribe = useOasisStore.subscribe((state, prev) => {
       const engine = state.agentEngine
       const before = prev.agentEngine
@@ -114,7 +123,8 @@ export function VillageVoice() {
           selected: getSelectedVillageAgent() === agent.id,
           nearOnly: isFinishedNearOnly(),
         })
-        if (agent && heard && !isVillageVoiceRequested(agent.id)) sayUnheard(agent)
+        // A panel opened again after a reload (restoreVillageView) says nothing.
+        if (agent && heard && !isVillageVoiceRequested(agent.id) && !isVillageViewRestoring()) sayUnheard(agent)
       }
       // He walks up to an agent (its prompt shows): make the clip now, so it starts the moment he opens it.
       if (engine.nearbyAgentId && engine.nearbyAgentId !== before.nearbyAgentId) {
@@ -142,11 +152,13 @@ export function VillageVoice() {
           }
           continue
         }
-        // The owner is with this agent (its panel or screen is open): he hears the reply as it lands.
-        if (engine.focusedAgentId === id) sayUnheard(agent)
+        // The owner is with this agent (its panel or screen is open), or it came to him and stands in front of him:
+        // he hears the reply as it lands.
+        if (engine.focusedAgentId === id || (isVillageArrived(id) && isVillageComing(keyOf(agent)))) sayUnheard(agent)
       }
     })
     return () => {
+      unarrive()
       unsubscribe()
       unstage()
       unwatchEngine()

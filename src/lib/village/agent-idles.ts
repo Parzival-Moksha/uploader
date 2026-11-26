@@ -13,7 +13,8 @@ export type AgentPose = 'waiting' | 'working' | 'talking' | 'resting'
 
 export const IDLE_POOLS: Record<'waiting' | 'working', readonly string[]> = {
   waiting: ['ual-idle-torch', 'ual-spell-idle', 'ual-fold-arms', 'ual-sword-idle', 'ual-swim-idle'],
-  working: ['ual-phone', 'ual-fixing', 'ual-chop'],
+  // 24 Nov: "add one more animation to working, which is like typing on a computer" (standing: no chair yet).
+  working: ['ual-phone', 'authored-stand-type', 'ual-fixing', 'ual-chop'],
 }
 export const TALKING_CLIP = 'ual-talking'
 /** Without variety (Settings > Agents): one clip per state, the first one he named. */

@@ -307,7 +307,7 @@ export class HermesAgent {
     for (const key of Object.keys(env)) if (key === 'CLAUDECODE' || key.startsWith('CLAUDE_CODE_')) delete env[key];
     // A Hermes here only ever runs in a real Hermes home: one with a config.yaml (the profile folder given, else
     // HERMES_HOME, else the installer's home). A folder that is not one (2026-11-19: a working folder typed into
-    // the profile field made Hermes set up a fresh home, with a copy of the gh token, in C:\7c_oasis) is refused.
+    // the profile field made Hermes set up a fresh home, with a copy of the gh token, in a working folder) is refused.
     if (!this.remote && !this.command) {
       const home = resolveHermesHome(this.hermesHome);
       if (!home.ok) {

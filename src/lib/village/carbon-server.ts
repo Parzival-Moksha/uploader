@@ -9,13 +9,15 @@ import path from 'node:path'
 import { missionsDir } from '../oasis-settings'
 import { askingAgent } from './carbon-missions'
 
-/** OASIS_QUESTIONS_DIR, else `questions` next to the missions folder (C:\7c_oasis\docs\questions). */
+/** OASIS_QUESTIONS_DIR, else `questions` next to the missions folder. */
 export function questionsDir(): string {
+  // A test run without its own redirect fails here instead of reaching his list (src/test-utils/data-fence.ts).
+  if (!process.env.OASIS_QUESTIONS_DIR && (process.env.VITEST || process.env.VITEST_WORKER_ID || process.env.NODE_ENV === 'test')) throw new Error('a test run must set OASIS_QUESTIONS_DIR (the data fence does)')
   return process.env.OASIS_QUESTIONS_DIR || path.join(path.dirname(missionsDir()), 'questions')
 }
 
 /**
- * open.md is written from these files by scripts/questions_board.py (7c_oasis). It refuses to overwrite an
+ * open.md is written from these files by the questions board script. It refuses to overwrite an
  * open.md someone typed into below its end marker; that is fine: the answer is in the file either way.
  */
 export function rewriteBoard(): Promise<string> {

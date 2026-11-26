@@ -11,7 +11,7 @@
     "HUD vials, bars, corners, and backdrop: 384px PNG palette + zlib lvl 9, alpha preserved.",
     "Spellbook frame corners, divider, tab embellishments: 384px PNG palette + zlib lvl 9, alpha preserved.",
     "Page backgrounds: 1024x1024 JPEG q70 mozjpeg (no alpha needed).",
-    "Originals backed up to C:/Users/l/af-oasis-asset-backup-2026-05-16/ outside the repo."
+    "Originals are kept outside the repository."
   ],
   "tiles": {
     "firebolt": { "gpt2": "/ui/spellbook/tiles/firebolt.gpt2.webp", "nano2": "/ui/spellbook/tiles/_alternates/firebolt.nano2.webp" },

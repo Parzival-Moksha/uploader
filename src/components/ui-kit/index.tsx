@@ -28,6 +28,8 @@ import { createPortal } from 'react-dom'
 import { KIT_CSS } from './kit-css'
 import { MENU_BLUR_MAX, MENU_STYLES, MENU_SWATCHES, DEFAULT_MENU_LOOK, setMenuLook, useMenuLook, type MenuStyleId, type ToggleLookId } from '@/lib/ui-kit/menu-look'
 import { useLayer } from '@/lib/ui-kit/layers'
+import { CURSOR_SETS, type CursorSetId } from '@/lib/ui-kit/cursors'
+import { keepImages } from '@/lib/ui-kit/image-pool'
 
 // ── style plumbing ─────────────────────────────────────────────────────────────────────────────
 
@@ -277,42 +279,94 @@ export function KitDialog({ open, title, children, actions, onClose, danger }: {
   )
 }
 
-interface ConfirmRequest { title: ReactNode; body?: ReactNode; confirm?: string; cancel?: string; danger?: boolean; resolve: (ok: boolean) => void }
-let pending: ConfirmRequest | null = null
+// The Oasis's own dialogs, instead of the browser's grey boxes (the owner, 2026-11-24: "could look cooler, better, like in
+// a game, not a browser popup"). One host (KitConfirmHost, mounted in Scene.tsx) shows one at a time on the dialog
+// layer: Enter is yes (the focus is on it, or in the field), Esc is no (also from the field).
+type DialogRequest =
+  | { kind: 'confirm'; title: ReactNode; body?: ReactNode; confirm?: string; cancel?: string; danger?: boolean; resolve: (ok: boolean) => void }
+  | { kind: 'alert'; title: ReactNode; body?: ReactNode; ok?: string; danger?: boolean; resolve: () => void }
+  | { kind: 'prompt'; title: ReactNode; body?: ReactNode; label?: ReactNode; defaultValue?: string; placeholder?: string; confirm?: string; cancel?: string; resolve: (value: string | null) => void }
+let pending: DialogRequest | null = null
 const confirmListeners = new Set<() => void>()
 
-/** One call for a yes/no question in the Oasis's own dialog (instead of window.confirm). */
-export function kitConfirm(options: { title: ReactNode; body?: ReactNode; confirm?: string; cancel?: string; danger?: boolean }): Promise<boolean> {
-  return new Promise(resolve => {
-    pending?.resolve(false)
-    pending = { ...options, resolve }
-    confirmListeners.forEach(fn => fn())
-  })
+/** The 'no' of a request (a newer one replaces it, or Esc). */
+function dismiss(request: DialogRequest) {
+  if (request.kind === 'confirm') request.resolve(false)
+  else if (request.kind === 'alert') request.resolve()
+  else request.resolve(null)
 }
 
-/** Mounted once (Scene.tsx); shows what kitConfirm asks. */
+function ask(request: DialogRequest) {
+  if (pending) dismiss(pending)
+  pending = request
+  confirmListeners.forEach(fn => fn())
+}
+
+/** A yes/no question in the Oasis's own dialog (instead of window.confirm). */
+export function kitConfirm(options: { title: ReactNode; body?: ReactNode; confirm?: string; cancel?: string; danger?: boolean }): Promise<boolean> {
+  return new Promise(resolve => ask({ kind: 'confirm', ...options, resolve }))
+}
+
+/** A message with one OK (instead of window.alert). */
+export function kitAlert(options: { title: ReactNode; body?: ReactNode; ok?: string; danger?: boolean }): Promise<void> {
+  return new Promise(resolve => ask({ kind: 'alert', ...options, resolve }))
+}
+
+/** A line of text to type (instead of window.prompt): the text, or null for Cancel / Esc. */
+export function kitPrompt(options: { title: ReactNode; body?: ReactNode; label?: ReactNode; defaultValue?: string; placeholder?: string; confirm?: string; cancel?: string }): Promise<string | null> {
+  return new Promise(resolve => ask({ kind: 'prompt', ...options, resolve }))
+}
+
+/** Mounted once (Scene.tsx); shows what kitConfirm, kitAlert and kitPrompt ask. */
+/** Every picture the kit's styles draw (public/ui/rail). */
+const KIT_PICTURES = ['banner', 'divider-1', 'divider-2', 'divider-3', 'divider-4', 'frame-9', 'frame-large', 'frame-ornament-bottom', 'frame-ornament-top', 'parchment-gold', 'parchment-slate', 'parchment-stone', 'parchment-vine', 'parchment-wood', 'plate-blue', 'plate-ember', 'plate-gold', 'plate-green', 'plate-red', 'plate-silver', 'plate-violet'].map(name => `/ui/rail/${name}.png`)
+
 export function KitConfirmHost() {
   const request = useSyncExternalStore(fn => { confirmListeners.add(fn); return () => { confirmListeners.delete(fn) } }, () => pending, () => null)
-  const answer = useCallback((ok: boolean) => {
+  const [text, setText] = useState('')
+  useEffect(() => { if (request?.kind === 'prompt') setText(request.defaultValue ?? '') }, [request])
+  // The kit's plates and frames (the rail, the main menu, Mindcraft, these dialogs) are loaded at page start and kept for
+  // the session (image-pool.ts): a CSS picture is otherwise asked for only when first drawn, and can be dropped and asked
+  // for again later, which on a slow server shows bare buttons for seconds.
+  useEffect(() => { keepImages(KIT_PICTURES) }, [])
+  const finish = useCallback((yes: boolean, value?: string) => {
     const current = pending
     pending = null
     confirmListeners.forEach(fn => fn())
-    current?.resolve(ok)
+    if (!current) return
+    if (!yes) { dismiss(current); return }
+    if (current.kind === 'confirm') current.resolve(true)
+    else if (current.kind === 'alert') current.resolve()
+    else current.resolve(value ?? '')
   }, [])
   return (
     <KitDialog
       open={!!request}
       title={request?.title}
-      danger={request?.danger}
-      onClose={() => answer(false)}
-      actions={request && (
+      danger={request?.kind !== 'prompt' ? request?.danger : false}
+      onClose={() => finish(false)}
+      actions={request && (request.kind === 'alert' ? (
+        <KitButton variant={request.danger ? 'danger' : 'primary'} onClick={() => finish(true)}>{request.ok ?? 'OK'}</KitButton>
+      ) : (
         <>
-          <KitButton onClick={() => answer(false)}>{request.cancel ?? 'Cancel'}</KitButton>
-          <KitButton variant={request.danger ? 'danger' : 'primary'} onClick={() => answer(true)}>{request.confirm ?? 'OK'}</KitButton>
+          <KitButton onClick={() => finish(false)}>{request.cancel ?? 'Cancel'}</KitButton>
+          <KitButton variant={request.kind === 'confirm' && request.danger ? 'danger' : 'primary'} onClick={() => finish(true, text)}>{request.confirm ?? 'OK'}</KitButton>
         </>
-      )}
+      ))}
     >
       {request?.body}
+      {request?.kind === 'prompt' && (
+        <div className={request.body ? 'mt-2' : undefined}>
+          <KitTextField
+            label={request.label ?? ''}
+            value={text}
+            placeholder={request.placeholder}
+            onChange={event => setText(event.target.value)}
+            onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); finish(true, text) } }}
+            data-kit-autofocus=""
+          />
+        </div>
+      )}
     </KitDialog>
   )
 }
@@ -340,6 +394,12 @@ export function KitLookControls({ showStyle = true }: { showStyle?: boolean }) {
           </select>
         </label>
       )}
+      <label className="flex flex-col" data-settings-look="cursor">
+        <span className={label}>Cursor</span>
+        <select value={look.cursor} onChange={event => setMenuLook({ cursor: event.target.value as CursorSetId })} className="h-[20px] rounded border border-white/25 bg-black/50 px-1 text-[11px] text-white" title="The mouse cursors (all of them side by side in Experiments)">
+          {CURSOR_SETS.map(set => <option key={set.id} value={set.id}>{set.label}</option>)}
+        </select>
+      </label>
       {look.style === 'glass' && (
         <>
           <label className="flex flex-col gap-0.5" data-settings-look="blur">

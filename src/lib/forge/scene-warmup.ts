@@ -94,8 +94,76 @@ export class SceneWarmer {
 
   constructor(private renderer: WebGLRenderer, private scene: Scene) {}
 
+  private lastCamera: Camera | null = null
+
   setEnabled(on: boolean) { this.stats.enabled = on }
+
+  /**
+   * Readies one object that is not drawn yet (an avatar held hidden until it can show without a freeze):
+   * compiles its shaders under the scene's lights and the real frame's target, waits for the browser to
+   * finish them, then uploads its textures one per frame. Resolves when done (at once when warming is off).
+   */
+  precompile(object: Object3D): Promise<void> {
+    const camera = this.lastCamera
+    if (!this.stats.enabled || !camera || this.target === undefined) return Promise.resolve()
+    const drawables: Drawable[] = []
+    object.traverse(o => { if (isDrawable(o)) drawables.push(o) })
+    if (!drawables.length) return Promise.resolve()
+    const lights: Light[] = []
+    this.scene.traverseVisible(o => { if ((o as Light).isLight && o.layers.test(camera.layers)) lights.push(o as Light) })
+    for (const d of drawables) for (const m of materialsOf(d)) if (!this.compiled.has(m)) { this.compiled.add(m); this.stats.compiledMaterials++ }
+    const textures: Texture[] = []
+    for (const d of drawables) for (const m of materialsOf(d)) for (const t of texturesOf(m)) textures.push(t)
+    return this.compile(drawables, camera, lights).then(() => new Promise<void>(resolve => {
+      const next = () => {
+        const texture = textures.shift()
+        if (!texture) { resolve(); return }
+        const isTarget = (texture as Texture & { isRenderTargetTexture?: boolean }).isRenderTargetTexture
+        if (!isTarget && texture.version > 0 && texture.image && this.uploaded.get(texture) !== texture.version) {
+          this.uploaded.set(texture, texture.version)
+          try { this.renderer.initTexture(texture) } catch { /* drawn later as before */ }
+          this.stats.uploadedTextures++
+          requestAnimationFrame(next)
+        } else next()
+      }
+      next()
+    }), () => undefined)
+  }
   getStats(): WarmStats { return { ...this.stats } }
+
+  /**
+   * A new scene environment (the sky's lighting) changes the shader of every lit material at once: drawn
+   * straight away, that compiled for 5.9 s in one frame in the village (24 Nov). The scene keeps showing the
+   * environment it has while every material's shader for the new one compiles on the browser's threads, then
+   * switches. Returns the undo.
+   */
+  watchEnvironment(): () => void {
+    const scene = this.scene
+    let shown = scene.environment
+    let wanted = 0
+    Object.defineProperty(scene, 'environment', {
+      configurable: true,
+      enumerable: true,
+      get: () => shown,
+      set: (next: Texture | null) => {
+        const mine = ++wanted
+        const camera = this.lastCamera
+        if (!next || next === shown || !this.stats.enabled || !camera || this.target === undefined) { shown = next; return }
+        const drawables: Drawable[] = []
+        scene.traverse(o => { if (isDrawable(o)) drawables.push(o) })
+        const lights: Light[] = []
+        scene.traverseVisible(o => { if ((o as Light).isLight && o.layers.test(camera.layers)) lights.push(o as Light) })
+        let compiling: Promise<unknown>
+        try { compiling = this.compile(drawables, camera, lights, next) } catch { compiling = Promise.resolve() }
+        compiling.catch(() => undefined).then(() => { if (wanted === mine) shown = next })
+      },
+    })
+    return () => {
+      const current = shown
+      delete (scene as unknown as { environment?: unknown }).environment
+      scene.environment = current
+    }
+  }
 
   /** Records which target the real frames draw the world into (the composer's buffer or the screen): shaders differ between the two. */
   watchTarget(): () => void {
@@ -118,6 +186,7 @@ export class SceneWarmer {
 
   /** One slice of warming. Returns true while there is more to do. */
   tick(camera: Camera, budgetMs = WARM_BUDGET_MS): boolean {
+    this.lastCamera = camera
     if (!this.stats.enabled || this.target === undefined) return false
     if (this.compiling) return true
     const start = performance.now()
@@ -177,14 +246,14 @@ export class SceneWarmer {
   /** Compiles a few objects' shaders under the same lights, fog, environment and target as the real frame;
    *  resolves once the browser has finished them (not three's compileAsync: that throws inside a timer when a
    *  material is disposed before its shader is ready, and never resolves). */
-  private compile(batch: Drawable[], camera: Camera, lights: Light[]): Promise<unknown> {
+  private compile(batch: Drawable[], camera: Camera, lights: Light[], environment?: Texture | null): Promise<unknown> {
     const scene = this.scene
     // compile() walks `group` for its materials and (as it is not the target) for lights too: the lights come from `lit`.
     const group = { traverse: (visit: (o: Object3D) => void) => batch.forEach(visit), traverseVisible: () => {} } as unknown as Object3D
     const lit = {
       isScene: true,
       get fog() { return scene.fog },
-      get environment() { return scene.environment },
+      get environment() { return environment !== undefined ? environment : scene.environment },
       get environmentRotation() { return (scene as Scene & { environmentRotation?: unknown }).environmentRotation },
       traverseVisible: (visit: (o: Object3D) => void) => lights.forEach(visit),
     } as unknown as Scene
@@ -253,4 +322,15 @@ function waitReady(renderer: WebGLRenderer, materials: Set<Material>): Promise<v
     }
     check()
   })
+}
+
+// ── The page's warmer, for code that readies an object before showing it ────────────────────────
+
+let activeWarmer: SceneWarmer | null = null
+
+export function setActiveWarmer(warmer: SceneWarmer | null) { activeWarmer = warmer }
+
+/** Compiles an object's shaders and uploads its textures before it is shown; resolves at once without a warmer. */
+export function precompileObject(object: Object3D): Promise<void> {
+  return activeWarmer ? activeWarmer.precompile(object) : Promise.resolve()
 }

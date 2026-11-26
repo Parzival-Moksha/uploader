@@ -54,6 +54,8 @@ export interface WorldState {
   lights?: WorldLight[]
   /** Sky background preset ID — per-world (not global) */
   skyBackgroundId?: string
+  /** The world's own ambience ('off' | 'wind' | 'birds' | 'drone', src/lib/ambience.ts); plays when Settings > Sound > Ambience is "The world's own". */
+  ambience?: string
   /** User-generated ground presets (custom textures from Imagine) */
   customGroundPresets?: GroundPreset[]
   /** 3D agent windows placed in the world (Claude Code / Merlin / DevCraft panels) */

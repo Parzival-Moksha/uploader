@@ -8,6 +8,7 @@
 
 import type { KeychainKeyView, KeyState } from '../../lib/village/keychain'
 import { forgetFeatureKeyStates } from '../../lib/feature-keys-client'
+import { canPersistCachedJson, readStoredAnswer } from '../../lib/cached-json'
 import { closeCharacter, getCharacterState, openCharacter } from './character-store'
 
 export const VILLAGE_ACADEMY_KEYCHAIN_LAYER = 'village-academy-keychain'
@@ -38,6 +39,25 @@ let state: KeychainStoreState = { open: false, keys: [], sources: null, scannedA
 const listeners = new Set<() => void>()
 let lastBody = ''
 let inFlight: Promise<void> | null = null
+/** When the last answer came (client clock): opening a tab reads again only when it is older than a minute. */
+let fetchedAt = 0
+/**
+ * The last list kept across reloads, so the Character menu's first open after one shows it at once: names
+ * and have/missing only (the route never sends a value; keychain tests hold it to that). Read again at once.
+ */
+const KEYCHAIN_STORE = 'oasis-cache:keychain'
+if (typeof window !== 'undefined') {
+  try {
+    if (!canPersistCachedJson()) window.localStorage.removeItem(KEYCHAIN_STORE)
+    else {
+      const raw = window.localStorage.getItem(KEYCHAIN_STORE)
+      const stored = readStoredAnswer(raw)
+      const data = stored?.data as { keys?: KeychainKeyView[]; sources?: KeychainSources; scannedAt?: number } | undefined
+      if (data && Array.isArray(data.keys)) state = { ...state, keys: data.keys, sources: data.sources || null, scannedAt: data.scannedAt || 0, loading: false }
+      else if (raw) window.localStorage.removeItem(KEYCHAIN_STORE)
+    }
+  } catch { /* storage off or spoiled: read it fresh */ }
+}
 let refused = false
 let timer: number | null = null
 
@@ -69,13 +89,21 @@ export function refreshKeychain(fresh = false): Promise<void> {
   inFlight = (async () => {
     try {
       const response = await fetch(`/api/academy/keychain${fresh ? '?fresh=1' : ''}`, { cache: 'no-store' })
-      if (response.status === 403 || response.status === 404) refused = true
+      if (response.status === 403 || response.status === 404) {
+        refused = true
+        try { window.localStorage.removeItem(KEYCHAIN_STORE) } catch { /* storage off */ }
+        set({ keys: [], sources: null })
+      }
       if (!response.ok) {
         const data = await response.json().catch(() => ({})) as { error?: string }
         set({ loading: false, error: data.error || `HTTP ${response.status}` })
         return
       }
       const body = await response.text()
+      fetchedAt = Date.now()
+      if (canPersistCachedJson()) {
+        try { window.localStorage.setItem(KEYCHAIN_STORE, JSON.stringify({ at: fetchedAt, data: JSON.parse(body) })) } catch { /* full: fine */ }
+      }
       if (body === lastBody) {
         if (state.loading || state.error) set({ loading: false, error: null })
         return
@@ -91,6 +119,11 @@ export function refreshKeychain(fresh = false): Promise<void> {
     }
   })()
   return inFlight
+}
+
+/** Read again only when the kept list is older than maxAgeMs: a tab or a sheet opening does not wait on it. */
+export function refreshKeychainIfOlder(maxAgeMs = 60_000): Promise<void> {
+  return Date.now() - fetchedAt > maxAgeMs ? refreshKeychain() : Promise.resolve()
 }
 
 function wanted(): boolean {
@@ -113,7 +146,7 @@ function syncTimer(): void {
 export function watchKeychainFromMap(on: boolean): void {
   if (on === state.mapWatching) return
   set({ mapWatching: on })
-  if (on) void refreshKeychain()
+  if (on) void refreshKeychainIfOlder()
 }
 
 /**

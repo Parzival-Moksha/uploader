@@ -26,6 +26,7 @@ import { useMovement } from '../../hooks/useMovement'
 import { staticMatrixKeeper, wakeStaticMatrix } from '../../lib/static-matrix'
 import { useFrameWhen } from '../../lib/use-frame-when'
 import { hideUndrawnSubtrees, skipMatrixPass } from '../../lib/forge/undrawn-subtrees'
+import { precompileObject } from '../../lib/forge/scene-warmup'
 import { AVATAR_FLAG, WORLD_SUN_FLAG } from './SunShadows'
 import { BackgroundStepper, isVrmBudgetEnabled, noteVrmMode, refreshVrmView, vrmUpdateMode, vrmViewOf, VRM_SPRING_RESET_M } from '../../lib/forge/vrm-update-budget'
 // drei useAnimations removed — manual AnimationMixer for proper SkeletonUtils support
@@ -36,6 +37,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { VRMLoaderPlugin, VRM, VRMUtils } from '@pixiv/three-vrm'
 import { loadAnimationClip, retargetClipForVRM, retargetUALClipForVRM, isUALAnimation, LIB_PREFIX, getCachedClip } from '../../lib/forge/animation-library'
 import { pickGait, strideSpeedThisFrame, strideTimeScale, type Gait } from '../../lib/forge/stride-speed'
+import { buildAuthoredClip, isAuthoredClip } from '../../lib/forge/authored-clips'
 import { dispatch } from '../../lib/event-bus'
 import { MindcraftWorld } from './MindcraftWorld'
 import { AgentWindow3D } from './AgentWindow3D'
@@ -1692,6 +1694,8 @@ export function CatalogModelRenderer({ path, scale, objectId }: { path: string; 
  * a scene never posed is hidden until its first clip has been applied, so nobody shows the T-pose.
  */
 const posedVrmScenes = new WeakSet<THREE.Object3D>()
+/** Longest a body waits for its shaders before it shows anyway. */
+const SHADER_GATE_MAX_MS = 8000
 
 export function VRMCatalogRenderer({ path, scale, objectId, displayName, activityAnimationId, activityOnce = false, activityFade, still = false, moving = false, lipSyncId }: { path: string; scale: number; objectId?: string; displayName?: string; activityAnimationId?: string | null; /** Play the activity clip once and hold its last frame (a death, a flinch). */ activityOnce?: boolean; /** Seconds to blend into the activity clip (a spell's quick steps); default 0.3, 0.6 between two standing clips. */ activityFade?: number; /** Hold the pose it has (the Academy's stone trainees): no mixer, blink or spring bones. */ still?: boolean; /** Its owner is moving it (a village agent following the player): play the walk clip. */ moving?: boolean; /** Lip-sync registry key for a body that is not a world object (village agents). */ lipSyncId?: string }) {
   const groupRef = useRef<THREE.Group>(null)
@@ -1699,6 +1703,23 @@ export function VRMCatalogRenderer({ path, scale, objectId, displayName, activit
   const [vrm, setVrm] = useState<VRM | null>(null)
   const [hovered, setHovered] = useState(false)
   const catalogProxyRef = useRef<THREE.Mesh>(null)
+  // A body shows only once its shaders are compiled and its textures are up (scene-warmup.ts): compiled at
+  // first sight, 26 avatars froze the page for 12 s (24 Nov). The gate is the latest precompile; at most
+  // SHADER_GATE_MAX_MS of waiting, then it shows anyway.
+  const shaderGateRef = useRef<Promise<void> | null>(null)
+  const sceneForGate = useThree(s => s.scene)
+  const revealWhenReady = useCallback((body: THREE.Object3D) => {
+    const started = performance.now()
+    const tryShow = (gate: Promise<void> | null) => {
+      if (vrmRef.current?.scene !== body) return
+      if (!gate || performance.now() - started > SHADER_GATE_MAX_MS) { body.visible = true; return }
+      Promise.race([gate, new Promise<void>(resolve => window.setTimeout(resolve, SHADER_GATE_MAX_MS))]).then(() => {
+        // A newer gate (the IBL material swap) may have replaced the one waited on.
+        tryShow(shaderGateRef.current === gate ? null : shaderGateRef.current)
+      })
+    }
+    tryShow(shaderGateRef.current)
+  }, [])
   const paintMode = useOasisStore(s => s.paintMode)
   const iblMaterials = useRef<THREE.MeshStandardMaterial[]>([])
   // Dispose IBL-swapped materials on unmount
@@ -1779,6 +1800,8 @@ export function VRMCatalogRenderer({ path, scale, objectId, displayName, activit
     if (rigRoot) skipMatrixPass(rigRoot)
 
     vrmRef.current = loadedVrm
+    // With an environment the first frame swaps in IBL materials and precompiles those; without, these.
+    shaderGateRef.current = sceneForGate.environment ? null : precompileObject(loadedVrm.scene)
     setVrm(loadedVrm)
     console.log(`[VRM:NPC] ${displayName || path.split('/').pop()} — expressions: ${Object.keys(loadedVrm.expressionManager?.expressionMap || {}).length}, spring: ${loadedVrm.springBoneManager ? 'yes' : 'no'}`)
   }, [gltf, path, displayName])
@@ -1807,7 +1830,7 @@ export function VRMCatalogRenderer({ path, scale, objectId, displayName, activit
     let reveal: number | null = null
     if (!posedVrmScenes.has(vrm.scene)) {
       vrm.scene.visible = false
-      reveal = window.setTimeout(() => { vrm.scene.visible = true }, 4000)
+      reveal = window.setTimeout(() => revealWhenReady(vrm.scene), 4000)
     }
     return () => {
       if (reveal !== null) window.clearTimeout(reveal)
@@ -1905,6 +1928,12 @@ export function VRMCatalogRenderer({ path, scale, objectId, displayName, activit
     const animId = activityAnimationId || ''
     if (!animId || !vrm) { setActivityClip(null); return }
     let cancelled = false
+    // Clips written in code (authored-clips.ts: standing and typing) are built for this body, no file to load.
+    if (isAuthoredClip(animId)) {
+      const built = buildAuthoredClip(animId, vrm)
+      if (built && built.tracks.length > 0) setActivityClip(built)
+      return
+    }
     // The clip playing now stays until the next one is ready (an agent changing idles blends across, no dip to the
     // plain idle in between).
     loadAnimationClip(animId).then(clip => {
@@ -1992,7 +2021,7 @@ export function VRMCatalogRenderer({ path, scale, objectId, displayName, activit
         const v = vrmRef.current
         v?.humanoid?.update()
         if (v) {
-          v.scene.visible = true
+          revealWhenReady(v.scene)
           posedVrmScenes.add(v.scene)
         }
       } else action.reset().fadeIn(fade).play()
@@ -2049,9 +2078,12 @@ export function VRMCatalogRenderer({ path, scale, objectId, displayName, activit
 
     // ░▒▓ IBL: swap MToon/Basic → Standard so IBL works (MToon is a ShaderMaterial, ignores scene.environment) ▓▒░
     if (!iblAppliedRef.current && state.scene.environment) {
+      const swaps: Array<{ mesh: THREE.Mesh; before: THREE.Material | THREE.Material[]; after: THREE.Material | THREE.Material[] }> = []
+      const replaced: THREE.Material[] = []
       v.scene.traverse((child) => {
         if (!(child as THREE.Mesh).isMesh) return
         const mesh = child as THREE.Mesh
+        const before = mesh.material
         const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
         const newMats = mats.map(mat => {
           const m = mat as any
@@ -2073,15 +2105,26 @@ export function VRMCatalogRenderer({ path, scale, objectId, displayName, activit
             })
             std.needsUpdate = true
             iblMaterials.current.push(std)
-            mat.dispose()
+            replaced.push(mat)
             return std
           }
           if ('envMap' in m) { m.envMap = state.scene.environment; m.envMapIntensity = 1.2; m.needsUpdate = true }
           return mat
         })
         mesh.material = Array.isArray(mesh.material) ? newMats : newMats[0]
+        swaps.push({ mesh, before, after: mesh.material })
       })
       iblAppliedRef.current = true
+      // Compiled with the new materials in place; a body already on screen keeps its old look until they are ready.
+      const gate = precompileObject(v.scene)
+      shaderGateRef.current = gate
+      if (v.scene.visible) {
+        for (const swap of swaps) swap.mesh.material = swap.before
+        Promise.race([gate, new Promise<void>(resolve => window.setTimeout(resolve, SHADER_GATE_MAX_MS))]).then(() => {
+          for (const swap of swaps) swap.mesh.material = swap.after
+          replaced.forEach(mat => mat.dispose())
+        })
+      } else replaced.forEach(mat => mat.dispose())
     }
 
     // Stone (Academy): once the idle clip has had a moment to take it out of the T-pose, it stops moving.
@@ -3774,7 +3817,8 @@ export function WorldObjectsRenderer() {
       <PaintStrokesSection />
 
       {/* ░▒▓ 3D text — extruded shiny words ▓▒░ */}
-      <Text3DSection />
+      {/* Its own boundary: the font file loading must not hold up the world's other objects. */}
+      <Suspense fallback={null}><Text3DSection /></Suspense>
 
       {!hasAgentFocus && (
         <ObjectInteractionHint3D

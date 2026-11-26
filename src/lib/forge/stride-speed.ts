@@ -9,22 +9,77 @@ import * as THREE from 'three'
 import type { VRM } from '@pixiv/three-vrm'
 
 const SAMPLES = 96
-const cache = new WeakMap<THREE.AnimationClip, number | null>()
+interface StrideReading { speed: number | null; contacts: number[] }
+const cache = new WeakMap<THREE.AnimationClip, StrideReading>()
+
+/**
+ * When the feet come down in a loop, as fractions of it (0..1, sorted): one per foot, the start of its stance, i.e.
+ * of its longest stretch in the lowest quarter of its height range (a run's ankle dips twice, heel then toe; only the
+ * stance counts). `heights[f][i]` is foot f's height at sample i, higher = up.
+ * The owner, 2026-11-25: footstep sounds "out of sync" with the steps; they now play at these moments.
+ */
+export function footContactsFromHeights(heights: number[][]): number[] {
+  const out: number[] = []
+  for (const track of heights) {
+    const n = track.length
+    if (n < 4) continue
+    const low = Math.min(...track)
+    const high = Math.max(...track)
+    if (!(high - low > 1e-4)) continue
+    const line = low + (high - low) * 0.25
+    const down = track.map(h => h <= line)
+    if (down.every(Boolean)) continue
+    // Walk the loop from a sample that is up, so a stretch that wraps round the end is seen whole.
+    const from = down.indexOf(false)
+    let best = -1
+    let bestLength = 0
+    let start = -1
+    let length = 0
+    for (let k = 1; k <= n; k++) {
+      const i = (from + k) % n
+      if (down[i]) {
+        if (length === 0) start = i
+        length++
+        if (length > bestLength) { bestLength = length; best = start }
+      } else length = 0
+    }
+    if (best >= 0) out.push(best / n)
+  }
+  out.sort((a, b) => a - b)
+  // Two feet take turns evenly: a pair read uneven (the threshold catches one foot later than the other) is set half
+  // a loop apart around its own average.
+  if (out.length === 2 && Math.abs(out[1] - out[0] - 0.5) > 0.06) {
+    const mid = ((out[0] + (out[1] - 0.5) + 1) / 2) % 1
+    return [mid, (mid + 0.5) % 1].sort((a, b) => a - b)
+  }
+  return out
+}
 
 type BoneName = Parameters<VRM['humanoid']['getNormalizedBoneNode']>[0]
 
 /** Metres a second, or null when it can't be read (no feet, a clip that doesn't step). Cached per clip. */
 export function measureStrideSpeed(vrm: VRM, clip: THREE.AnimationClip): number | null {
-  if (cache.has(clip)) return cache.get(clip) ?? null
+  return reading(vrm, clip).speed
+}
+
+/** When its feet come down (fractions of the loop); empty when it can't be read. Same measure, same cache. */
+export function strideContacts(vrm: VRM, clip: THREE.AnimationClip): number[] {
+  return reading(vrm, clip).contacts
+}
+
+function reading(vrm: VRM, clip: THREE.AnimationClip): StrideReading {
+  const known = cache.get(clip)
+  if (known) return known
   const result = measure(vrm, clip)
   cache.set(clip, result)
   return result
 }
 
-function measure(vrm: VRM, clip: THREE.AnimationClip): number | null {
+function measure(vrm: VRM, clip: THREE.AnimationClip): StrideReading {
+  const none: StrideReading = { speed: null, contacts: [] }
   const feet = (['leftFoot', 'rightFoot'] as BoneName[]).map(name => vrm.humanoid.getNormalizedBoneNode(name)).filter(Boolean) as THREE.Object3D[]
   const hips = vrm.humanoid.getNormalizedBoneNode('hips' as BoneName)
-  if (feet.length < 2 || !hips || !(clip.duration > 0.1)) return null
+  if (feet.length < 2 || !hips || !(clip.duration > 0.1)) return none
   // A mixer of its own: the avatar's real mixer writes every bound bone again on its next update.
   const mixer = new THREE.AnimationMixer(vrm.scene)
   const action = mixer.clipAction(clip)
@@ -46,7 +101,7 @@ function measure(vrm: VRM, clip: THREE.AnimationClip): number | null {
       })
     }
   } catch {
-    return null
+    return none
   } finally {
     action.stop()
     mixer.uncacheAction(clip)
@@ -84,9 +139,10 @@ function measure(vrm: VRM, clip: THREE.AnimationClip): number | null {
       console.info(`[stride] ${clip.name} dur ${clip.duration.toFixed(2)} ` + moving.map(w => `[t ${(w.time / clip.duration).toFixed(2)} d ${w.distance.toFixed(2)} h ${(w.height / w.time).toFixed(3)}]`).join(' '))
     }
   }
-  if (!speeds.length) return null
+  const contacts = footContactsFromHeights(tracks.map(track => track.map((s, i) => up * (s.y - hipsY[i]))))
+  if (!speeds.length) return { speed: null, contacts }
   const speed = speeds.reduce((sum, s) => sum + s, 0) / speeds.length
-  return speed > 0.2 && speed < 15 ? speed : null
+  return { speed: speed > 0.2 && speed < 15 ? speed : null, contacts }
 }
 
 /** Playback rate that matches a clip's steps to the body's real speed, kept within what still looks like that gait. */
@@ -126,7 +182,8 @@ let lastMeasureAt = -Infinity
  * frame and keep the pace you have meanwhile.
  */
 export function strideSpeedThisFrame(vrm: VRM, clip: THREE.AnimationClip): number | null | undefined {
-  if (cache.has(clip)) return cache.get(clip) ?? null
+  const known = cache.get(clip)
+  if (known) return known.speed
   const now = typeof performance !== 'undefined' ? performance.now() : Date.now()
   if (now - lastMeasureAt < 12) return undefined
   lastMeasureAt = now

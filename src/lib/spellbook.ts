@@ -23,13 +23,14 @@ export const SPELL_IDS = [
   'own-audio-upload',
   'own-video-upload',
   'own-image-upload',
+  // The Agents page in this order: what works first, then what is not in this build (VILLAGE_NOT_IN_BUILD).
   'summon-claude-code',
+  'summon-hermes',
+  'browser',
   'summon-codex',
   'summon-djinn',
   'summon-custom-npc',
   'summon-openclaw',
-  'summon-hermes',
-  'browser',
   'summon-fighter-npc',
 ] as const
 
@@ -44,6 +45,20 @@ export const HOSTED_USER_LOCKED_SPELL_IDS = [
   'summon-claude-code',
   'summon-codex',
 ] as const satisfies readonly SpellId[]
+
+/**
+ * Agent spells that do not work in the village in this build, each with the one line the page shows instead of
+ * its summary (greyed; a click says it, and nothing else happens). The owner, 2026-11-24: "I click Spells, Agents,
+ * Custom NPC, and nada thing happens". More kinds of villagers (Gemini, Grok) come after the release: a new kind
+ * gets a spell here, ready or with its reason, and nowhere else.
+ */
+export const VILLAGE_NOT_IN_BUILD: Partial<Record<SpellId, string>> = {
+  'summon-codex': 'Not yet: Codex cannot join the village yet; the agent engine runs Claude Code and Hermes.',
+  'summon-djinn': 'Not in this build: Merlin, the voice guide from the Oasis before the village.',
+  'summon-custom-npc': 'Not in this build: the NPC maker from the Oasis before the village.',
+  'summon-openclaw': 'Not in this build: needs an OpenClaw gateway on this machine.',
+  'summon-fighter-npc': 'Not yet: comes with combat AI.',
+}
 
 export function isHostedUserLockedSpell(id: SpellId): boolean {
   return (HOSTED_USER_LOCKED_SPELL_IDS as readonly SpellId[]).includes(id)
@@ -336,7 +351,7 @@ export const SPELL_DEFS: Record<SpellId, SpellDefinition> = {
     tier: 3,
     category: 'agent',
     achievementId: 'learn-summon-claude-code',
-    summary: 'Open the summoning circle: a new Claude Code agent with its own desk in the village, working in a folder you pick.',
+    summary: 'One of your Claude Code sessions, or a new one in a folder, as a villager in front of you. Runs on your own plan.',
     stats: ['Agent', 'Claude Code', 'Village desk'],
     actionId: 'open-village-picker',
     lockedSummary: 'Claude Code agents run on your own machine (local Oasis only).',
@@ -399,7 +414,7 @@ export const SPELL_DEFS: Record<SpellId, SpellDefinition> = {
     tier: 3,
     category: 'agent',
     achievementId: 'learn-summon-hermes',
-    summary: 'Place Hermes as a spatial assistant for voice and avatar workflows.',
+    summary: 'A Hermes agent with its own model, soul and memory. Needs Hermes installed on this machine.',
     stats: ['Agent', 'Voice', '3D window'],
     actionId: 'place-hermes',
   },
@@ -409,7 +424,7 @@ export const SPELL_DEFS: Record<SpellId, SpellDefinition> = {
     tier: 2,
     category: 'agent',
     achievementId: 'learn-browser',
-    summary: 'Open a living web scrying pane for docs, dashboards, maps, and shared references.',
+    summary: 'A web page in the world, for docs or dashboards. In build mode, click it to show and use it.',
     stats: ['Agent spell', 'Live web pane', 'Baroque frame'],
     actionId: 'place-browser',
   },

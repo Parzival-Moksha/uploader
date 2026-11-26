@@ -20,7 +20,7 @@ export const PREVIEW_ANIMATION_EVENT = 'oasis:player-preview-animation'
  */
 type ClipSource = 'cc0' | 'ours' | 'mixamo'
 const SOURCE_BADGE: Record<ClipSource, { label: string; title: string; className: string }> = {
-  cc0: { label: 'CC0', title: 'Quaternius Universal Animation Library, free tier: CC0, may be shipped and changed, no credit owed', className: 'border-emerald-300/50 text-emerald-200' },
+  cc0: { label: 'CC0', title: 'Quaternius Universal Animation Library (the free packs, and UAL1 Pro which you bought): CC0, may be shipped and changed, no credit owed', className: 'border-emerald-300/50 text-emerald-200' },
   ours: { label: 'ours', title: 'Made in code in the Oasis: ours to ship', className: 'border-violet-300/50 text-violet-200' },
   mixamo: { label: 'Mixamo', title: 'Adobe Mixamo: fine inside your own Oasis, but the raw files may not be handed out, so they are not in the packaged Oasis or the public repository', className: 'border-amber-300/60 text-amber-200' },
 }
@@ -47,6 +47,17 @@ export function AnimationBrowser() {
       .catch(() => { if (live) setMixamoHere(false) })
     return () => { live = false }
   }, [open])
+  // UAL1 Pro may be left out of the lite package (its size limit): its clips are listed only where the file is.
+  const [proHere, setProHere] = useState(false)
+  useEffect(() => {
+    if (!open) return
+    let live = true
+    fetch('/animations/ual/UAL1_Pro.glb', { method: 'HEAD' })
+      .then(r => { if (live) setProHere(r.ok) })
+      .catch(() => { if (live) setProHere(false) })
+    return () => { live = false }
+  }, [open])
+  const shippedUal = useMemo(() => freeUalClips().filter(c => proHere || !c.file.includes('Pro')), [proHere])
   useUILayer('animation-browser', open)
   useEffect(() => {
     const onOpen = () => setOpen(true)
@@ -57,14 +68,14 @@ export function AnimationBrowser() {
     if (!open) return []
     const all: { id: string; label: string; group: string; source: ClipSource; file?: string }[] = [
       ...AUTHORED_CLIPS.map(c => ({ id: c.id, label: c.label, group: 'Made in code by Hipster (a test)', source: 'ours' as const })),
-      ...freeUalClips().map(c => ({ id: c.id, label: c.label, group: c.group, source: 'cc0' as const, file: `${c.file.includes('UAL2') ? 'UAL2' : 'UAL1'} ${c.clip}` })),
+      ...shippedUal.map(c => ({ id: c.id, label: c.label, group: c.group, source: 'cc0' as const, file: `${c.file.includes('UAL2') ? 'UAL2' : c.file.includes('Pro') ? 'UAL1 Pro' : 'UAL1'} ${c.clip}` })),
       ...(mixamoHere ? mixamoClips().map(c => ({ id: c.id, label: c.label, group: MIXAMO_GROUP, source: 'mixamo' as const, file: c.filename })) : []),
     ]
     const q = filter.trim().toLowerCase()
     const shown = q ? all.filter(c => c.label.toLowerCase().includes(q)) : all
     const order = ['Made in code by Hipster (a test)', 'Standing and sitting', 'Moving', 'Doing things', 'Fighting', MIXAMO_GROUP]
     return order.map(name => ({ name, clips: shown.filter(c => c.group === name) })).filter(g => g.clips.length)
-  }, [open, filter, mixamoHere])
+  }, [open, filter, mixamoHere, shippedUal])
 
   // The panel layer (src/lib/ui-kit/layers.ts): Esc closes it when it is the topmost thing.
   const z = useLayer('animation-browser', 'panel', open, () => { previewAnimation(null); setPlaying(null); setOpen(false) })
@@ -88,7 +99,7 @@ export function AnimationBrowser() {
         {(['cc0', 'ours', 'mixamo'] as const).filter(k => k !== 'mixamo' || mixamoHere).map(k => (
           <span key={k} className="flex items-center gap-1">
             <span className={`rounded border px-1 font-bold ${SOURCE_BADGE[k].className}`}>{SOURCE_BADGE[k].label}</span>
-            {k === 'cc0' ? `free, may ship (Quaternius, ${freeUalClips().length})` : k === 'ours' ? 'made here' : 'this PC only'}
+            {k === 'cc0' ? `may ship (Quaternius, ${shippedUal.length})` : k === 'ours' ? 'made here' : 'this PC only'}
           </span>
         ))}
       </div>

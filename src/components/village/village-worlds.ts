@@ -13,6 +13,7 @@ import { getVillageFollowVersion, subscribeVillageFollow } from './village-compa
 import { FOLLOW_DEFAULT } from '../../lib/village/village-follow'
 import { currentVillageWorld, getVillageHomesFile, getVillageHomesVersion, setVillageWorld, subscribeVillageHomes } from './village-homes'
 import { getVillageIdentity, getVillageIdentityVersion, queueVillageIdentity, subscribeVillageIdentity } from '../../lib/village/village-identity-client'
+import { getVillageComeVersion, isVillageComing, subscribeVillageCome } from './village-come'
 
 /** Its own home world, from the shared identity store (absent: the village's world). */
 function homeWorldOf(key: string): string | null {
@@ -46,7 +47,8 @@ export function villageAgentWorld(agentId: string): string | null {
   const key = villageAgentKey({ id: agentId, sessionId: agent.sessionId })
   const file = getVillageHomesFile()
   return agentWorld({
-    follows: isVillageFollowAcrossWorlds(key, agent.name),
+    // Coming to him (come when done): in whatever world he is, like one that follows him.
+    follows: isVillageFollowAcrossWorlds(key, agent.name) || isVillageComing(key),
     calledTo: file.calls[key] ?? null,
     homeWorld: homeWorldOf(key),
     homeSpots: homeSpotWorlds(file, key),
@@ -68,8 +70,9 @@ export function useVillageWorldsVersion(): number {
   const homes = useSyncExternalStore(subscribeVillageHomes, getVillageHomesVersion, () => 0)
   const follow = useSyncExternalStore(subscribeVillageFollow, getVillageFollowVersion, () => 0)
   const identity = useSyncExternalStore(subscribeVillageIdentity, getVillageIdentityVersion, () => 0)
+  const come = useSyncExternalStore(subscribeVillageCome, getVillageComeVersion, () => 0)
   const world = useOasisStore(s => s.viewingWorldId || s.activeWorldId || '')
-  return homes * 1000 + follow * 7 + identity * 13 + world.length
+  return homes * 1000 + follow * 7 + identity * 13 + come * 17 + world.length
 }
 
 function worldIsPlain(world: string | null): world is string {

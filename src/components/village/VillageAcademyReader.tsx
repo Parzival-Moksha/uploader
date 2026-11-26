@@ -44,7 +44,7 @@ import {
 } from './academy-store'
 import { KeyPrompt, PromptBanner } from './VillageHud'
 import { getCharacterState, subscribeCharacter } from './character-store'
-import { getKeychainState, openKeychain, refreshKeychain, subscribeKeychain } from './keychain-store'
+import { getKeychainState, openKeychain, refreshKeychainIfOlder, subscribeKeychain } from './keychain-store'
 import { VILLAGE_FONT_BODY, VILLAGE_FONT_DISPLAY, VILLAGE_TYPE_CLASS, agentDisplayName, canTalkTo } from './village-status'
 import { AcademyTraineeSelect } from './AcademyGuide'
 
@@ -92,7 +92,7 @@ export function AcademySheet({ skill, content, trainee, trainees }: { skill: Aca
   // Which of its keys you hold (the keychain looks once per skill opened; the server reuses a look for 45 s).
   const keychainKeys = useSyncExternalStore(subscribeKeychain, () => getKeychainState().keys, () => getKeychainState().keys)
   const held = useMemo(() => new Map(keychainKeys.map(item => [item.id, item.state])), [keychainKeys])
-  useEffect(() => { void refreshKeychain() }, [skill.id])
+  useEffect(() => { void refreshKeychainIfOlder() }, [skill.id])
   useEffect(() => {
     const onResize = () => setViewport({ width: window.innerWidth, height: window.innerHeight })
     window.addEventListener('resize', onResize)

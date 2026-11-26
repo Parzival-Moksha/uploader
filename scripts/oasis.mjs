@@ -603,7 +603,11 @@ async function status() {
   const [engine, web] = await Promise.all([portOpen(ENGINE_PORT), portOpen(WEB_PORT)])
   say(`Engine (port ${ENGINE_PORT}): ${engine ? 'running' : 'not running'}`)
   say(`World  (port ${WEB_PORT}): ${web ? 'running' : 'not running'}`)
-  say(`Edition: ${SLIM ? 'slim' : 'workshop'}${oasisVersion() ? `, version ${oasisVersion()}` : ''}, in ${HOME}`)
+  // "slim" was the cut's internal name: say which Oasis this is (a newcomer's agent read "slim" as "not the full one").
+  let worlds = 0
+  try { worlds = fs.readdirSync(path.join(HOME, 'prisma', 'default-worlds')).filter((f) => f.endsWith('.world.json')).length } catch { /* none */ }
+  const edition = SLIM ? `the packaged Oasis${worlds ? (worlds > 1 ? ` (full: ${worlds} worlds)` : ' (small: 1 world)') : ''}` : 'the workshop (a full checkout)'
+  say(`Edition: ${edition}${oasisVersion() ? `, version ${oasisVersion()}` : ''}, in ${HOME}`)
   say(`Local key: ${REQUIRE_TOKEN ? 'on (only this machine may talk to the Oasis). `node scripts/oasis.mjs open` opens it with the key; `node scripts/oasis.mjs link` puts the address with the key on the clipboard for another browser' : 'off'}`)
   return 0
 }

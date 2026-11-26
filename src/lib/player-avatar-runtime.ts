@@ -4,6 +4,15 @@ export interface PlayerAvatarPose {
   position: [number, number, number]
   yaw: number
   forward: [number, number, number]
+  /** A teleport may bring the walking camera with it (a reload puts it back: lib/reload-resume.ts); else it goes behind. */
+  camera?: PlayerCameraOrbit
+}
+
+/** The walking camera around the player: its angle round, its height angle, and the zoom (0..1). */
+export interface PlayerCameraOrbit {
+  azimuth: number
+  elevation: number
+  zoom: number
 }
 
 export interface CastSpawn {
@@ -50,7 +59,23 @@ export function getPlayerAvatarPose(): PlayerAvatarPose | null {
     position: cloneVec3(latestPlayerAvatarPose.position),
     yaw: latestPlayerAvatarPose.yaw,
     forward: cloneVec3(latestPlayerAvatarPose.forward),
+    ...(latestPlayerAvatarPose.camera ? { camera: { ...latestPlayerAvatarPose.camera } } : {}),
   }
+}
+
+// The walking camera as PlayerAvatar last left it (one object, written in place every frame: no garbage).
+const latestCameraOrbit: PlayerCameraOrbit = { azimuth: Math.PI, elevation: 0.3, zoom: 0 }
+let cameraOrbitKnown = false
+
+export function setPlayerCameraOrbit(azimuth: number, elevation: number, zoom: number): void {
+  latestCameraOrbit.azimuth = azimuth
+  latestCameraOrbit.elevation = elevation
+  latestCameraOrbit.zoom = zoom
+  cameraOrbitKnown = true
+}
+
+export function getPlayerCameraOrbit(): PlayerCameraOrbit | null {
+  return cameraOrbitKnown ? { ...latestCameraOrbit } : null
 }
 
 export function getPlayerSpellCasting(): boolean {
@@ -124,6 +149,7 @@ export function requestPlayerAvatarTeleport(pose: PlayerAvatarPose): void {
     position: cloneVec3(pose.position),
     yaw: pose.yaw,
     forward: cloneVec3(pose.forward),
+    ...(pose.camera ? { camera: { ...pose.camera } } : {}),
   }
   latestPlayerAvatarPose = next
   for (const listener of teleportListeners) {

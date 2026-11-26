@@ -377,6 +377,8 @@ export function applyWorldCommand(
       })
     case 'sky.set':
       return changed(state, { skyBackgroundId: command.payload.skyBackgroundId, savedAt: nextSavedAt })
+    case 'ambience.set':
+      return changed(state, { ambience: command.payload.ambience, savedAt: nextSavedAt })
 
     case 'stroke.start':
     case 'stroke.point':

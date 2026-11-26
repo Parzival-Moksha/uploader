@@ -8,6 +8,7 @@
 import type {
   EngineAccountsView,
   EngineNetworkView,
+  EngineServicesView,
   EngineAppointment,
   EngineSchedule,
   EngineAgentKind,
@@ -298,6 +299,8 @@ export type AgentEngineAction =
   | { type: 'accounts'; accounts: EngineAccountsView }
   /** The internet line (engine network.js): kept with the server info, for the HUD and the agents' banners. */
   | { type: 'network'; network: EngineNetworkView }
+  /** The Oasis services (the supervisor's status, relayed by the engine). */
+  | { type: 'services'; view: EngineServicesView | null }
   | { type: 'event'; event: EngineEvent }
   | { type: 'focus'; agentId: string | null }
   /** After a reload: these agents finished while you weren't looking (village-seen.ts). */
@@ -1126,6 +1129,11 @@ export function agentEngineReducer(state: AgentEngineState, action: AgentEngineA
     case 'network': {
       const server = state.connection.server || {}
       return { ...state, connection: { ...state.connection, server: { ...server, network: action.network } } }
+    }
+
+    case 'services': {
+      const server = state.connection.server || {}
+      return { ...state, connection: { ...state.connection, server: { ...server, services: action.view } } }
     }
 
     case 'agents': {

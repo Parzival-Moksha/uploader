@@ -24,7 +24,7 @@ export function SkyTransitionSettings() {
           </button>
         ))}
       </div>
-      <div className="mt-1 text-[10px] text-gray-500">About 1.6 seconds, whoever changes the sky: you, an agent, or a world loading.</div>
+      <div className="mt-1 text-[10px] text-gray-500">About 3 seconds, whoever changes the sky: you, an agent, or a world loading.</div>
     </section>
   )
 }

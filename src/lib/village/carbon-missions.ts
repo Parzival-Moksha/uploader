@@ -1,5 +1,5 @@
 // ░▒▓ CARBON MISSIONS — what the Oasis needs from the owner: one file each in docs/questions ▓▒░
-// Pure: parsing, sorting, answering. The format is docs/questions/README.md in 7c_oasis:
+// Pure: parsing, sorting, answering. The format is the questions folder's README.md:
 //     state: open | parked | answered
 //     kind: question | task
 //     asked: 2026-11-19
@@ -285,6 +285,12 @@ export function answerCarbonMission(text: string, input: CarbonAnswer): string {
   if (long) body = [...body, ...(body.length && body[body.length - 1].trim() ? [''] : []), '## His answer', '', full, '']
   return [...header, ...body].join('\n')
 }
+
+/**
+ * The longest answer he can send (the owner, 2026-11-25: his answers are often long voice transcripts; 10,000 refused
+ * one). Far above any dictation; it only stops a runaway paste. The box shows the count as he nears it.
+ */
+export const ANSWER_MAX = 50_000
 
 /** The longest answer kept whole in the header line. */
 export const ANSWER_LINE_MAX = 200

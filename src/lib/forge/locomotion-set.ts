@@ -24,8 +24,67 @@ export function setLocomotionSet(set: LocomotionSet): void {
   try { window.localStorage.setItem(KEY, set) } catch { /* private mode */ }
 }
 
+// ░▒▓ One clip per gait, picked in the avatar selector ▓▒░
+// The owner, 25 Nov: the walk "reminds me of the year 2000... do we have different walking animations?... compare the
+// different walking and running animations and choose from them", each synced with the footsteps (they are: the
+// steps' contacts and stride are read from whatever clip plays, stride-speed.ts). A pick beats the set above.
+
+export type GaitState = 'walk' | 'run' | 'sprint'
+export interface GaitChoice { id: string; label: string; mixamo?: boolean }
+
+export const GAIT_CHOICES: Record<GaitState, GaitChoice[]> = {
+  walk: [
+    { id: 'ual-walk', label: 'Walk' },
+    { id: 'ual-walk-formal', label: 'Formal walk' },
+    { id: 'ual-walk-carry', label: 'Carry walk' },
+    { id: 'ual-zombie-walk', label: 'Zombie walk' },
+    { id: 'walk', label: 'Walk', mixamo: true },
+    { id: 'drunk-walk', label: 'Drunk walk', mixamo: true },
+  ],
+  run: [
+    { id: 'ual-jog', label: 'Jog' },
+    { id: 'run', label: 'Run', mixamo: true },
+  ],
+  sprint: [
+    { id: 'ual-sprint', label: 'Sprint' },
+    { id: 'sprint', label: 'Sprint', mixamo: true },
+  ],
+}
+
+const GAIT_KEY = 'oasis-gait-clips'
+export const GAIT_CHANGED_EVENT = 'oasis:locomotion-set-changed'
+
+function readGaitPicks(): Partial<Record<GaitState, string>> {
+  if (typeof window === 'undefined') return {}
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(GAIT_KEY) || '{}') as Partial<Record<GaitState, string>>
+    return parsed && typeof parsed === 'object' ? parsed : {}
+  } catch { return {} }
+}
+
+/** The clip picked for a gait (its library id), or null when none was picked. */
+export function getGaitPick(state: GaitState): string | null {
+  const id = readGaitPicks()[state]
+  return id && GAIT_CHOICES[state].some(choice => choice.id === id) ? id : null
+}
+
+/** Pick a gait's clip; the player's avatar loads it at once (PlayerAvatar listens for GAIT_CHANGED_EVENT). */
+export function setGaitPick(state: GaitState, id: string): void {
+  try { window.localStorage.setItem(GAIT_KEY, JSON.stringify({ ...readGaitPicks(), [state]: id })) } catch { /* private mode */ }
+  window.dispatchEvent(new CustomEvent(GAIT_CHANGED_EVENT))
+}
+
+/** The clip a gait plays now: the pick, else the set's. */
+export function currentGaitClip(state: GaitState): string {
+  return getGaitPick(state) ?? locomotionClipId(state)
+}
+
 /** The library id to load for a controller state. */
 export function locomotionClipId(animId: string): string {
+  if (animId === 'walk' || animId === 'run' || animId === 'sprint') {
+    const pick = getGaitPick(animId)
+    if (pick) return pick
+  }
   if (getLocomotionSet() !== 'quaternius' || !QUATERNIUS[animId]) return animId
   return freeUalClips().find(clip => clip.clip === QUATERNIUS[animId] && clip.file.includes('UAL1'))?.id ?? animId
 }

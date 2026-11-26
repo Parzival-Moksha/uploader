@@ -175,10 +175,26 @@ export function markVillageReplyHeard(agentKey: string, replyAt: number): void {
   }
 }
 
+const arriveListeners = new Set<(agentId: string) => void>()
+
 /** The agent stands in front of the owner (true) or left again (false). It waits there in silence. */
 export function setVillageArrived(agentId: string, arrived: boolean): void {
-  if (arrived) arrivedAgents.add(agentId)
-  else arrivedAgents.delete(agentId)
+  if (arrived) {
+    if (arrivedAgents.has(agentId)) return
+    arrivedAgents.add(agentId)
+    // Called every frame while it stands there: listeners hear the arrival once.
+    arriveListeners.forEach(listener => listener(agentId))
+  } else arrivedAgents.delete(agentId)
+}
+
+export function isVillageArrived(agentId: string): boolean {
+  return arrivedAgents.has(agentId)
+}
+
+/** An agent has just arrived in front of the owner (come when done: VillageVoice.tsx says its line then). */
+export function onVillageArrive(listener: (agentId: string) => void): () => void {
+  arriveListeners.add(listener)
+  return () => { arriveListeners.delete(listener) }
 }
 
 /**

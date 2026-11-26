@@ -2,7 +2,7 @@
 // Node 22 refuses to spawn .cmd/.bat files without a shell (spawn EINVAL), and a
 // shell flashes a console window on Windows. The npm shim `claude.cmd` only runs
 //   %APPDATA%\npm\node_modules\@anthropic-ai\claude-code\bin\claude.exe %*
-// so resolve that target and spawn it directly. Ported from the 7c_oasis spike.
+// so resolve that target and spawn it directly. Ported from an earlier spike.
 
 import fs from 'fs'
 import path from 'path'

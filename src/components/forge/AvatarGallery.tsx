@@ -20,10 +20,14 @@ import { isProbablyMobileDevice } from '@/lib/mobile-controls'
 import {
   ANIMATION_LIBRARY,
   ANIM_CATEGORIES,
+  isUALAnimation,
   loadAnimationClip,
   retargetClipForVRM,
+  retargetUALClipForVRM,
   type AnimCategory,
 } from '@/lib/forge/animation-library'
+import { buildAuthoredClip, isAuthoredClip } from '@/lib/forge/authored-clips'
+import { currentGaitClip, GAIT_CHOICES, setGaitPick, type GaitState } from '@/lib/forge/locomotion-set'
 import {
   createLipSyncController,
   resumeLipSyncContext,
@@ -68,10 +72,32 @@ const VOICE_TRACKS = [
 // VRM PREVIEW — loads, fits, animates, lipsyncs
 // ═══════════════════════════════════════════════════════════════════════════════
 
-// ░▒▓ VRMPreview — asset-library pattern adapted for VRM. ▓▒░
-// ░▒▓ One-shot camera framing: group.position.sub(center) ONCE on load,  ▓▒░
-// ░▒▓ camera placed + lookAt set once, so animations can shift bones     ▓▒░
-// ░▒▓ without the pivot drifting on re-renders (backdrop swap, etc).     ▓▒░
+// ░▒▓ VRMPreview: the avatar, idle until a clip is picked, framed whole from a little above and to the side. ▓▒░
+// Clips go through the retarget that fits them (the free packs' rig, Mixamo's, or a clip made in code), as in the
+// worlds; before 25 Nov every clip went through Mixamo's, and the free packs' clips left the body in its T-pose.
+// The pivot is the body's middle; a right drag moves it up and down (the face, the feet), the wheel zooms to it.
+
+/** Where the camera looks from: in front, a little to the right and above (the thumbnails use the same). */
+const VIEW_DIRECTION = new THREE.Vector3(0.42, 0.32, 1).normalize()
+
+/** The clip `animId` made for this body (null when it cannot be). */
+async function clipForBody(animId: string, vrm: VRM, cacheKey: string): Promise<THREE.AnimationClip | null> {
+  if (isAuthoredClip(animId)) return buildAuthoredClip(animId, vrm)
+  const clip = await loadAnimationClip(animId)
+  if (!clip) return null
+  const retargeted = isUALAnimation(animId)
+    ? retargetUALClipForVRM(clip, vrm, `${cacheKey}::${animId}`)
+    : retargetClipForVRM(clip, vrm, `${cacheKey}::${animId}`)
+  return retargeted.tracks.length > 0 ? retargeted : null
+}
+
+/** Camera distance at which a box of this height and width fills about 85% of the view. */
+function fitDistance(camera: THREE.PerspectiveCamera, height: number, width: number): number {
+  const vertical = THREE.MathUtils.degToRad(camera.fov) / 2
+  const horizontal = Math.atan(Math.tan(vertical) * camera.aspect)
+  return Math.max((height / 2) / Math.tan(vertical), (width / 2) / Math.tan(horizontal)) / 0.85
+}
+
 function VRMPreview({
   url,
   onStats,
@@ -83,11 +109,12 @@ function VRMPreview({
   animationId: string | null
   lipSyncController: LipSyncController | null
 }) {
-  const { camera } = useThree()
+  const { camera, controls } = useThree() as unknown as { camera: THREE.PerspectiveCamera; controls: { target: THREE.Vector3; update: () => void; addEventListener: (type: string, fn: () => void) => void; removeEventListener: (type: string, fn: () => void) => void } | null }
   const groupRef = useRef<THREE.Group>(null)
   const vrmRef = useRef<VRM | null>(null)
   const mixerRef = useRef<THREE.AnimationMixer | null>(null)
   const currentActionRef = useRef<THREE.AnimationAction | null>(null)
+  const heightRef = useRef(1.6)
 
   const gltf = useLoader(GLTFLoader, url, (loader) => {
     loader.register((parser) => new VRMLoaderPlugin(parser))
@@ -113,13 +140,15 @@ function VRMPreview({
       if (box.isEmpty()) return
       const size = box.getSize(new THREE.Vector3())
       const center = box.getCenter(new THREE.Vector3())
-      // Center the avatar at world origin — done ONCE. Animations mutate bones,
-      // not the group position, so the pivot stays rock-steady across re-renders.
+      // The body's middle at the origin, once: animations move bones, not the group, so the pivot stays put.
       groupRef.current.position.sub(center)
-      const maxDim = Math.max(size.x, size.y, size.z)
-      camera.position.set(0, 0, maxDim * 1.8)
+      heightRef.current = size.y
+      // Arms out in the T-pose widen the box; idle they hang, so the height decides (a little width kept).
+      const distance = fitDistance(camera, size.y, Math.min(size.x, size.y * 0.7))
+      camera.position.copy(VIEW_DIRECTION).multiplyScalar(distance)
       camera.lookAt(0, 0, 0)
       camera.updateProjectionMatrix()
+      if (controls) { controls.target.set(0, 0, 0); controls.update() }
 
       onStatsRef.current?.(extractModelStats(vrm.scene, gltf.animations || []))
     })
@@ -131,35 +160,41 @@ function VRMPreview({
       currentActionRef.current = null
       vrmRef.current = null
     }
-  }, [vrm, camera, gltf.animations])
+  }, [vrm, camera, controls, gltf.animations])
 
-  // Animation swap (same pattern as before, unchanged)
+  // A right drag moves the pivot up and down the body only: whatever the drag did sideways is given back.
+  useEffect(() => {
+    if (!controls) return
+    const keepOnAxis = () => {
+      const target = controls.target
+      if (target.x === 0 && target.z === 0 && Math.abs(target.y) <= heightRef.current * 0.55) return
+      const dx = target.x
+      const dz = target.z
+      const y = THREE.MathUtils.clamp(target.y, -heightRef.current * 0.55, heightRef.current * 0.55)
+      const dy = target.y - y
+      target.set(0, y, 0)
+      camera.position.x -= dx
+      camera.position.y -= dy
+      camera.position.z -= dz
+    }
+    controls.addEventListener('change', keepOnAxis)
+    return () => controls.removeEventListener('change', keepOnAxis)
+  }, [controls, camera])
+
+  // The clip picked, or the idle when none is.
   useEffect(() => {
     const v = vrmRef.current
     const mixer = mixerRef.current
     if (!v || !mixer) return
-
-    if (!animationId) {
-      if (currentActionRef.current) {
-        currentActionRef.current.fadeOut(0.25)
-        currentActionRef.current = null
-      }
-      return
-    }
-
     let cancelled = false
     ;(async () => {
       try {
-        const clip = await loadAnimationClip(animationId)
+        const clip = await clipForBody(animationId || 'idle', v, url)
         if (!clip || cancelled || !vrmRef.current || !mixerRef.current) return
-        const retargeted = retargetClipForVRM(clip, vrmRef.current, url)
-        if (cancelled) return
-        const nextAction = mixerRef.current.clipAction(retargeted)
+        const nextAction = mixerRef.current.clipAction(clip)
         nextAction.reset().setLoop(THREE.LoopRepeat, Infinity).fadeIn(0.3).play()
         const prev = currentActionRef.current
-        if (prev && prev !== nextAction) {
-          prev.crossFadeTo(nextAction, 0.3, false)
-        }
+        if (prev && prev !== nextAction) prev.crossFadeTo(nextAction, 0.3, false)
         currentActionRef.current = nextAction
       } catch (err) {
         console.warn('[AvatarGallery] animation load failed:', err)
@@ -167,7 +202,7 @@ function VRMPreview({
     })()
 
     return () => { cancelled = true }
-  }, [animationId, url])
+  }, [animationId, url, vrm])
 
   useFrame((_, delta) => {
     mixerRef.current?.update(delta)
@@ -206,18 +241,23 @@ interface ThumbRig {
   dispose: () => void
 }
 
+/** The tiles' background, and the thumbnails' (one colour for all, 25 Nov: "some have gray, some black"). */
+const THUMB_BACKGROUND = '#1d1b27'
+/** Bumped when the thumbnails' look changes: part of their address, so a browser does not show the old ones. */
+const THUMB_STYLE = 2
+
 function createThumbRig(): ThumbRig {
-  const size = 256
+  const size = 320
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false })
   renderer.setSize(size, size)
   renderer.setPixelRatio(1)
-  renderer.setClearColor(0x2a2a3e, 1)
+  renderer.setClearColor(THUMB_BACKGROUND, 1)
   renderer.outputColorSpace = THREE.SRGBColorSpace
 
   const scene = new THREE.Scene()
-  scene.background = new THREE.Color(0x2a2a3e)
-  const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 100)
-  scene.add(new THREE.AmbientLight(0x888899, 1.4))
+  scene.background = new THREE.Color(THUMB_BACKGROUND)
+  const camera = new THREE.PerspectiveCamera(30, 1, 0.05, 100)
+  scene.add(new THREE.AmbientLight(0x9a96b0, 1.4))
   const keyLight = new THREE.DirectionalLight(0xffffff, 2.0)
   keyLight.position.set(3, 5, 3)
   scene.add(keyLight)
@@ -240,6 +280,10 @@ function createThumbRig(): ThumbRig {
   }
 }
 
+/**
+ * A thumbnail: the avatar in its idle pose (not the T-pose), whole, from a little above and to the side, looking at
+ * its middle (the owner, 25 Nov: the old ones looked at the chin and cut the legs off).
+ */
 async function renderVrmThumbnailWithRig(rig: ThumbRig, vrmUrl: string): Promise<Blob> {
   const { renderer, scene, camera, loader } = rig
 
@@ -248,31 +292,130 @@ async function renderVrmThumbnailWithRig(rig: ThumbRig, vrmUrl: string): Promise
   if (!vrm) throw new Error('No VRM data')
   VRMUtils.rotateVRM0(vrm)
 
-  const box = new THREE.Box3().setFromObject(vrm.scene)
-  const modelSize = box.getSize(new THREE.Vector3())
-  const center = box.getCenter(new THREE.Vector3())
-  const maxDim = Math.max(modelSize.x, modelSize.y, modelSize.z)
-  const fitScale = maxDim > 0 ? 2.2 / maxDim : 1
-
   const group = new THREE.Group()
-  group.scale.setScalar(fitScale)
-  group.position.set(-center.x * fitScale, -center.y * fitScale + 0.1, -center.z * fitScale)
   group.add(vrm.scene)
   scene.add(group)
-
-  camera.position.set(0, 1, 3)
-  camera.lookAt(0, 1, 0)
-
+  let mixer: THREE.AnimationMixer | null = null
   try {
+    // The idle pose, a moment into the loop.
+    const idle = await clipForBody('idle', vrm, `thumb::${vrmUrl}`).catch(() => null)
+    if (idle) {
+      mixer = new THREE.AnimationMixer(vrm.scene)
+      mixer.clipAction(idle).play()
+      mixer.setTime(0.8)
+    }
+    vrm.update(0)
+    group.updateMatrixWorld(true)
+    // The posed body's own extent (skinned vertices), so nothing is cut off.
+    const box = new THREE.Box3().setFromObject(vrm.scene, true)
+    const size = box.getSize(new THREE.Vector3())
+    const center = box.getCenter(new THREE.Vector3())
+    camera.aspect = 1
+    camera.updateProjectionMatrix()
+    const distance = fitDistance(camera, size.y, Math.max(size.x, size.z))
+    camera.position.copy(center).addScaledVector(VIEW_DIRECTION, distance)
+    camera.lookAt(center)
+
     renderer.render(scene, camera)
     const canvas = renderer.domElement
     return await new Promise<Blob>((resolve, reject) => {
-      canvas.toBlob(result => result ? resolve(result) : reject(new Error('toBlob failed')), 'image/jpeg', 0.85)
+      canvas.toBlob(result => result ? resolve(result) : reject(new Error('toBlob failed')), 'image/jpeg', 0.86)
     })
   } finally {
-    // Remove the VRM from the scene so the next thumb renders alone
+    // Remove the VRM from the scene so the next thumb renders alone, and free it.
+    mixer?.stopAllAction()
     scene.remove(group)
+    VRMUtils.deepDispose(vrm.scene)
   }
+}
+
+/** Render and save one thumbnail (the gallery's own route). */
+async function saveThumbnail(rig: ThumbRig, avatar: { id: string; file: string }): Promise<boolean> {
+  const blob = await renderVrmThumbnailWithRig(rig, `${OASIS_BASE}/avatars/gallery/${avatar.file}`)
+  const form = new FormData()
+  form.append('id', avatar.id)
+  form.append('thumbnail', blob, `${avatar.id}.jpg`)
+  const response = await fetch(`${OASIS_BASE}/api/avatar-thumbs`, { method: 'PUT', body: form })
+  return response.ok
+}
+
+// Dev: window.__oasisRedoAvatarThumbs() renders every catalogue avatar's thumbnail again (after a change of look);
+// `extra` adds avatars found only on disk ({ id, file }), or `only` limits it to those.
+if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
+  ;(window as unknown as Record<string, unknown>).__oasisRedoAvatarThumbs = async (extra: Array<{ id: string; file: string }> = [], only = false) => {
+    const rig = createThumbRig()
+    const done: string[] = []
+    const failed: string[] = []
+    try {
+      for (const avatar of only ? extra : [...CATALOG_AVATARS, ...extra]) {
+        try { if (await saveThumbnail(rig, avatar)) done.push(avatar.id); else failed.push(avatar.id) } catch { failed.push(avatar.id) }
+      }
+    } finally {
+      rig.dispose()
+    }
+    return { done: done.length, failed }
+  }
+}
+
+// YOUR WALK: compare the walks, runs and sprints on the avatar shown, and pick yours (25 Nov)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const GAIT_ROWS: Array<[GaitState, string]> = [['walk', 'Walk'], ['run', 'Run'], ['sprint', 'Sprint']]
+
+function GaitPicker({ previewing, onPreview }: { previewing: string | null; onPreview: (id: string) => void }) {
+  const [, setVersion] = useState(0)
+  // Mixamo's files stay on this PC (not in the package): offered only where they are.
+  const [mixamoHere, setMixamoHere] = useState(false)
+  useEffect(() => {
+    let live = true
+    fetch(`${OASIS_BASE}/animations/${encodeURIComponent('Unarmed Walk Forward.fbx')}`, { method: 'HEAD' })
+      .then(r => { if (live) setMixamoHere(r.ok) })
+      .catch(() => { if (live) setMixamoHere(false) })
+    return () => { live = false }
+  }, [])
+  return (
+    <div data-gait-picker style={{ marginTop: 18, padding: 12, borderRadius: 12, background: 'rgba(15,23,42,0.55)', border: '1px solid rgba(148,163,184,0.12)' }}>
+      <div style={{ fontSize: 10, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700, marginBottom: 4 }}>
+        Your walk, run and sprint
+      </div>
+      <div style={{ fontSize: 10, color: '#64748b', marginBottom: 10, lineHeight: 1.4 }}>
+        Click one: it plays here, and your own avatar walks that way from now on. Steps and footstep sounds follow your speed with any of them.
+      </div>
+      {GAIT_ROWS.map(([state, label]) => {
+        const inUse = currentGaitClip(state)
+        return (
+          <div key={state} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, flexWrap: 'wrap' }}>
+            <span style={{ width: 52, fontSize: 10, color: '#cbd5e1', fontWeight: 700 }}>{label}</span>
+            {GAIT_CHOICES[state].filter(choice => !choice.mixamo || mixamoHere).map(choice => {
+              const active = inUse === choice.id
+              const playing = previewing === choice.id
+              return (
+                <button
+                  key={choice.id}
+                  type="button"
+                  data-gait-choice={choice.id}
+                  onClick={() => { setGaitPick(state, choice.id); setVersion(v => v + 1); onPreview(choice.id) }}
+                  title={choice.mixamo ? 'Mixamo: fine on your PC, not in the package' : 'Quaternius, CC0: ships with the Oasis'}
+                  style={{
+                    fontSize: 10, padding: '4px 8px', borderRadius: 6, fontFamily: 'monospace', cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', gap: 5,
+                    background: active ? 'rgba(34,197,94,0.16)' : playing ? 'rgba(14,165,233,0.16)' : 'rgba(255,255,255,0.02)',
+                    color: active ? '#86efac' : '#cbd5e1',
+                    border: `1px solid ${active ? 'rgba(34,197,94,0.45)' : playing ? 'rgba(14,165,233,0.4)' : 'rgba(148,163,184,0.15)'}`,
+                  }}
+                >
+                  {active ? '✓ ' : ''}{choice.label}
+                  <span style={{ fontSize: 8, fontWeight: 700, padding: '0 3px', borderRadius: 3, border: `1px solid ${choice.mixamo ? 'rgba(252,211,77,0.55)' : 'rgba(110,231,183,0.5)'}`, color: choice.mixamo ? '#fcd34d' : '#6ee7b7' }}>
+                    {choice.mixamo ? 'Mixamo' : 'CC0'}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        )
+      })}
+    </div>
+  )
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -683,7 +826,7 @@ export function AvatarGallery({ currentAvatarUrl, onSelect, onClose }: AvatarGal
                       width: '100%',
                       aspectRatio: '1 / 1',
                       borderRadius: mobileLayout ? 7 : 10,
-                      background: '#2a2a3e',
+                      background: THUMB_BACKGROUND,
                       border: '1px solid rgba(255,255,255,0.06)',
                       display: 'flex',
                       alignItems: 'center',
@@ -695,7 +838,7 @@ export function AvatarGallery({ currentAvatarUrl, onSelect, onClose }: AvatarGal
                     {hasThumb ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
-                        src={`${OASIS_BASE}/avatars/gallery/thumbs/${avatar.id}.jpg`}
+                        src={`${OASIS_BASE}/avatars/gallery/thumbs/${avatar.id}.jpg?v=${THUMB_STYLE}`}
                         alt={avatar.name}
                         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                       />
@@ -723,11 +866,9 @@ export function AvatarGallery({ currentAvatarUrl, onSelect, onClose }: AvatarGal
                     )}
                   </div>
                   <div style={{ display: 'grid', gap: 2, textAlign: 'left' }}>
-                    <span style={{ fontSize: mobileLayout ? 8 : 10, color: isPreviewing ? '#A855F7' : '#e2e8f0', lineHeight: 1.2, fontWeight: isPreviewing ? 700 : 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {/* The whole name, on two lines when it needs them (25 Nov: long names did not fit). */}
+                    <span title={avatar.name} style={{ fontSize: mobileLayout ? 8 : 10, color: isPreviewing ? '#A855F7' : '#e2e8f0', lineHeight: 1.2, fontWeight: isPreviewing ? 700 : 600, overflowWrap: 'anywhere', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                       {avatar.name}
-                    </span>
-                    <span style={{ display: mobileLayout ? 'none' : undefined, fontSize: 9, color: '#64748b', fontFamily: 'monospace', lineHeight: 1.2 }}>
-                      {avatar.file}
                     </span>
                   </div>
                 </button>
@@ -738,7 +879,7 @@ export function AvatarGallery({ currentAvatarUrl, onSelect, onClose }: AvatarGal
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
             {previewAvatar ? (
               <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
-                <div style={{ flex: mobileLayout ? '0 0 34vh' : '0 0 340px', position: 'relative', background: '#24262b' }}>
+                <div style={{ flex: mobileLayout ? '0 0 38vh' : '0 0 min(58vh, 540px)', position: 'relative', background: '#24262b' }}>
                   <Canvas
                     camera={{ fov: 45, near: 0.01, far: 1000 }}
                     style={{ width: '100%', height: '100%' }}
@@ -753,7 +894,8 @@ export function AvatarGallery({ currentAvatarUrl, onSelect, onClose }: AvatarGal
                     <OrbitControls
                       makeDefault
                       enableRotate
-                      enablePan={false}
+                      enablePan
+                      screenSpacePanning
                       autoRotate={autoRotate}
                       autoRotateSpeed={1.5}
                       rotateSpeed={0.85}
@@ -762,7 +904,8 @@ export function AvatarGallery({ currentAvatarUrl, onSelect, onClose }: AvatarGal
                       mouseButtons={{
                         LEFT: THREE.MOUSE.ROTATE,
                         MIDDLE: THREE.MOUSE.DOLLY,
-                        RIGHT: THREE.MOUSE.ROTATE,
+                        // Right drag: the pivot up and down the body (VRMPreview keeps it on the body's axis).
+                        RIGHT: THREE.MOUSE.PAN,
                       }}
                       touches={{
                         ONE: THREE.TOUCH.ROTATE,
@@ -829,35 +972,30 @@ export function AvatarGallery({ currentAvatarUrl, onSelect, onClose }: AvatarGal
                 </div>
 
                 <div style={{ padding: mobileLayout ? 8 : 18, borderTop: '1px solid rgba(255,255,255,0.08)', overflowY: 'auto' }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: mobileLayout ? 'minmax(0, 1fr)' : 'minmax(0, 1fr) 170px', gap: mobileLayout ? 8 : 18 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: mobileLayout ? 8 : 18 }}>
                     <div>
                       <p style={{ margin: 0, fontSize: mobileLayout ? 13 : 18, color: '#fff', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{previewAvatar.name}</p>
                       <p style={{ display: mobileLayout ? 'none' : undefined, margin: '4px 0 12px', fontSize: 10, color: '#94a3b8', fontFamily: 'monospace' }}>
                         /avatars/gallery/{previewAvatar.file}
                       </p>
 
-                      <div style={{ display: 'grid', gridTemplateColumns: mobileLayout ? 'repeat(2, minmax(0, 1fr))' : 'repeat(4, minmax(0, 1fr))', gap: mobileLayout ? 4 : 8, marginBottom: mobileLayout ? 8 : 14, marginTop: mobileLayout ? 6 : 0 }}>
-                        <div style={{ padding: mobileLayout ? '5px 6px' : '8px 10px', borderRadius: mobileLayout ? 7 : 10, background: 'rgba(15,23,42,0.68)', border: '1px solid rgba(148,163,184,0.14)' }}>
-                          <div style={{ fontSize: mobileLayout ? 7 : 9, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Triangles</div>
-                          <div style={{ marginTop: mobileLayout ? 2 : 4, fontSize: mobileLayout ? 10 : 13, color: '#f8fafc', fontWeight: 600 }}>{previewStats?.triangles?.toLocaleString() || '—'}</div>
-                        </div>
-                        <div style={{ padding: mobileLayout ? '5px 6px' : '8px 10px', borderRadius: mobileLayout ? 7 : 10, background: 'rgba(15,23,42,0.68)', border: '1px solid rgba(148,163,184,0.14)' }}>
-                          <div style={{ fontSize: mobileLayout ? 7 : 9, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Vertices</div>
-                          <div style={{ marginTop: mobileLayout ? 2 : 4, fontSize: mobileLayout ? 10 : 13, color: '#f8fafc', fontWeight: 600 }}>{previewStats?.vertices?.toLocaleString() || '—'}</div>
-                        </div>
-                        <div style={{ padding: mobileLayout ? '5px 6px' : '8px 10px', borderRadius: mobileLayout ? 7 : 10, background: 'rgba(15,23,42,0.68)', border: '1px solid rgba(148,163,184,0.14)' }}>
-                          <div style={{ fontSize: mobileLayout ? 7 : 9, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Size</div>
-                          <div style={{ marginTop: mobileLayout ? 2 : 4, fontSize: mobileLayout ? 10 : 13, color: '#f8fafc', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            {previewStats ? `${previewStats.dimensions.w} × ${previewStats.dimensions.h} × ${previewStats.dimensions.d}` : '—'}
-                          </div>
-                        </div>
-                        <div style={{ padding: mobileLayout ? '5px 6px' : '8px 10px', borderRadius: mobileLayout ? 7 : 10, background: 'rgba(15,23,42,0.68)', border: '1px solid rgba(148,163,184,0.14)' }}>
-                          <div style={{ fontSize: mobileLayout ? 7 : 9, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>VRM</div>
-                          <div style={{ marginTop: mobileLayout ? 2 : 4, fontSize: mobileLayout ? 10 : 13, color: '#f8fafc', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            {formatVrmSize(previewSizeBytes)}
-                          </div>
-                        </div>
-                      </div>
+                      {/* The avatar's numbers, a two-column table nothing is cut off in (25 Nov). */}
+                      <table data-avatar-facts style={{ width: '100%', borderCollapse: 'collapse', margin: mobileLayout ? '6px 0 8px' : '0 0 14px', fontSize: mobileLayout ? 10 : 12 }}>
+                        <tbody>
+                          {([
+                            ['Triangles', previewStats?.triangles?.toLocaleString()],
+                            ['Vertices', previewStats?.vertices?.toLocaleString()],
+                            ['Size', previewStats ? `${previewStats.dimensions.w} × ${previewStats.dimensions.h} × ${previewStats.dimensions.d}` : undefined],
+                            ['VRM file', formatVrmSize(previewSizeBytes)],
+                            ['Bones', previewStats?.boneCount?.toLocaleString()],
+                          ] as Array<[string, string | undefined]>).map(([label, value]) => (
+                            <tr key={label} style={{ borderBottom: '1px solid rgba(148,163,184,0.12)' }}>
+                              <td style={{ padding: mobileLayout ? '3px 8px 3px 0' : '5px 12px 5px 0', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em', fontSize: mobileLayout ? 8 : 10, whiteSpace: 'nowrap', width: '1%' }}>{label}</td>
+                              <td style={{ padding: mobileLayout ? '3px 0' : '5px 0', color: '#f8fafc', fontWeight: 600, wordBreak: 'break-word' }}>{value || '—'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
 
                       <button
                         onClick={() => { void handleSelect(previewAvatar) }}
@@ -880,25 +1018,12 @@ export function AvatarGallery({ currentAvatarUrl, onSelect, onClose }: AvatarGal
                       </button>
                     </div>
 
-                    <div style={{ display: mobileLayout ? 'none' : 'grid', gap: 8, alignContent: 'start' }}>
-                      {[
-                        ['Meshes', previewStats?.meshCount],
-                        ['Materials', previewStats?.materialCount],
-                        ['Bones', previewStats?.boneCount],
-                        ['Clips', previewStats?.clips?.length ?? 0],
-                        ['VRM', formatVrmSize(previewSizeBytes)],
-                      ].map(([label, value]) => (
-                        <div key={label} style={{ padding: '10px 12px', borderRadius: 12, background: 'rgba(15,23,42,0.68)', border: '1px solid rgba(148,163,184,0.14)' }}>
-                          <div style={{ fontSize: 9, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{label}</div>
-                          <div style={{ marginTop: 4, fontSize: 14, color: '#f8fafc', fontWeight: 700 }}>{value || '—'}</div>
-                        </div>
-                      ))}
-                    </div>
                   </div>
 
                   {/* ═══ Animation selector (ported from Joystick) ═══ */}
                   {!mobileLayout && (
                     <>
+                  <GaitPicker previewing={animationId} onPreview={setAnimationId} />
                   <div style={{ marginTop: 18, padding: 12, borderRadius: 12, background: 'rgba(15,23,42,0.55)', border: '1px solid rgba(148,163,184,0.12)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                       <span style={{ fontSize: 10, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700 }}>

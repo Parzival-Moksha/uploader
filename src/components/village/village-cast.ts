@@ -9,8 +9,10 @@ import * as THREE from 'three'
 import { useOasisStore } from '../../store/oasisStore'
 import { getAudioListener } from '../CameraController'
 import { readEmbodiedAgentSettingsFromStorage } from '../../lib/agent-action-settings'
-import { CastBoard, HELD_EVENT_TYPES, INCANTATION_URL, isWorldChangeTool, type CastPhase } from '../../lib/village/agent-cast'
-import { villageSoundSource } from './village-companion'
+import { shippedPickUrl } from '../../lib/spell-sounds'
+import { CastBoard, HELD_EVENT_TYPES, INCANTATION_FALLBACK_URL, INCANTATION_URL, isWorldChangeTool, type CastPhase } from '../../lib/village/agent-cast'
+import { villageLipSyncId, villageSoundSource } from './village-companion'
+import { createLipSyncController, getLipSync, registerLipSync, resumeLipSyncContext, unregisterLipSync } from '../../lib/lip-sync'
 
 const board = new CastBoard()
 const listeners = new Set<() => void>()
@@ -65,13 +67,20 @@ export function holdForCast(type: string, data: Record<string, unknown> | undefi
 
 // ── the incantation, from the agent's head ──
 
-let incantation: Promise<AudioBuffer | null> | null = null
+/** Cast sounds that are a voice (the owner's incantation): the casting avatar's mouth moves with them. */
+const VOICE_SOUND = /conjure-owner|conjuration-incantation/i
 
-function loadIncantation(context: BaseAudioContext): Promise<AudioBuffer | null> {
+let incantation: Promise<{ buffer: AudioBuffer; voice: boolean } | null> | null = null
+
+function loadIncantation(context: BaseAudioContext): Promise<{ buffer: AudioBuffer; voice: boolean } | null> {
   if (!incantation) {
-    incantation = fetch(INCANTATION_URL)
+    const fetchBuffer = (url: string) => fetch(url)
       .then(r => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(`${r.status}`))))
       .then(bytes => context.decodeAudioData(bytes))
+      .then(buffer => ({ buffer, voice: VOICE_SOUND.test(url) }))
+    // One set everywhere: the shipped 'conjure' pick first, then the owner's recording, then the shipped swell.
+    const urls = [...new Set([shippedPickUrl('conjure'), INCANTATION_URL, INCANTATION_FALLBACK_URL].filter((u): u is string => Boolean(u)))]
+    incantation = urls.slice(1).reduce((chain, url) => chain.catch(() => fetchBuffer(url)), fetchBuffer(urls[0]))
       .catch(error => {
         console.warn('[agent-cast] incantation did not load', error)
         incantation = null
@@ -85,9 +94,10 @@ async function speakIncantation(agentId: string) {
   const listener = getAudioListener()
   // Sound is only allowed after a click or a key press: a silent page simply casts in silence.
   if (!listener || listener.context.state !== 'running') return
-  const buffer = await loadIncantation(listener.context)
+  const loaded = await loadIncantation(listener.context)
   const head = villageSoundSource(agentId)
-  if (!buffer || !head) return
+  if (!loaded || !head) return
+  const { buffer, voice } = loaded
   const audio = new THREE.PositionalAudio(listener)
   audio.setBuffer(buffer)
   // As its voice: full within 3 m, about half at 7 m, a murmur across the plaza.
@@ -98,11 +108,45 @@ async function speakIncantation(agentId: string) {
   // In the scene only while it plays (a PositionalAudio schedules audio work every frame it is there).
   head.add(audio)
   audio.play()
+  const mouth = voice ? moveMouthWith(agentId, audio) : null
   window.setTimeout(() => {
     if (audio.isPlaying) audio.stop()
+    mouth?.()
     head.remove(audio)
     audio.disconnect()
   }, buffer.duration * 1000 + 300)
+}
+
+/**
+ * The owner, 25 Nov (recording the release clip): when Anorak cast and said the magic words "his mouth was not
+ * moving". The incantation's own sound, taken before the distance falls off, feeds a lip-sync controller under the
+ * agent's lip-sync key, the one its body already reads for speech (loudness to mouth shapes, lib/lip-sync.ts). Not
+ * while the agent speaks a line: that keeps its mouth. Returns the release.
+ */
+function moveMouthWith(agentId: string, audio: THREE.PositionalAudio): (() => void) | null {
+  const key = villageLipSyncId(agentId)
+  if (getLipSync(key)?.isActive) return null
+  try {
+    const context = audio.context
+    const tap = context.createMediaStreamDestination()
+    audio.gain.connect(tap)
+    const controller = createLipSyncController()
+    let released = false
+    void resumeLipSyncContext().then(() => {
+      if (released || getLipSync(key)?.isActive) return
+      controller.attachStream(tap.stream)
+      registerLipSync(key, controller)
+    })
+    return () => {
+      released = true
+      unregisterLipSync(key, controller) // detaches it too
+      if (getLipSync(key) !== controller && controller.isActive) controller.detach()
+      try { audio.gain.disconnect(tap) } catch { /* already gone */ }
+    }
+  } catch (error) {
+    console.warn('[agent-cast] the mouth could not follow the incantation', error)
+    return null
+  }
 }
 
 function startCast(agentId: string, toolId: string) {

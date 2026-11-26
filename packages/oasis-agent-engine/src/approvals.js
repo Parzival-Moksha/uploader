@@ -92,7 +92,10 @@ export function describeSuggestions(suggestions) {
 const HIDDEN = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F\u00AD\u034F\u061C\u115F\u1160\u180E\u200B-\u200F\u2028\u2029\u202A-\u202E\u2060-\u2064\u2066-\u2069\u3164\uFE00-\uFE0F\uFEFF\uFFA0]|[\u{E0000}-\u{E007F}\u{E0100}-\u{E01EF}]/u;
 // A long run of blank lines or spaces pushes the rest of a command below what the phone shows.
 const BLANK_RUN = /(?:[ \t]*\r?\n){21,}|[ \t]{200,}/;
-const hiddenIn = (text) => HIDDEN.test(text) || BLANK_RUN.test(text);
+// An emoji's own variation selector (a warning sign + U+FE0F) is ordinary; the same selector after a letter or a digit is
+// the smuggling case and stays hidden. Only an FE0F that directly follows a pictographic character is let through.
+const withoutEmojiSelectors = (text) => text.replace(/(\p{Extended_Pictographic})\uFE0F/gu, '$1');
+const hiddenIn = (text) => HIDDEN.test(withoutEmojiSelectors(text)) || BLANK_RUN.test(text);
 const longArray = (v, depth = 0) => (Array.isArray(v) ? v.length >= 50 || v.some((x) => longArray(x, depth + 1)) : v && typeof v === 'object' && depth < 8 ? Object.values(v).some((x) => longArray(x, depth + 1)) : false);
 
 /**

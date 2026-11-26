@@ -1,0 +1,293 @@
+{
+  "generatedAt": "2026-11-24",
+  "purpose": "The sounds every Oasis may ship and plays, the owner's own included (one set everywhere). Each entry carries its own licence line; 'replaces' (optional) names the Mixkit sound it stands in for.",
+  "howToChange": "This file is the whole list (Hipster owns the picks). library: each sound (id, file, licence, source, optional 'replaces' = the Mixkit id it stands in for, optional 'volume' 0-1.5, default 1). picks: key -> library id; a pick plays in every Oasis, the owner's included. Keys the code plays: a spell id (its cast; the spellbook's sound), 'bolt-cast' (any bolt without its own pick), 'impact-fire' / 'impact-lightning' / 'impact-ice' then 'impact' (a bolt landing), 'conjure' (an agent conjuring, keep about 4.8 s), 'portal' (a form portal opening), 'summon', 'sky-change', 'ground-change' (3 s changes), 'ui-confirm' (a menu click), 'brush-start', 'brush-loop' (looped while drawing), 'brush-end', 'place-groundslam' (the Ground Slam conjuration). An entry may list 'variants' (more takes of the same sound): one plays at random each time. A key without a pick keeps its old sound or stays silent. The code (src/lib/spell-sounds.ts) bundles this file; change nothing else. Check: npx vitest run src/lib/__tests__/spell-sounds-shipped.test.ts",
+  "format": "OGG Vorbis q3, mono, 44.1 kHz, levelled to the Mixkit sound it replaces (EBU R128). Made by Battlemage with ffmpeg: trimmed, layered, an echo tail on the short ones.",
+  "license": "Per entry: each sound's 'licence' says what it is (CC0 from rubberduck on OpenGameArt, or made with ElevenLabs on the owner's paid plan). Files under /audio/spells-cc0/ ship (the folder's name is older than its contents). Files under /audio/spells-own/ do not ('ships': false: the owner's own voice until he says yes); a release plays the entry's 'fallback' for the picks that name them. A 'fallback' on a shipped entry is the CC0 sound to play if its file is missing.",
+  "picks": {
+    "brush-wand": "cc0-glitter",
+    "catalog-place": "el-place-object",
+    "text-to-3d": "cc0-impact-boom",
+    "text-3d": "cc0-impact-boom",
+    "text-to-pic": "cc0-cast-whoosh",
+    "text-to-pic-building": "cc0-cast-whoosh",
+    "text-to-music": "el-music-made",
+    "impact": "el-fire-impact",
+    "conjure": "conjure-owner",
+    "portal": "el-portal",
+    "impact-fire": "hit-critical",
+    "impact-lightning": "hit-energy",
+    "impact-ice": "el-ice-impact",
+    "summon": "el-summon-agent",
+    "ui-confirm": "el-ui-confirm",
+    "place-groundslam": "hit-groundslam",
+    "bolt-cast": "el-bolt-cast"
+  },
+  "library": [
+    {
+      "id": "cc0-impact-boom",
+      "file": "/audio/spells-cc0/cc0-impact-boom.ogg",
+      "replaces": "mixkit-explosion-hit",
+      "label": "Impact Boom (CC0)",
+      "vibe": "impact / fire",
+      "source": "80 CC0 RPG SFX misc_02 + 100 CC0 SFX explosion + 100 CC0 SFX #2 thunder_01 (rubberduck, OpenGameArt)",
+      "volume": 1,
+      "licence": "CC0 1.0"
+    },
+    {
+      "id": "cc0-cast-whoosh",
+      "file": "/audio/spells-cc0/cc0-cast-whoosh.ogg",
+      "replaces": "mixkit-magic-sparkle-whoosh",
+      "label": "Cast Whoosh (CC0)",
+      "vibe": "cast / projectile",
+      "source": "80 CC0 RPG SFX spell_01 (rubberduck, OpenGameArt)",
+      "volume": 1,
+      "licence": "CC0 1.0"
+    },
+    {
+      "id": "cc0-shine-chord",
+      "file": "/audio/spells-cc0/cc0-shine-chord.ogg",
+      "replaces": "mixkit-choir-magic-shine",
+      "label": "Shine Chord (CC0)",
+      "vibe": "summon / heal / good-aligned",
+      "source": "100 CC0 SFX #2 misc_12 (rubberduck, OpenGameArt)",
+      "volume": 1,
+      "licence": "CC0 1.0"
+    },
+    {
+      "id": "cc0-swell",
+      "file": "/audio/spells-cc0/cc0-swell.ogg",
+      "replaces": "mixkit-cinematic-swell",
+      "label": "Swell (CC0)",
+      "vibe": "ult / build-up; agents conjuring when the owner's incantation is absent",
+      "source": "100 CC0 SFX #2 misc_37 (rubberduck, OpenGameArt)",
+      "volume": 1,
+      "licence": "CC0 1.0"
+    },
+    {
+      "id": "cc0-glitter",
+      "file": "/audio/spells-cc0/cc0-glitter.ogg",
+      "replaces": "mixkit-fairy-glitter",
+      "label": "Glitter (CC0)",
+      "vibe": "cast / sparkle",
+      "source": "80 CC0 RPG SFX item_gem_04 (rubberduck, OpenGameArt)",
+      "volume": 1,
+      "licence": "CC0 1.0"
+    },
+    {
+      "id": "cc0-sparkle-whoosh",
+      "file": "/audio/spells-cc0/cc0-sparkle-whoosh.ogg",
+      "replaces": "mixkit-fairy-sparkle-whoosh",
+      "label": "Sparkle Whoosh (CC0)",
+      "vibe": "cast / projectile",
+      "source": "80 CC0 RPG SFX spell_02 (rubberduck, OpenGameArt)",
+      "volume": 1,
+      "licence": "CC0 1.0"
+    },
+    {
+      "id": "cc0-ice-whoosh",
+      "file": "/audio/spells-cc0/cc0-ice-whoosh.ogg",
+      "replaces": "mixkit-icicles-spell-whoosh",
+      "label": "Ice Whoosh (CC0)",
+      "vibe": "ice cast / projectile",
+      "source": "100 CC0 SFX #2 misc_02 (rubberduck, OpenGameArt)",
+      "volume": 1,
+      "licence": "CC0 1.0"
+    },
+    {
+      "id": "cc0-bubbles",
+      "file": "/audio/spells-cc0/cc0-bubbles.ogg",
+      "replaces": "mixkit-magic-bubbles-spell",
+      "label": "Bubbles (CC0)",
+      "vibe": "playful cast",
+      "source": "100 CC0 SFX other_01 (rubberduck, OpenGameArt)",
+      "volume": 1,
+      "licence": "CC0 1.0"
+    },
+    {
+      "id": "cc0-portal-sweep",
+      "file": "/audio/spells-cc0/cc0-portal-sweep.ogg",
+      "replaces": "mixkit-magic-transition-sweep",
+      "label": "Portal Sweep (CC0)",
+      "vibe": "portal / scene-shift",
+      "source": "100 CC0 SFX #2 air_01 (rubberduck, OpenGameArt)",
+      "volume": 1,
+      "licence": "CC0 1.0"
+    },
+    {
+      "id": "cc0-harp-chime",
+      "file": "/audio/spells-cc0/cc0-harp-chime.ogg",
+      "replaces": "mixkit-relaxing-harp-sweep",
+      "label": "Harp Chime (CC0)",
+      "vibe": "menu / soft cast",
+      "source": "80 CC0 RPG SFX item_misc_06 (rubberduck, OpenGameArt)",
+      "volume": 1,
+      "licence": "CC0 1.0"
+    },
+    {
+      "id": "cc0-swoosh",
+      "file": "/audio/spells-cc0/cc0-swoosh.ogg",
+      "replaces": "mixkit-spellcaster-fairy-swoosh",
+      "label": "Swoosh (CC0)",
+      "vibe": "cast / projectile",
+      "source": "100 CC0 SFX #2 air_02 (rubberduck, OpenGameArt)",
+      "volume": 1,
+      "licence": "CC0 1.0"
+    },
+    {
+      "id": "el-fire-impact",
+      "file": "/audio/spells-cc0/el-fire-impact.ogg",
+      "label": "Fire landing (ElevenLabs)",
+      "vibe": "fire-impact",
+      "source": "ElevenLabs Sound Effects, prompt: a short fiery magic impact, a compact fireball burst with a crackle; take 1 of 3, chosen by the owner by ear 2026-11-24; trimmed, faded and levelled to -16 LUFS by Hipster",
+      "volume": 1,
+      "licence": "Made with ElevenLabs Sound Effects on the owner's paid plan (2026-11-24), used inside the Oasis and shipped with it (the owner, 24 Nov: 'we pay for the MP3s... it's used inside a work... we're packaging it'). Not CC0.",
+      "ships": true,
+      "fallback": "cc0-impact-boom"
+    },
+    {
+      "id": "el-lightning-impact",
+      "file": "/audio/spells-cc0/el-lightning-impact.ogg",
+      "label": "Lightning landing (ElevenLabs)",
+      "vibe": "lightning-impact",
+      "source": "ElevenLabs Sound Effects, prompt: a short electric lightning strike impact, a sharp crackling zap; take 3 of 3, chosen by the owner by ear 2026-11-24; trimmed, faded and levelled to -16 LUFS by Hipster",
+      "volume": 1,
+      "licence": "Made with ElevenLabs Sound Effects on the owner's paid plan (2026-11-24), used inside the Oasis and shipped with it (the owner, 24 Nov: 'we pay for the MP3s... it's used inside a work... we're packaging it'). Not CC0.",
+      "ships": true,
+      "fallback": "cc0-impact-boom"
+    },
+    {
+      "id": "el-ice-impact",
+      "file": "/audio/spells-cc0/el-ice-impact.ogg",
+      "label": "Ice landing (ElevenLabs)",
+      "vibe": "ice-impact",
+      "source": "ElevenLabs Sound Effects, prompt: a short icy magic impact, crystalline ice shattering; take 2 of 3, chosen by the owner by ear 2026-11-24; trimmed, faded and levelled to -16 LUFS by Hipster",
+      "volume": 1,
+      "licence": "Made with ElevenLabs Sound Effects on the owner's paid plan (2026-11-24), used inside the Oasis and shipped with it (the owner, 24 Nov: 'we pay for the MP3s... it's used inside a work... we're packaging it'). Not CC0.",
+      "ships": true,
+      "fallback": "cc0-ice-whoosh"
+    },
+    {
+      "id": "el-place-object",
+      "file": "/audio/spells-cc0/el-place-object.ogg",
+      "label": "Placing an object (ElevenLabs)",
+      "vibe": "place-object",
+      "source": "ElevenLabs Sound Effects, prompt: a soft magical materialize, a gentle shimmering thump; take 3 of 3, chosen by the owner by ear 2026-11-24; trimmed, faded and levelled to -16 LUFS by Hipster",
+      "volume": 1,
+      "licence": "Made with ElevenLabs Sound Effects on the owner's paid plan (2026-11-24), used inside the Oasis and shipped with it (the owner, 24 Nov: 'we pay for the MP3s... it's used inside a work... we're packaging it'). Not CC0.",
+      "ships": true,
+      "fallback": "cc0-swoosh"
+    },
+    {
+      "id": "el-summon-agent",
+      "file": "/audio/spells-cc0/el-summon-agent.ogg",
+      "label": "Summoning an agent (ElevenLabs)",
+      "vibe": "summon-agent",
+      "source": "ElevenLabs Sound Effects, prompt: an angelic choir swell with a magical shine; take 2 of 3, chosen by the owner by ear 2026-11-24; trimmed, faded and levelled to -16 LUFS by Hipster",
+      "volume": 1,
+      "licence": "Made with ElevenLabs Sound Effects on the owner's paid plan (2026-11-24), used inside the Oasis and shipped with it (the owner, 24 Nov: 'we pay for the MP3s... it's used inside a work... we're packaging it'). Not CC0.",
+      "ships": true,
+      "fallback": "cc0-shine-chord"
+    },
+    {
+      "id": "el-portal",
+      "file": "/audio/spells-cc0/el-portal.ogg",
+      "label": "Portal (ElevenLabs)",
+      "vibe": "portal",
+      "source": "ElevenLabs Sound Effects, prompt: a deep magical portal opening, a swirling whoosh with a resonant hum; take 2 of 3, chosen by the owner by ear 2026-11-24; trimmed, faded and levelled to -16 LUFS by Hipster",
+      "volume": 1,
+      "licence": "Made with ElevenLabs Sound Effects on the owner's paid plan (2026-11-24), used inside the Oasis and shipped with it (the owner, 24 Nov: 'we pay for the MP3s... it's used inside a work... we're packaging it'). Not CC0.",
+      "ships": true,
+      "fallback": "cc0-portal-sweep"
+    },
+    {
+      "id": "el-music-made",
+      "file": "/audio/spells-cc0/el-music-made.ogg",
+      "label": "Music made (ElevenLabs)",
+      "vibe": "music-made",
+      "source": "ElevenLabs Sound Effects, prompt: a short magical harp arpeggio with a soft sparkle; take 2 of 3, chosen by the owner by ear 2026-11-24; trimmed, faded and levelled to -16 LUFS by Hipster",
+      "volume": 1,
+      "licence": "Made with ElevenLabs Sound Effects on the owner's paid plan (2026-11-24), used inside the Oasis and shipped with it (the owner, 24 Nov: 'we pay for the MP3s... it's used inside a work... we're packaging it'). Not CC0.",
+      "ships": true,
+      "fallback": "cc0-shine-chord"
+    },
+    {
+      "id": "el-ui-confirm",
+      "file": "/audio/spells-cc0/el-ui-confirm.ogg",
+      "label": "Menu confirm (ElevenLabs)",
+      "vibe": "ui-confirm",
+      "source": "ElevenLabs Sound Effects, prompt: a soft magical confirm chime for a game menu; take 3 of 3, chosen by the owner by ear 2026-11-24; trimmed, faded and levelled to -16 LUFS by Hipster",
+      "volume": 0.8,
+      "licence": "Made with ElevenLabs Sound Effects on the owner's paid plan (2026-11-24), used inside the Oasis and shipped with it (the owner, 24 Nov: 'we pay for the MP3s... it's used inside a work... we're packaging it'). Not CC0.",
+      "ships": true,
+      "fallback": null
+    },
+    {
+      "id": "conjure-owner",
+      "file": "/audio/spells-cc0/conjure-owner.mp3",
+      "label": "Anaal Nathrakh (the owner)",
+      "vibe": "agents casting a world change, 4.7 s",
+      "source": "The owner's own incantation, his 2026-11-20 recording at 24:09, cut and levelled (was public/audio/spells/conjuration-incantation.mp3)",
+      "volume": 1,
+      "licence": "The owner's own recording, his to pass on with the Oasis; shipped by his decision (24 Nov 2026: 'it could super go live... my voice is all over YouTube').",
+      "ships": true,
+      "fallback": "cc0-swell"
+    },
+    {
+      "id": "hit-critical",
+      "file": "/audio/spells-cc0/hit-critical-01.ogg",
+      "variants": [
+        "/audio/spells-cc0/hit-critical-02.ogg",
+        "/audio/spells-cc0/hit-critical-03.ogg",
+        "/audio/spells-cc0/hit-critical-04.ogg",
+        "/audio/spells-cc0/hit-critical-05.ogg"
+      ],
+      "label": "Critical Hit (CC0)",
+      "vibe": "a firebolt landing; the owner: \"I love the sound effect of it\"",
+      "licence": "CC0 1.0",
+      "source": "SquigglyFish, 'Godot 4 Hit & Impact VFX + SFX' free sampler (squigglyfish.itch.io, CC0 1.0 per its LICENSE.txt; the owner's download, 24 Nov): critical_hit_01-05.wav, mono ogg",
+      "volume": 1
+    },
+    {
+      "id": "hit-energy",
+      "file": "/audio/spells-cc0/hit-energy-01.ogg",
+      "variants": [
+        "/audio/spells-cc0/hit-energy-02.ogg",
+        "/audio/spells-cc0/hit-energy-03.ogg",
+        "/audio/spells-cc0/hit-energy-04.ogg",
+        "/audio/spells-cc0/hit-energy-05.ogg"
+      ],
+      "label": "Energy Hit (CC0)",
+      "vibe": "a lightning bolt landing",
+      "licence": "CC0 1.0",
+      "source": "SquigglyFish, 'Godot 4 Hit & Impact VFX + SFX' free sampler (squigglyfish.itch.io, CC0 1.0 per its LICENSE.txt; the owner's download, 24 Nov): energy_hit_01-05.wav, mono ogg",
+      "volume": 1
+    },
+    {
+      "id": "hit-groundslam",
+      "file": "/audio/spells-cc0/hit-groundslam-01.ogg",
+      "variants": [
+        "/audio/spells-cc0/hit-groundslam-02.ogg",
+        "/audio/spells-cc0/hit-groundslam-03.ogg",
+        "/audio/spells-cc0/hit-groundslam-04.ogg",
+        "/audio/spells-cc0/hit-groundslam-05.ogg"
+      ],
+      "label": "Ground Slam (CC0)",
+      "vibe": "the Ground Slam conjuration (an object placed)",
+      "licence": "CC0 1.0",
+      "source": "SquigglyFish, 'Godot 4 Hit & Impact VFX + SFX' free sampler (squigglyfish.itch.io, CC0 1.0 per its LICENSE.txt; the owner's download, 24 Nov): ground_slam_01-05.wav, mono ogg",
+      "volume": 1
+    },
+    {
+      "id": "el-bolt-cast",
+      "file": "/audio/spells-cc0/el-bolt-cast.ogg",
+      "label": "Bolt cast (ElevenLabs)",
+      "vibe": "bolt-cast",
+      "source": "ElevenLabs Sound Effects, prompt: a deep, forceful magic launch, a short low whoosh with a thump; take 3 of round 2, chosen by the owner by ear 2026-11-24; trimmed, faded and levelled to -16 LUFS by Hipster",
+      "volume": 1,
+      "ships": true,
+      "fallback": "cc0-cast-whoosh",
+      "licence": "Made with ElevenLabs Sound Effects on the owner's paid plan (2026-11-24), used inside the Oasis and shipped with it. Not CC0."
+    }
+  ]
+}

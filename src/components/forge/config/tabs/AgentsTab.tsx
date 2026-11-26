@@ -193,8 +193,8 @@ export function AgentsTab() {
           onChange={() => updateSetting('villageFilmMode', settings.villageFilmMode !== true)}
           label="Film mode"
           hint={settings.villageFilmMode === true
-            ? 'On for recording: the skill tree stands in the world, and no T / E / F keys float over the agents. Turn it off when the take is done.'
-            : 'For recording a film: one switch puts the skill tree in the world and hides the T / E / F keys over the agents.'}
+            ? 'On for recording: no T / E / F keys float over the agents. Turn it off when the take is done. The skill tree has its own switch above.'
+            : 'For recording: hides the T / E / F keys over the agents. The skill tree has its own switch above.'}
           data-village-film-mode={settings.villageFilmMode === true ? 'on' : 'off'}
         />
       </section>

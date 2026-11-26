@@ -1,6 +1,6 @@
 // ░▒▓ ACADEMY, SERVER SIDE — reads the skill content, keeps the trainees' progress ▓▒░
-// Content: skills.json + keys.json (and further sets, skills-<id>.json + keys-<id>.json) in OASIS_ACADEMY_DIR (default C:\7c_oasis\academy, a private folder);
-// when it is missing, the three-skill sample in this repo.
+// Content: skills.json + keys.json (and further sets, skills-<id>.json + keys-<id>.json) in OASIS_ACADEMY_DIR (default: data/academy in the Oasis folder);
+// when it is missing, the film's 13 skills in this repo.
 // Progress: data/academy.local.json (gitignored like every data/*.local.json), one writer at a time.
 
 import { promises as fs } from 'node:fs'

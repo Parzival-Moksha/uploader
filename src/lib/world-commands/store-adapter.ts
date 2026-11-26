@@ -28,6 +28,7 @@ export interface WorldCommandStoreState {
   behaviors: Record<string, ObjectBehavior>
   worldLights: WorldLight[]
   worldSkyBackground: string
+  worldAmbience: string
   customGroundPresets: WorldState['customGroundPresets']
   placedAgentWindows: AgentWindow[]
   placedAgentAvatars: AgentAvatar[]
@@ -51,6 +52,7 @@ export type WorldCommandStorePatch = Partial<Pick<
   | 'behaviors'
   | 'worldLights'
   | 'worldSkyBackground'
+  | 'worldAmbience'
   | 'customGroundPresets'
   | 'placedAgentWindows'
   | 'placedAgentAvatars'
@@ -94,6 +96,7 @@ export function storeStateToWorldState(
     behaviors: state.behaviors,
     lights: state.worldLights,
     skyBackgroundId: state.worldSkyBackground,
+    ambience: state.worldAmbience || undefined,
     customGroundPresets: state.customGroundPresets,
     agentWindows: state.placedAgentWindows,
     agentAvatars: state.placedAgentAvatars,
@@ -118,6 +121,7 @@ export function worldStateToStorePatch(state: WorldState): WorldCommandStorePatc
     behaviors: state.behaviors || {},
     worldLights: state.lights || [],
     worldSkyBackground: state.skyBackgroundId || '',
+    worldAmbience: state.ambience || '',
     customGroundPresets: state.customGroundPresets || [],
     placedAgentWindows: state.agentWindows || [],
     placedAgentAvatars: state.agentAvatars || [],

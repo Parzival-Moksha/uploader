@@ -59,7 +59,11 @@ export const defaultSettings: OasisSettings = {
   masterVolume: 0.8,
   sfxVolume: 0.85,
   musicVolume: 0.6,
+  // Off by default (the owner, 24 Nov: "it's supposed to be off by default"); a switch in Settings > Sound turns it on.
+  musicEnabled: false,
   ambientVolume: 0.5,
+  // Off by default like the music; Settings > Sound > Ambience chooses wind, birds or a drone (src/lib/ambience.ts).
+  ambience: 'off',
   spatialAudioEnabled: true,
   // Default sound IDs come from public/audio/spells/manifest.json.
   spellSounds: { ...DEFAULT_SPELL_SOUNDS },

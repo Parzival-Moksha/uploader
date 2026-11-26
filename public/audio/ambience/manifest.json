@@ -1,0 +1,15 @@
+{
+  "purpose": "Ambience recordings of the Oasis (Settings > Sound > Ambience). Wind and the ominous drone have no file: they are made live in Web Audio (src/lib/ambience-voices.ts). Played by src/components/BackgroundAmbience.tsx.",
+  "license": "CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/): no attribution required, may be passed on. Credit given anyway.",
+  "files": [
+    {
+      "file": "nightingale-evening.mp3",
+      "title": "Nightingale song, May 2012",
+      "artist": "Adam Clark",
+      "where": "South Norfolk, UK, an evening in May 2012",
+      "license": "CC0 1.0",
+      "source": "https://archive.org/details/NightingaleSongMay2012",
+      "edit": "first 228 s; rumble below 120 Hz cut, the loudest phrases evened (compressor 3:1), levelled to -21 LUFS, 112 kbps MP3. The edits are CC0 too. In the Oasis a quiet breeze made live plays under it."
+    }
+  ]
+}

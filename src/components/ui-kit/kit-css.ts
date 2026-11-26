@@ -108,7 +108,8 @@ export const KIT_CSS = `
 [data-kit-style="forged"] .kit-label, .kit-panel[data-kit-style="forged"] .kit-label { font-family: ${SERIF}; color: #e3c27a; opacity: 0.9; }
 [data-kit-style="forged"].kit-btn { border: 0; padding: 12px 24px 11px; background: url(/ui/rail/plate-silver.png) center / 100% 100% no-repeat; color: #f1dca8; font-family: ${SERIF}; text-shadow: 0 1px 0 #000; filter: drop-shadow(0 4px 5px rgba(0,0,0,0.5)); }
 [data-kit-style="forged"].kit-btn[data-variant="primary"] { background-image: url(/ui/rail/plate-gold.png); }
-[data-kit-style="forged"].kit-btn[data-variant="danger"] { background-image: url(/ui/rail/plate-red.png); color: #ffe0c8; }
+/* Red plate over the silver one: in a busy page (seen headless) the red one can stay undrawn; the silver frame is then still there, with red letters and glow. */
+[data-kit-style="forged"].kit-btn[data-variant="danger"] { background-image: url(/ui/rail/plate-red.png), url(/ui/rail/plate-silver.png); background-size: 100% 100%, 100% 100%; background-position: center, center; background-repeat: no-repeat, no-repeat; color: #ffc9b4; filter: drop-shadow(0 4px 5px rgba(0,0,0,0.5)) drop-shadow(0 0 6px rgba(255,90,60,0.45)); }
 [data-kit-style="forged"].kit-btn:hover:not(:disabled) { filter: drop-shadow(0 6px 8px rgba(0,0,0,0.55)) brightness(1.22); }
 [data-kit-style="forged"].kit-tile { border: 3px solid transparent; border-image: url(/ui/rail/plate-gold.png) 46 / 14px / 2px stretch; background: #0b0f1a; border-radius: 0; }
 [data-kit-style="forged"].kit-tile .kit-tile-label { font-family: ${SERIF}; ${GOLD_TEXT} filter: drop-shadow(0 2px 3px #000); }

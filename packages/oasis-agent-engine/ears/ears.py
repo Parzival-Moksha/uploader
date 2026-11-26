@@ -70,9 +70,9 @@ def say(**msg):
 
 
 def full_speed():
-    """Below normal priority, like all of Tyler's work, so whatever Levi does himself always comes first, but not in
+    """Below normal priority, like all of Tyler's work, so whatever the owner does himself always comes first, but not in
     "efficiency mode": Windows puts a process with no window of its own on the slow cores at a low clock, which on
-    Levi's laptop cost two thirds of the speed (29 vs 88 GFLOPS on one core). Live dictation is interactive, so this
+    the owner's laptop cost two thirds of the speed (29 vs 88 GFLOPS on one core). Live dictation is interactive, so this
     process opts out. Both settings are for this process only."""
     if os.name != "nt":
         try:
@@ -199,7 +199,7 @@ class Moonshine:
 
     def __init__(self, spec, models_dir, threads):
         os.environ.setdefault("MOONSHINE_VOICE_CACHE", str(Path(models_dir) / "moonshine"))
-        # One thread: measured on Levi's laptop, all of them cost ten times the CPU (half of the whole processor) for 1.4
+        # One thread: measured on the owner's laptop, all of them cost ten times the CPU (half of the whole processor) for 1.4
         # updates a second instead of 1.1, so this leaves the other cores alone
         os.environ.setdefault("MOONSHINE_ORT_SINGLE_THREAD", "1")
         from moonshine_voice import ModelArch, Transcriber, get_model_for_language

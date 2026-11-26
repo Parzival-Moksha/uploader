@@ -3,12 +3,14 @@
 // The loading bar: 200 px at the bottom centre, and under it what is loading and what took long (the owner, 2026-11-24:
 // "it'd be cool if it was like a 200px wide bar on the bottom center instead. and if it gave max info on whats being
 // loaded. in megabytes or in type of asset or stuff, im just curious to see what takes so long at load time").
-// Progress comes from world-load-progress.ts (the 3D loaders' count); the detail from load-insight.ts. When a load ends,
+// The detail and the phase come from Perf's load-tracker.ts (agreed shape: getLoadSnapshot / subscribeLoad); the 3D
+// loaders' count (world-load-progress.ts) still says a world is loading. When a load ends,
 // a one-line summary with the slowest files stays a few seconds, then the bar leaves the page.
 
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { getWorldLoadState, subscribeWorldLoad, type WorldLoadState } from '../../lib/world-load-progress'
-import { formatMb, getLoadSnapshot, slowest, subscribeLoad, type LoadItem, type LoadKind, type LoadSnapshot } from '../../lib/load-insight'
+import { getLoadSnapshot, subscribeLoad, type LoadItem, type LoadKind, type LoadSnapshot } from '../../lib/load-tracker'
+import { formatMb, slowest } from '../../lib/load-insight'
 
 const KIND_LABEL: Record<LoadKind, string> = {
   world: 'world', model: 'model', texture: 'texture', sky: 'sky', avatar: 'avatar', animation: 'animation',
@@ -33,7 +35,7 @@ function SlowList({ items }: { items: LoadItem[] }) {
   return (
     <div className="mt-0.5 flex flex-col items-center gap-[2px] text-[11px] leading-tight text-white/55" data-load-slowest="">
       {items.map(item => (
-        <div key={`${item.url}@${item.startMs}`} className="flex max-w-[480px] gap-1.5 whitespace-nowrap">
+        <div key={item.id} className="flex max-w-[480px] gap-1.5 whitespace-nowrap">
           <span className="tabular-nums text-white/75">{seconds(item.endMs! - item.startMs)}</span>
           <Kind kind={item.kind} />
           <span className="truncate">{item.name}</span>
@@ -52,7 +54,8 @@ export function WorldLoadingBar() {
   // After a load: the summary stays a few seconds.
   const [summary, setSummary] = useState<LoadSnapshot | null>(null)
   const wasLoading = useRef(false)
-  const loading = state.isLoading || state.progress < 1
+  // A world loading, or the tracker's load still going (it also sees the page itself and the scene warm-up).
+  const loading = state.isLoading || state.progress < 1 || (snap.active && snap.phase !== 'ready')
   useEffect(() => {
     if (loading) { wasLoading.current = true; setSummary(null); return }
     if (!wasLoading.current) return

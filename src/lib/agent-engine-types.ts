@@ -473,12 +473,21 @@ export interface EngineNetworkView {
   why: string | null
 }
 
+/** The Oasis services as the supervisor sees them, relayed by the engine (null: no supervisor). */
+export interface EngineServicesView {
+  supervisor: boolean
+  services: Array<{ name: 'engine' | 'world'; label: string; state: string; managed: boolean; since?: number | null; startedAt?: number; bytes?: number; restarts?: number; tired?: string | null; log?: string }>
+  /** When the engine read it from the supervisor (ms). */
+  at: number
+}
+
 export interface EngineServerInfo {
   port?: number
   claude?: string
   restart?: EngineRestartInfo
   accounts?: EngineAccountsView
   network?: EngineNetworkView
+  services?: EngineServicesView | null
 }
 
 export type EngineServerMessage =
@@ -491,6 +500,8 @@ export type EngineServerMessage =
   | ({ type: 'accounts' } & EngineAccountsView)
   /** The internet line went down or came back (engine network.js). */
   | ({ type: 'network' } & EngineNetworkView)
+  /** The Oasis services changed (the supervisor's status, relayed by the engine). */
+  | { type: 'services'; view: EngineServicesView | null }
   /** The engine wants a picture from this agent's avatar for a message being sent (answer with the eyesFrame command). */
   | { type: 'eyes.request'; requestId: string; agentId: string }
   /** An agent asked for pictures (scripts/me.mjs): its own avatar from the front, or what is around it (answer with viewFrames). */

@@ -23,7 +23,7 @@ export const SAVER_LEVEL = 4
  * down, and what it cost when measured (19 Nov, world ghi9 at 1825 x 1056, 12 agents, headless
  * Chrome on this machine's RTX 4060 laptop GPU; "main" is main-thread time a frame, "GPU" the
  * card's time a frame; everything on: main 8.3 ms, GPU 3.5 ms). `cost` is for people reading
- * this; the code uses `tier`. Log: docs/missions/fps-ceiling.md (7c_oasis).
+ * this; the code uses `tier`. Log: the fps-ceiling mission.
  */
 export const FLOP_EFFECTS = [
   { id: 'skyTransition', tier: 1, name: 'Sky change effect (melt, rip, glitch); the sky swaps at once instead', cost: 'only while the sky changes' },

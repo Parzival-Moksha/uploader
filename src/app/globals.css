@@ -8,7 +8,7 @@
 @tailwind utilities;
 
 :root {
-  /* Emoji in every font stack: Apple's on a Mac, else the self-hosted Noto (oasis-emoji.css; Windows 10's own
+  /* Emoji in every font stack: Apple's on a Mac, else the self-hosted Noto (public/fonts/emoji/oasis-emoji.css; Windows 10's own
      emoji font has no newer emoji), then the system ones. Inline stacks use var(--oasis-emoji) before their generic. */
   --oasis-emoji: "Apple Color Emoji", "Oasis Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Segoe UI Symbol";
   --prefrontal: #8B5CF6;

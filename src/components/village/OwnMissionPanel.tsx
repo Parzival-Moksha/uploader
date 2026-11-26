@@ -11,6 +11,7 @@ import { commitBonusPct, commitInWindow, commitStateAt, commitWhen, easeFromMinu
 import { formatClock, type WorkSnapshot } from '../../lib/village/work-vow'
 import { useOasisStore } from '../../store/oasisStore'
 import { commitOwnRun, uncommitOwnRun, endOwnRun, extendOwnRun, noteOwnRun, notifyOwnRun, pauseOwnRun, readOwnRunNotes, RUN_ANSWER_GRACE_MS, saveOwnRun, setRunDraft, startOwnRun } from './work-vow-client'
+import { kitConfirm } from '@/components/ui-kit'
 
 const GREEN = '#34d399'
 const AMBER = '#fbbf24'
@@ -350,13 +351,13 @@ export function NewMission({ onStarted }: { onStarted?: () => void }) {
           </select>
           <span>at</span>
           <input type="time" value={clock} onChange={event => setClock(event.target.value || clock)} className="mc-field px-1 py-0.5 text-[13px] text-white outline-none" />
-          <span className="basis-full text-[11px] text-white/55">Kept if you start it within 15 minutes of its time and run it to its length. The further ahead, the bigger the bonus: +20% a day ahead, +50% three days, +100% a week.</span>
+          <span className="basis-full text-[11px] text-white/55">Kept if you start it within 15 minutes of its time and run it to its length. The further ahead, the bigger the bonus: +100% for a day ahead, growing evenly from now, at most +200% from two days ahead.</span>
         </div>
       )}
       <div className="mt-2 flex flex-wrap gap-1.5">
         {committing && (
           <button type="button" data-own-mission="commit" disabled={busy || !title.trim() || !length || commitAt < Date.now() + 60_000} onClick={() => { void commit() }} className="mc-btn" style={INLINE_BTN} data-tone="go" title="Commit it: the bell rings when it is due, and Telegram if no Oasis page is open">
-            Commit · {commitWhen(commitAt)} · {commitAt < Date.now() + 60_000 ? 'pick a later time' : commitBonus ? `+${commitBonus}% if kept` : 'no bonus under an hour ahead'}
+            Commit · {commitWhen(commitAt)} · {commitAt < Date.now() + 60_000 ? 'pick a later time' : commitBonus ? `+${commitBonus}% if kept` : 'no bonus'}
           </button>
         )}
         {!later && !committing && <button type="button" data-own-mission="start" disabled={busy || !title.trim()} onClick={() => { void start() }} className="mc-btn" style={INLINE_BTN} data-tone="go">▶ Start</button>}
@@ -391,7 +392,7 @@ function CommitRow({ c, canStart }: { c: Commitment; canStart: boolean }) {
         </button>
       )}
       {state === 'pending' && !due && (
-        <button type="button" disabled={busy} onClick={() => { if (window.confirm(`Call off "${c.title}" (${commitWhen(c.at)})?`)) void go(() => uncommitOwnRun(c.id)) }} className="text-[13px] text-white/45 hover:text-rose-200" title="Call it off">✕</button>
+        <button type="button" disabled={busy} onClick={() => { void kitConfirm({ title: `Call off "${c.title}"?`, body: commitWhen(c.at), confirm: 'Call it off', danger: true }).then(ok => { if (ok) void go(() => uncommitOwnRun(c.id)) }) }} className="text-[13px] text-white/45 hover:text-rose-200" title="Call it off">✕</button>
       )}
     </div>
   )
@@ -399,13 +400,35 @@ function CommitRow({ c, canStart }: { c: Commitment; canStart: boolean }) {
 
 /** His committed missions: today's and the coming days'. */
 export function CommittedList({ snapshot, title = 'Committed' }: { snapshot: WorkSnapshot; title?: string }) {
-  const list = snapshot.commits || []
+  // Still ahead or under way; the kept and missed ones are in CommitHistory.
+  const list = (snapshot.commits || []).filter(c => { const st = commitStateAt(c, Date.now()); return st === 'pending' || st === 'started' })
   if (!list.length) return null
   const running = Boolean(snapshot.active?.run)
   return (
     <div data-own-mission="committed" className="mc-card mt-2 px-2 py-1.5">
       <div className="mc-label">{title}</div>
       {list.map(c => <CommitRow key={c.id} c={c} canStart={!running} />)}
+    </div>
+  )
+}
+
+/** The commitments he has been through: kept ones with their bonus (their glory), missed ones plainly. */
+export function CommitHistory({ snapshot }: { snapshot: WorkSnapshot }) {
+  const list = snapshot.commitsDone || []
+  if (!list.length) return null
+  const kept = list.filter(c => c.state === 'kept')
+  const bonus = kept.reduce((sum, c) => sum + (c.bonusXp || 0), 0)
+  return (
+    <div data-own-mission="commit-history" className="mc-card mt-2 px-2 py-1.5">
+      <div className="mc-label">Commitments kept: {kept.length} of {list.length}{bonus ? ` · +${Math.round(bonus)} XP of bonus` : ''}</div>
+      {list.map(c => (
+        <div key={c.id} className="flex flex-wrap items-baseline gap-x-2 border-b border-white/5 py-1 text-[12.5px]">
+          <span className="shrink-0" style={{ color: c.state === 'kept' ? GREEN : RED }}>{c.state === 'kept' ? '✓ kept' : '× missed'}</span>
+          <span className="shrink-0 tabular-nums text-white/60">{commitWhen(c.at)}</span>
+          <span className="min-w-0 flex-1 break-words text-white">{c.title} <span className="text-white/55">· {minutesLabel(c.minutes * 60)}{c.bonusPct ? ` · +${c.bonusPct}%` : ''}</span></span>
+          {c.state === 'kept' && c.bonusXp ? <span className="shrink-0 font-bold" style={{ color: GREEN }}>+{Math.round(c.bonusXp * 10) / 10} XP</span> : null}
+        </div>
+      ))}
     </div>
   )
 }

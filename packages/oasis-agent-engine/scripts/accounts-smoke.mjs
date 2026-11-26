@@ -23,6 +23,9 @@ const PORT = Number(process.env.OASIS_PORT || 4547);
 if (PORT === 4530) throw new Error('never on the real engine port');
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'oasis-accounts-smoke-'));
 const ROSTER = path.join(tmp, 'roster.local.json');
+// No quiet hours for the test engine: its clock is moved hours ahead, and run late at night that lands inside the
+// default quiet hours (01:00 to 08:00), where a held wake-up rightly stays held (24 Nov, 23:30: "goes out once: 0").
+fs.writeFileSync(path.join(tmp, 'roster.schedule.local.json'), JSON.stringify({ quiet: null, dailyCap: 200 }));
 const ACCOUNTS = path.join(tmp, 'claude-accounts.local.json');
 const STATE = path.join(tmp, 'fake-state.json');
 const FAKE_LOG = path.join(tmp, 'fake-claude.jsonl');

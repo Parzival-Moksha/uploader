@@ -1,13 +1,13 @@
 // ░▒▓ VILLAGE MISSIONS — the owner's missions as framed panels behind Anorak's desk ▓▒░
 // Pure: parsing a mission file, ranking, the wall's layout, the keys. No fs, no three.js.
 //
-// A mission is a markdown file (C:\7c_oasis\docs\missions\*.md) that starts with header lines:
+// A mission is a markdown file (a file in the missions folder) that starts with header lines:
 //     state: idea | agreed | doing | shipped | verified
 //     who: ...
 //     done when: one sentence a person can check
 //     score: ease 3 · impact 5 · urgency 4
 // Priority = ease × impact × urgency ÷ 125. The kanban column is the state. The ranking matches
-// scripts/missions_board.py in 7c_oasis.
+// the missions board script.
 
 import type { Vec3 } from './village-layout'
 

@@ -5,45 +5,42 @@
 // button." On the rail with Menu, World and Spells (the hud layer), opening the menu on its Character tab as K
 // does, with his level underneath the way Agents shows who is here.
 
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
+import { persistCachedJson, refreshCachedJson, useCachedJson, warmCachedJson } from '@/lib/cached-json'
 import { GameMenuButton } from '@/components/forge/GameMenuButton'
 import { closeCharacter, openCharacter, useCharacterState } from './character-store'
+import { refreshKeychain } from './keychain-store'
 
-/** The player's level, read when the page opens, when the window is looked at again, and every few minutes. */
+const PROFILE_URL = '/api/profile'
+persistCachedJson(PROFILE_URL)
+
+/** The player's level, from the profile kept for the page (the Character menu reads the same one). */
 function usePlayerLevel(menuOpen: boolean): number | null {
-  const [level, setLevel] = useState<number | null>(null)
+  const profile = useCachedJson<{ level?: unknown }>(PROFILE_URL, 60_000, 5 * 60_000)
+  // Closing the menu reads again: XP may have come in while it was open.
+  useEffect(() => { if (!menuOpen) void refreshCachedJson(PROFILE_URL, 10_000) }, [menuOpen])
+  return typeof profile?.level === 'number' ? profile.level : null
+}
+
+/**
+ * The menu's data read ahead once the village is idle, so the first open is instant:
+ * the profile, Claude's usage and plan limits (asking Claude Code takes ~10 s the first time), the keychain.
+ */
+function useWarmCharacterMenu(): void {
   useEffect(() => {
-    let gone = false
-    const read = () => {
-      fetch('/api/profile', { cache: 'no-store' })
-        .then(response => (response.ok ? response.json() : null))
-        .then((data: { level?: unknown } | null) => {
-          if (!gone && data && typeof data.level === 'number') setLevel(data.level)
-        })
-        .catch(() => { /* the button works without it */ })
-    }
-    const timer = window.setInterval(read, 5 * 60_000)
-    window.addEventListener('focus', read)
+    const cancelWarm = warmCachedJson([PROFILE_URL, '/api/claude-plan', '/api/claude-usage'], 8000)
+    const keys = window.setTimeout(() => { void refreshKeychain() }, 12_000)
     return () => {
-      gone = true
-      window.clearInterval(timer)
-      window.removeEventListener('focus', read)
+      cancelWarm()
+      window.clearTimeout(keys)
     }
   }, [])
-  // On mount, and again on closing the menu: XP may have come in while it was open.
-  useEffect(() => {
-    if (menuOpen) return
-    fetch('/api/profile', { cache: 'no-store' })
-      .then(response => (response.ok ? response.json() : null))
-      .then((data: { level?: unknown } | null) => { if (data && typeof data.level === 'number') setLevel(data.level) })
-      .catch(() => {})
-  }, [menuOpen])
-  return level
 }
 
 export function CharacterRailButton() {
   const { open } = useCharacterState()
   const level = usePlayerLevel(open)
+  useWarmCharacterMenu()
   return (
     <GameMenuButton
       type="button"

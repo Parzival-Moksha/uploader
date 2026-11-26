@@ -7,8 +7,8 @@
 //      then ~/.oasis/app (where step 2 puts it).
 //   2. Not there yet: installs it. One file is downloaded, the packaged Oasis, at the one version and checksum
 //      pinned in release.json beside this file, from the Oasis's own GitHub releases, and unpacked to
-//      ~/.oasis/app. The full Oasis by default (every feature and asset, about 570 MB); --lite takes the small
-//      one (about 30 MB) for a quick look. Then the Oasis's own start script installs its packages from its
+//      ~/.oasis/app: the full Oasis, every feature and asset, about 570 MB (one edition since 24 Nov 2026; an old
+//      --lite is ignored). Then the Oasis's own start script installs its packages from its
 //      lockfile and builds it. Nothing else is downloaded by this file.
 //      From /oasis this runs in the background (a mod may wait ten minutes at most): the first /oasis says that
 //      the install began, each later /oasis says how far it is, and the browser opens by itself at the end.
@@ -16,7 +16,7 @@
 //   3. Hands over to the Oasis's start script (<home>/scripts/oasis.mjs start), which starts the page server
 //      and the agent engine if they are not running, and opens the village in the browser.
 //
-//   node oasis-launch.mjs [--session <id>] [--home <folder>] [--lite] [--wait] [--from <file.tar.gz>]
+//   node oasis-launch.mjs [--session <id>] [--home <folder>] [--wait] [--from <file.tar.gz>]
 //                         [--no-install] [--where] [--token]
 //
 // --token prints the Oasis's local key (~/.oasis/token) and nothing else: the plugin's hooks send it with their
@@ -317,6 +317,9 @@ function releaseFiles(home) {
 /**
  * Sorts the old install's files: theirs (in a data place and not shipped by the new release: carried over),
  * left over (neither theirs nor any release's: copied aside, never into the build), the rest is the old release's.
+ * @param {string[]} oldFiles
+ * @param {Set<string>} newShipped
+ * @param {Set<string> | null} [oldShipped]
  */
 export function sortFiles(oldFiles, newShipped, oldShipped = null) {
   const theirs = []
@@ -606,7 +609,7 @@ const startArgs = (home, session) => [path.join(realHome(home), 'scripts', 'oasi
 
 /** The whole first install, to the open browser: download, unpack, packages and build, start. */
 async function installAndStart({ quiet }) {
-  const edition = has('--lite') ? 'lite' : 'full'
+  const edition = 'full' // one edition since 24 Nov 2026; an old --lite is ignored
   const session = arg('--session')
   writeState({ state: 'running', step: 'download', pid: process.pid, startedAt: Date.now(), edition, bytes: 0, total: 0, error: '', log: logFile() })
   try {
@@ -637,11 +640,11 @@ async function installAndStart({ quiet }) {
 function installInBackground() {
   fs.mkdirSync(dataDir(), { recursive: true })
   const log = fs.openSync(logFile(), 'w')
-  const pass = ['--install-worker', ...(has('--lite') ? ['--lite'] : []), ...(arg('--session') ? ['--session', arg('--session')] : []), ...(arg('--from') ? ['--from', arg('--from')] : [])]
+  const pass = ['--install-worker', ...(arg('--session') ? ['--session', arg('--session')] : []), ...(arg('--from') ? ['--from', arg('--from')] : [])]
   const child = spawn(process.execPath, [SELF, ...pass], { detached: true, windowsHide: true, stdio: ['ignore', log, log] })
   child.unref()
   fs.closeSync(log)
-  writeState({ state: 'running', step: 'download', pid: child.pid, startedAt: Date.now(), edition: has('--lite') ? 'lite' : 'full', bytes: 0, total: 0, error: '', log: logFile() })
+  writeState({ state: 'running', step: 'download', pid: child.pid, startedAt: Date.now(), edition: 'full', bytes: 0, total: 0, error: '', log: logFile() })
 }
 
 export async function main() {
@@ -678,7 +681,7 @@ export async function main() {
     if (has('--wait')) return installAndStart({ quiet: false })
     let size = ''
     try {
-      const release = readRelease(undefined, has('--lite') ? 'lite' : 'full')
+      const release = readRelease(undefined, 'full')
       size = release.megabytes ? ` (${release.megabytes} MB, then its packages and a build: about ten minutes)` : ''
     } catch {
       // said by the worker

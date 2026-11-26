@@ -2,6 +2,7 @@
 // Volume and mute follow the Oasis sound settings. "Classic" plays the existing button samples.
 
 import { useAudioManager } from '@/lib/audio-manager'
+import { playSoundMoment } from '@/lib/sound-moments'
 import type { MenuSoundId } from './menu-store'
 
 export type MenuSoundEvent = 'hover' | 'leave' | 'click' | 'open' | 'close'
@@ -127,6 +128,8 @@ export function playMenuSound(style: MenuSoundId, event: MenuSoundEvent): void {
     const now = typeof performance !== 'undefined' ? performance.now() : 0
     if (now - lastClickAt < 70) return
     lastClickAt = now
+    // A menu confirm: the shipped 'ui-confirm' pick, in every menu sound style, when one is picked.
+    if (playSoundMoment('ui-confirm', 0.6)) return
   }
   if (style === 'classic') {
     playingClassic = true

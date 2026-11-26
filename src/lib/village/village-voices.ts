@@ -28,8 +28,35 @@ export const VILLAGE_VOICES: readonly VillageVoice[] = voiceList as VillageVoice
 /** Anorak's voice unless the owner picks another. */
 export const ANORAK_VOICE = 'merlin'
 
+/**
+ * This machine's own extra voices (data/voices.local.json, a cloned voice: never shipped; /api/village/voices),
+ * set by the page when it loads. Picked by hand only: never dealt at random (voiceOf deals from VILLAGE_VOICES).
+ */
+let localVoices: readonly VillageVoice[] = []
+let localVersion = 0
+const localListeners = new Set<() => void>()
+
+export function setLocalVillageVoices(list: readonly VillageVoice[]): void {
+  localVoices = list.filter(voice => !VILLAGE_VOICES.some(shipped => shipped.key === voice.key))
+  localVersion += 1
+  localListeners.forEach(listener => listener())
+}
+
+export function localVillageVoices(): readonly VillageVoice[] {
+  return localVoices
+}
+
+export function getLocalVoicesVersion(): number {
+  return localVersion
+}
+
+export function subscribeLocalVoices(listener: () => void): () => void {
+  localListeners.add(listener)
+  return () => { localListeners.delete(listener) }
+}
+
 export function villageVoice(key: string | null | undefined): VillageVoice | null {
-  return VILLAGE_VOICES.find(voice => voice.key === key) || null
+  return VILLAGE_VOICES.find(voice => voice.key === key) || localVoices.find(voice => voice.key === key) || null
 }
 
 // ─── speed ──────────────────────────────────────────────────────────────────
@@ -96,7 +123,11 @@ export function parseVoicePrefs(raw: string | null | undefined): VoicePrefs {
       if (!value || typeof value !== 'object') continue
       const entry = value as AgentVoicePrefs
       const clean: AgentVoicePrefs = {}
-      if (villageVoice(entry.voice)) {
+      // A hand pick of a well-formed key is kept even when this page does not know it yet: this machine's own
+      // voices (voices.local.json) arrive a moment after the page loads, they are only ever picked by hand, and a
+      // pick dropped here would be saved away. An unknown key not picked by hand is junk. voiceOf checks the key
+      // when a voice is used.
+      if (villageVoice(entry.voice) || (entry.picked === true && typeof entry.voice === 'string' && /^[\w.-]{1,40}$/.test(entry.voice))) {
         clean.voice = entry.voice
         if (entry.picked === true) clean.picked = true
       }

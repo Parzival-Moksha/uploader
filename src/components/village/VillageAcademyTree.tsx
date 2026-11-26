@@ -558,7 +558,8 @@ function PickedRing({ nodes }: { nodes: TreeNode[] }) {
 export function VillageAcademyTree({ origin }: { origin: VillageOrigin }) {
   // Off unless asked for (Config → Agents → Skill tree in the world): the skill map is the main way in.
   const { settings } = useContext(SettingsContext)
-  const enabled = useAcademyEnabled() && (settings.villageAcademyTree === true || settings.villageFilmMode === true)
+  // Its own switch only (Film mode hides the T / E / F hints and nothing else, the owner 2026-11-25).
+  const enabled = useAcademyEnabled() && settings.villageAcademyTree === true
   const content = useSyncExternalStore(subscribeAcademy, () => getAcademyState().content, () => null)
   const trainee = useSyncExternalStore(subscribeAcademy, () => selectedTrainee(), () => null)
   const terrainHeights = useOasisStore(s => s.terrainHeights)

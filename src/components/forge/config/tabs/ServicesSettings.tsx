@@ -4,20 +4,13 @@
 // for the agent engine and the page server, since when each runs, and a Restart button for
 // each (the owner's click only; /api/oasis/services asks the supervisor, scripts/oasis-supervisor.mjs). Without the
 // supervisor (the old two-window launcher) it says how to get it. The red warning when one is down is
-// ConnectionWarning's; this is where to act on it.
+// ConnectionWarning's; this is where to act on it. What it shows comes from useServicesView (services-view.ts): the
+// supervisor's status as the engine relays it, at once, not a probe of the busy dev server.
 
-import { useCallback, useEffect, useState } from 'react'
+import { useState } from 'react'
+import { kitConfirm } from '@/components/ui-kit'
+import { ageText, useServicesView, type ServiceView } from './services-view'
 
-interface ServiceView {
-  name: 'engine' | 'world'
-  label: string
-  state: 'running' | 'starting' | 'down' | 'stopping' | 'gave-up' | 'unknown'
-  managed: boolean
-  since?: number | null
-  restarts?: number
-  lastExit?: { at: number; code: number | null; signal: string | null } | null
-  log?: string
-}
 
 const STATE_TEXT: Record<ServiceView['state'], string> = {
   running: 'running',
@@ -48,28 +41,23 @@ export function Light({ color, title }: { color: string; title?: string }) {
 }
 
 export function ServicesSettings() {
-  const [data, setData] = useState<{ supervisor: boolean; services: ServiceView[] } | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const { data, slow, error: readError } = useServicesView()
+  const [restartError, setError] = useState<string | null>(null)
+  const error = restartError || readError
   const [asked, setAsked] = useState<string | null>(null)
 
-  const load = useCallback(() => {
-    fetch('/api/oasis/services', { cache: 'no-store' })
-      .then(res => res.json())
-      .then(body => { setData(body); setError(null) })
-      .catch(() => setError('The page server does not answer right now.'))
-  }, [])
-
-  useEffect(() => {
-    load()
-    const timer = window.setInterval(load, 3000)
-    return () => window.clearInterval(timer)
-  }, [load])
-
-  const restart = (service: ServiceView) => {
-    const what = service.name === 'world'
-      ? 'Restart the page server? This window goes blank for about half a minute, then reloads by itself. Agents keep working.'
-      : 'Restart the agent engine? Agents in the middle of a turn are stopped and told to carry on when it is back (about ten seconds).'
-    if (!window.confirm(what)) return
+  const restart = async (service: ServiceView) => {
+    // The Oasis's own dialog, not the browser's (the owner, 2026-11-24).
+    const page = service.name === 'world'
+    const ok = await kitConfirm({
+      title: page ? 'Restart the page server?' : 'Restart the agent engine?',
+      body: page
+        ? 'This window goes blank for about half a minute, then reloads by itself. Agents keep working.'
+        : 'Agents in the middle of a turn are stopped and told to carry on when it is back (about ten seconds).',
+      confirm: 'Restart',
+      danger: true,
+    })
+    if (!ok) return
     setAsked(service.name)
     fetch('/api/oasis/services', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ service: service.name }) })
       .then(async res => { if (!res.ok) setError((await res.json().catch(() => ({}))).error || `Restart failed (${res.status})`) })
@@ -89,10 +77,12 @@ export function ServicesSettings() {
             <div className="text-sm text-gray-300">{service.label}</div>
             <div className={`text-[10px] ${service.state === 'running' ? 'text-gray-500' : 'text-amber-300'}`} title={service.log ? `Log: ${service.log}` : undefined}>
               {STATE_TEXT[service.state] || service.state}
-              {service.state === 'running' && service.since ? ` since ${sinceText(service.since)}` : ''}
+              {service.state === 'running' && (service.startedAt || service.since) ? ` since ${sinceText((service.startedAt || service.since)!)}` : ''}
+              {service.bytes ? ` · ${(service.bytes / 1024 ** 3).toFixed(1)} GB` : ''}
               {data.supervisor ? (service.managed ? ' · no window' : ' · in its own window') : ''}
               {service.restarts ? ` · restarted ${service.restarts}×` : ''}
             </div>
+            {service.tired && <div className="text-[10px] text-amber-300" data-service-tired>restart me: {service.tired}. A restart takes about half a minute; a page open on it reloads by itself.</div>}
             </div>
           </div>
           <button
@@ -106,7 +96,8 @@ export function ServicesSettings() {
           </button>
         </div>
       ))}
-      {!data && !error && <div className="text-[11px] text-gray-500">checking…</div>}
+      {data && data.source === 'cache' && <div className="text-[10px] text-gray-500" data-services-age>as last seen, {ageText(data.at)}{slow ? ' · slow to answer' : ''}</div>}
+      {!data && !error && <div className="text-[11px] text-gray-500" data-services-waiting>{slow ? 'slow to answer…' : 'reading…'}</div>}
       {data && <div className="text-[10px] text-gray-500 mt-1">
         {data.supervisor
           ? 'The supervisor runs both without windows, keeps their logs in C:\\af_oasis\\logs and starts one again if it stops.'

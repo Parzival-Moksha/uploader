@@ -43,7 +43,7 @@ import { dismissVillageAgent } from './village-leave'
 import { AgentWhereBar } from './AgentWhereBar'
 import { AgentPanelHeaderTabs, ThreadFontScale, ThreadFontSlider, useAgentPanelTab } from './AgentPanelTabs'
 import { AgentMissionsPage } from './AgentMissionsPage'
-import { KitSelectField, KitChip } from '@/components/ui-kit'
+import { KitSelectField, KitChip, kitPrompt } from '@/components/ui-kit'
 import { VILLAGE_FONT_BODY, VILLAGE_FONT_DISPLAY, VILLAGE_TYPE_CLASS, agentDisplayName, canTalkTo, cwdLabel, formatCost, modelLabel, statusColor, statusLabel } from './village-status'
 import { useKitStyle } from '@/components/ui-kit'
 import { raiseLayer, useLayer } from '@/lib/ui-kit/layers'
@@ -349,11 +349,13 @@ export function AgentControls({ agent }: { agent: EngineAgentState }) {
               onChange={event => {
                 let model: string | null = event.target.value
                 if (!model || model === '__current') return
+                const switchTo = (id: string) => { getAgentEngineClient().setModel(agent.id, id).catch(error => showNotice(`Model switch failed: ${describeError(error)}`, 'error')) }
                 if (model === CUSTOM_MODEL_VALUE) {
-                  model = cleanModelId(window.prompt('Model id (any the Claude Code CLI takes, e.g. claude-fable-5-2)', ''))
-                  if (!model) return
+                  void kitPrompt({ title: 'Another model', label: 'Model id', body: 'Any the Claude Code CLI takes.', placeholder: 'claude-fable-5-2', confirm: 'Use it' })
+                    .then(typed => { const id = cleanModelId(typed); if (id) switchTo(id) })
+                  return
                 }
-                getAgentEngineClient().setModel(agent.id, model).catch(error => showNotice(`Model switch failed: ${describeError(error)}`, 'error'))
+                switchTo(model)
               }}
               onKeyDown={event => event.stopPropagation()}
             >

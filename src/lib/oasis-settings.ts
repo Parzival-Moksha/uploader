@@ -14,6 +14,8 @@ const ENV: Record<OasisSettingKey, string> = {
 }
 
 export function settingsFile(): string {
+  // A test run without its own redirect fails here instead of reading his folders (src/test-utils/data-fence.ts).
+  if (!process.env.OASIS_SETTINGS_FILE && (process.env.VITEST || process.env.VITEST_WORKER_ID || process.env.NODE_ENV === 'test')) throw new Error('a test run must set OASIS_SETTINGS_FILE (the data fence does)')
   return process.env.OASIS_SETTINGS_FILE || path.join(process.cwd(), 'data', 'oasis-settings.local.json')
 }
 

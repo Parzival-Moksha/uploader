@@ -3,12 +3,13 @@
 // Sky transitions (the owner, 2026-11-19: "one melts away to give way to the next in patches, or rips apart, and
 // maybe glitches out into the new one"). Whatever changes the sky (the sky picker, an agent's set_sky, a world
 // load), the scene's background image changes; this notices it, keeps the old image, and lays it on a sky dome
-// in front of the new one, eaten away by one of three masks over about 1.6 seconds.
+// in front of the new one, eaten away by one of three masks over 3 seconds.
 //
 // Cost: one comparison a frame while nothing happens. During a transition, one sphere drawn first (it writes no
 // depth, so the world draws over it as usual) with one texture read and a little noise per pixel.
 
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import { playSoundMoment } from '@/lib/sound-moments'
 import * as THREE from 'three'
 import { useFrame, useThree } from '@react-three/fiber'
 import { useFrameWhen } from '@/lib/use-frame-when'
@@ -22,7 +23,8 @@ export const SKY_TRANSITION_STYLES: Array<{ id: SkyTransitionStyle; label: strin
 ]
 
 const KEY = 'oasis-sky-transition'
-const DURATION = 1.6
+// 3 s, the length of its sound (the owner, 24 Nov: the sky change "same length as the sky change vfx... multiple seconds").
+const DURATION = 3.0
 let current: SkyTransitionStyle | null = null
 const listeners = new Set<() => void>()
 
@@ -163,6 +165,8 @@ export function SkyTransition() {
     if (bg === last.current) return
     const previous = last.current
     last.current = bg
+    // The sky change's sound (the shipped 'sky-change' pick), also when its visual is off.
+    playSoundMoment('sky-change')
     if (style === 'off') return
     const oldTexture = previous && (previous as THREE.Texture).isTexture ? (previous as THREE.Texture) : null
     // An equirect image is what the dome can show; a cube map or a flat colour fades from dark instead.

@@ -37,7 +37,7 @@ export const SHOW_FILES = 'To show the owner a picture, an audio file, a video o
  * Where questions for the owner that can wait go (his rule, 2026-11-17), instead of waiting in a thread he may not
  * open for days. Also in the plugin's note; here too, because a session that already exists keeps the system prompt
  * it started with, and this note reaches it with the next message. Since 2026-11-20 a question is one file in this
- * machine's `questionsDir` (C:/7c_oasis/docs/questions, format in its README.md), and the owner's list (`grillFile`,
+ * machine's `questionsDir` (format in its README.md), and the owner's list (`grillFile`,
  * open.md) is written from those files by a script, so a line typed into the list is lost. A machine with only a
  * `grillFile` keeps the old line; with neither, the line is left out. No "]" inside (the thread hides the note).
  */
@@ -142,6 +142,8 @@ export function characterNote(card, { file = '', tools = '', showFiles = true } 
   if (f.world || f.place) parts.push(`Your place: ${[f.world ? `the world "${f.world}".` : '', f.place || ''].filter(Boolean).join(' ')}`);
   if (tools) {
     parts.push(`In a shell, node "${tools}" look saves a front picture of your avatar, around saves four pictures of what is around you (read the files it prints), card prints this card${card.who ? '' : ', and who "<a few sentences>" writes your own who-you-are (nobody has yet)'}.`);
+    // Come when done (the owner, 25 Nov: "come to me when you're finished with X, and they would come").
+    parts.push(`With it: asked to come to the owner when something is done, your next turn end walks you to him (not done yet? run come later first); come "<why>" walks you there yourself: only with what he asked for or what blocks him.`);
   }
   // Not for a session in another window: it may not have the tool, so the mod says it there only when it does.
   if (showFiles) parts.push(SHOW_FILES);

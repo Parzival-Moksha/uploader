@@ -32,7 +32,7 @@ export interface OasisSettings {
   villageAcademy: boolean
   /** Village: the Academy's skill tree standing in the world (the skill map overlay is the main way in). */
   villageAcademyTree: boolean
-  /** Village: film mode, for recording: the Academy's tree stands in the world, no T / E / F keys float over agents. */
+  /** Village: film mode, for recording: no T / E / F keys float over agents (the tree has its own switch). */
   villageFilmMode: boolean
   // ─═̷─═̷─⚡ FPS COUNTER ─═̷─═̷─⚡
   fpsCounterEnabled: boolean
@@ -62,7 +62,11 @@ export interface OasisSettings {
   masterVolume: number
   sfxVolume: number
   musicVolume: number
+  /** Background music on or off (Settings > Sound > Music). Off unless switched on: the owner, 2026-11-24. */
+  musicEnabled?: boolean
   ambientVolume: number
+  /** Ambience under everything: 'off' | 'wind' | 'birds' | 'drone' (src/lib/ambience.ts). Off unless chosen. */
+  ambience?: string
   spatialAudioEnabled: boolean
   // ─═̷─ Per-spell sound selection. Key = spell ID (from src/lib/spellbook.ts),
   // value = the sound `id` from public/audio/spells/manifest.json. Missing

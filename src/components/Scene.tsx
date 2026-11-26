@@ -75,19 +75,23 @@ import { preloadPortalRevealRoll } from '@/lib/portal-transition-settings'
 import { sampleTerrainHeightAt } from '@/lib/forge/terrain-brush'
 import { CameraController as CameraControllerComponent, sprintRef, FPS_KEYBOARD_MAP } from './CameraController'
 import { useAudioManager } from '@/lib/audio-manager'
-import { preloadSpellSoundManifest, resolveSpellSoundUrl } from '@/lib/spell-sounds'
+import { preloadSpellSoundManifest, spellSoundFor } from '@/lib/spell-sounds'
 import { writeBrowserStorage } from '@/lib/browser-storage'
 import { runLocalStorageAgentCacheMigration } from '@/lib/localstorage-agent-cache-migration'
 import { isProbablyMobileDevice } from '@/lib/mobile-controls'
 import { useIsHostedOasis, useOasisCapabilities } from '@/lib/oasis-mode-client'
 import { isVillageProfileClient } from '@/lib/oasis-profile'
 import { VillageWorld } from './village/VillageWorld'
+import { BackgroundMusic } from './BackgroundMusic'
+import { BackgroundAmbience } from './BackgroundAmbience'
 import { VillageIdentityGate } from './village/VillageIdentityGate'
 import { VillageController } from './village/VillageController'
 import { VillageHud } from './village/VillageHud'
 import { AgentSessionPanel } from './village/AgentSessionPanel'
 import { SessionPicker } from './village/SessionPicker'
 import { readLatestFps, trackFrame } from '../lib/fps-meter'
+import { ReloadResume } from './forge/ReloadResume'
+import { CHROMATIC_BASE, VIGNETTE_BASE, chromaticOffset, postEffectsNeeded, sprintCanRun, sprintEffect, vignetteDarkness } from '../lib/post-effects'
 import { VillageVoiceWidget } from './village/VillageVoiceWidget'
 import { VillageScreenBackdrop } from './village/VillageScreenBackdrop'
 import { ConnectionWarning } from './forge/ConnectionWarning'
@@ -96,7 +100,7 @@ import { setPlayModeActive } from '../lib/play-mode'
 import { openSummonMenu } from './village/summon-request'
 import { useAcademyEnabled } from './village/academy-store'
 import { installTestHarness } from '@/lib/test-harness'
-import { HOSTED_USER_LOCKED_SPELL_IDS, isHostedUserLockedSpell, type SpellId } from '@/lib/spellbook'
+import { HOSTED_USER_LOCKED_SPELL_IDS, VILLAGE_NOT_IN_BUILD, isHostedUserLockedSpell, type SpellId } from '@/lib/spellbook'
 import { useWorldEvents } from '@/hooks/useWorldEvents'
 import { AgentWindowPortals } from './forge/AgentWindowPortals'
 import { requestPortalGateReveal } from './forge/PortalGateLayer'
@@ -122,6 +126,7 @@ import { SunShadows } from './forge/SunShadows'
 import { RenderHygiene } from './forge/RenderHygiene'
 import { FlopSaverDriver } from './forge/FlopSaverDriver'
 import { CameraRange, SceneWarmup } from './forge/SceneWarmup'
+import { FirstLight, SkyStandIn, WorldLookPrimer } from './forge/FirstLight'
 import { AwayModeDriver, AwayOverlay, useAwayState } from './forge/AwayMode'
 import { CameraBlackbox } from './forge/CameraBlackbox'
 import { useFlopCaps } from '@/lib/use-flop-caps'
@@ -134,7 +139,7 @@ import { AgentSelectionLayer } from './village/AgentSelectionLayer'
 import { GameTooltip } from './forge/GameTooltip'
 import { AnimationBrowser } from './forge/AnimationBrowser'
 import { SkyTransition } from './forge/SkyTransition'
-import { KitButton, KitConfirmHost } from './ui-kit'
+import { KitConfirmHost } from './ui-kit'
 import { settingsLookStyle, useSettingsLook } from '@/lib/settings-look'
 import { useRailMenuExclusion } from '@/hooks/useRailMenuExclusion'
 import { MobileOasisControls, useIsMobileOasis } from './forge/MobileOasisControls'
@@ -693,66 +698,58 @@ function PostProcessing() {
     vignetteEnabled: saved.vignetteEnabled && caps.vignette,
     chromaticEnabled: saved.chromaticEnabled && caps.chromatic,
   }
-  const sprintActiveRef = useRef(false)
-  const [sprintActive, setSprintActive] = useState(false)
   const chromaticRef = useRef<any>(null)
   const vignetteRef = useRef<any>(null)
   const _offsetVec = useRef(new THREE.Vector2())
-  // ─═̷─ Mobile devices choke on EffectComposer's extra render passes during
-  // sprint (vignette darkness + chromatic offset boosts). On the user's
-  // phone in particular the FPS drops 60 → 12 the moment Dash fires.
-  // Suppress the sprint-induced boost on mobile so the dash dynamic-vignette
-  // never spins up the postprocessing chain. Static vignette/chromatic stay
-  // user-controllable via settings (toggling them on accepts the cost). ─═̷─
+  // Phones choke on the sprint boost (60 → 12 FPS the moment Dash fires): no boost there. A sprint only strengthens
+  // an effect that is switched on; it never turns one on, nor starts the stack (lib/post-effects.ts, 24 Nov).
   const mobileOasis = useIsMobileOasis()
 
   useFrame(() => {
-    const si = Math.max(0, sprintRef.current.intensity)
-    const isActive = !mobileOasis && si > 0.05 && caps.vignette
-    if (isActive !== sprintActiveRef.current) {
-      sprintActiveRef.current = isActive
-      setSprintActive(isActive)
-    }
+    const input = useInputManager.getState()
+    const si = sprintEffect(sprintRef.current.intensity, sprintCanRun(input.inputState, input._previousCameraState))
 
     // Imperatively update effect uniforms — no re-renders needed
     if (chromaticRef.current) {
-      const base = settings.chromaticEnabled ? 0.003 : 0
-      const boost = mobileOasis || !caps.chromatic ? 0 : si * 0.012
-      const val = base + boost
+      const val = chromaticOffset(settings.chromaticEnabled, si, !mobileOasis)
       chromaticRef.current.offset = _offsetVec.current.set(val, val)
     }
     if (vignetteRef.current) {
-      const baseDarkness = settings.vignetteEnabled ? 0.7 : 0
-      const boost = mobileOasis || !caps.vignette ? 0 : si * 0.4
-      const target = baseDarkness + boost
+      const target = vignetteDarkness(settings.vignetteEnabled, si, !mobileOasis)
       const u = vignetteRef.current.uniforms?.get?.('darkness')
       if (u) u.value = target
       else if ('darkness' in vignetteRef.current) (vignetteRef.current as any).darkness = target
     }
   })
 
-  const hasEffects = settings.bloomEnabled || settings.vignetteEnabled || settings.chromaticEnabled || sprintActive
-  if (!hasEffects) return null
+  if (!postEffectsNeeded({ bloom: settings.bloomEnabled, vignette: settings.vignetteEnabled, chromatic: settings.chromaticEnabled })) return null
 
   return (
+    // An effect that is off is not in the stack at all (not there at strength 0).
     <EffectComposer>
-      <Bloom
-        intensity={settings.bloomEnabled ? (settings.bloomIntensity ?? 0.4) : 0}
-        luminanceThreshold={0.85}
-        luminanceSmoothing={0.4}
-      />
-      <Vignette
-        ref={vignetteRef}
-        offset={0.3}
-        darkness={settings.vignetteEnabled ? 0.7 : 0}
-        blendFunction={BlendFunction.NORMAL}
-      />
-      <ChromaticAberration
-        ref={chromaticRef}
-        offset={settings.chromaticEnabled ? [0.003, 0.003] as any : [0, 0] as any}
-        radialModulation
-        modulationOffset={0.5}
-      />
+      {settings.bloomEnabled ? (
+        <Bloom
+          intensity={settings.bloomIntensity ?? 0.4}
+          luminanceThreshold={0.85}
+          luminanceSmoothing={0.4}
+        />
+      ) : <></>}
+      {settings.vignetteEnabled ? (
+        <Vignette
+          ref={vignetteRef}
+          offset={0.3}
+          darkness={VIGNETTE_BASE}
+          blendFunction={BlendFunction.NORMAL}
+        />
+      ) : <></>}
+      {settings.chromaticEnabled ? (
+        <ChromaticAberration
+          ref={chromaticRef}
+          offset={[CHROMATIC_BASE, CHROMATIC_BASE] as any}
+          radialModulation
+          modulationOffset={0.5}
+        />
+      ) : <></>}
     </EffectComposer>
   )
 }
@@ -1759,8 +1756,9 @@ export default function Scene() {
       audio.play('buttonClick')
       return
     }
-    const url = resolveSpellSoundUrl(settings.spellSounds?.[spellId])
-    if (url) audio.playUrl(url, 0.82)
+    // The owner's own sound for it, else the shipped pick for this spell (public/audio/spells-cc0/manifest.json).
+    const sound = spellSoundFor(spellId, settings.spellSounds?.[spellId])
+    if (sound) audio.playUrl(sound.url, 0.82 * sound.volume)
     else audio.play('buttonClick')
   }
 
@@ -2138,12 +2136,23 @@ export default function Scene() {
     >
         <color attach="background" args={['#07111a']} />
 
-        {worldSkyBackground && <SkyBackground backgroundId={worldSkyBackground} />}
+        {/* The sky has its own boundary: loading it must never suspend the whole scene (black for a minute, 24 Nov). */}
+        {worldSkyBackground ? (
+          <Suspense fallback={<SkyStandIn />}>
+            <SkyBackground backgroundId={worldSkyBackground} />
+          </Suspense>
+        ) : <SkyStandIn />}
+        {/* A sky light and a sun until the world's own lights have arrived */}
+        <FirstLight />
+        {/* The sky and ground a world had last time, shown before its data arrives */}
+        <WorldLookPrimer />
         {/* One sky melts, rips or glitches into the next (Settings > VFX > Sky change). */}
         <SkyTransition />
 
         {/* ─═̷─═̷─🎮 CAMERA CONTROLLER — ONE owner, ONE useFrame, ZERO fights ─═̷─═̷─🎮 */}
         <CameraControllerComponent />
+        {/* After a reload: back where he was, the agent view he had open again (lib/reload-resume.ts). */}
+        <ReloadResume />
         {/* The docked Wizard console: the view centre moves into what the panel leaves (forge/wizard-dock.ts). */}
         <WizardDockViewOffset />
         <PointerLockRaycaster />
@@ -2219,6 +2228,10 @@ export default function Scene() {
   return (
     <SettingsContext.Provider value={{ settings, effectiveRp1Mode, rp1Locked: readOnlyForcesRp1, updateSetting }}>
     <DragContext.Provider value={{ isDragging, setIsDragging }}>
+      {/* The shipped CC0 tracks at Settings > Sound > Music; silent until the first click (src/lib/music.ts) */}
+      <BackgroundMusic />
+      {/* Wind, birds or a drone under everything, off unless chosen in Settings > Sound (src/lib/ambience.ts) */}
+      <BackgroundAmbience />
       <KeyboardControls map={FPS_KEYBOARD_MAP}>
         {CanvasContent}
       </KeyboardControls>
@@ -2248,6 +2261,7 @@ export default function Scene() {
         onCastSpell={handleSpellbookCast}
         readOnly={readOnlyForcesRp1}
         lockedSpellIds={!canUseFullWizard ? HOSTED_USER_LOCKED_SPELL_IDS : []}
+        notInBuild={villageProfile ? VILLAGE_NOT_IN_BUILD : undefined}
         canOpenWizard={canShowWizardConsole}
       />
       {!hideEditTools && <PlaceMenu />}
@@ -2535,17 +2549,9 @@ export default function Scene() {
 
       <ObjectHtmlOverlay />
 
-      {/* Play mode (RP1) is on: spells fire, editing is hidden. This goes back to build mode. */}
-      {effectiveRp1Mode && !readOnlyForcesRp1 && (
-        <div style={{ position: 'fixed', bottom: 88, right: 24, zIndex: 'calc(var(--z-hud) + 30)' }}>
-          <KitButton
-            onClick={() => updateSetting('rp1Mode', false)}
-            title="Play mode: spells fire, editing is hidden. Click to go back to build mode (select, move, create)."
-          >
-            Build mode
-          </KitButton>
-        </div>
-      )}
+      {/* No play/build button on the screen (the owner, 24 Nov: "remove the build mode from the main screen"):
+          play is the default, the switch is in the World menu (Build / Play), and every way into placing or moving
+          things (a creation spell, Place, Wizard, Sky, Lights) leaves play by itself. */}
 
       {/* ░▒▓ LOADING OVERLAY — removed. WorldLoadingBar (subscribe via
           THREE.DefaultLoadingManager, mounted further up the tree) covers

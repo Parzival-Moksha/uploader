@@ -96,6 +96,11 @@ export interface WorkDay {
   runs?: WorkRunRecord[]
   /** XP from committed missions kept this day (their bonus on top of their minutes). */
   commitBonusXp?: number
+  /**
+   * Time put back after the book was lost (24 Nov: a test run overwrote it), from the figures recorded elsewhere: his
+   * seconds and XP, and the agents' seconds (also in `hours` as "Agents, rebuilt"), each with where it came from.
+   */
+  rebuilt?: { seconds: number; xp: number; agentSeconds: number; source: string }
 }
 
 export interface WorkTabRecord {
@@ -157,6 +162,13 @@ export interface WorkFile {
   agentMissions?: Record<string, string>
   /** The last own mission that ended: the counter shows its result for a while. */
   lastRun?: RunResult
+  /**
+   * Seconds per clock hour (local, "2026-11-24T14"), his (c) and the agents' (s), for Mindcraft's 24-hour chart
+   * (the owner, 2026-11-24: "an hourly graph... the last twenty-four hours"). Kept for HOURLY_KEEP_DAYS days.
+   */
+  hourly?: Record<string, { c: number; s: number }>
+  /** When the hourly record began (ms): the hours before it come from the transcripts, marked rebuilt. */
+  hourlySince?: number
   /** His missions committed for a day and a time (own-mission.ts). */
   commits?: Commitment[]
   /** Agent hours: the latest event booked per agent and kind, so a replayed or doubled event is not booked twice. */
@@ -222,6 +234,7 @@ export function parseWorkFile(value: unknown): WorkFile {
       if (t && typeof t === 'object' && num(t.seconds)) (parsed.tabs ||= {})[tab] = { seconds: num(t.seconds), from: num(t.from), to: num(t.to), ...(typeof t.client === 'string' && t.client ? { client: t.client } : {}) }
     }
     if (num(day.commitBonusXp)) parsed.commitBonusXp = num(day.commitBonusXp)
+    if (day.rebuilt && typeof day.rebuilt === 'object') parsed.rebuilt = { seconds: num(day.rebuilt.seconds), xp: num(day.rebuilt.xp), agentSeconds: num(day.rebuilt.agentSeconds), source: String(day.rebuilt.source || 'rebuilt') }
     for (const r of Array.isArray(day.runs) ? day.runs : []) {
       const run = parseRun(r)
       if (run) (parsed.runs ||= []).push(run)
@@ -242,10 +255,14 @@ export function parseWorkFile(value: unknown): WorkFile {
       }
     }
   }
+  for (const [hour, h] of Object.entries(raw.hourly || {})) {
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}$/.test(hour) && h && typeof h === 'object') (file.hourly ||= {})[hour] = { c: num(h.c), s: num(h.s) }
+  }
+  if (num(raw.hourlySince)) file.hourlySince = num(raw.hourlySince)
   for (const c of Array.isArray(raw.commits) ? raw.commits : []) {
     if (!c || typeof c.id !== 'string' || typeof c.file !== 'string' || !num(c.at) || !num(c.minutes)) continue
     const state = (['pending', 'started', 'kept', 'missed', 'cancelled'] as const).find(s => s === c.state) || 'pending'
-    ;(file.commits ||= []).push({ id: c.id, file: c.file, title: String(c.title || c.file), at: num(c.at), minutes: num(c.minutes), madeAt: num(c.madeAt), bonusPct: num(c.bonusPct), notify: typeof c.notify === 'string' && c.notify ? c.notify : null, state, ...(num(c.startedAt) ? { startedAt: num(c.startedAt) } : {}), ...(num(c.remindedAt) ? { remindedAt: num(c.remindedAt) } : {}) })
+    ;(file.commits ||= []).push({ id: c.id, file: c.file, title: String(c.title || c.file), at: num(c.at), minutes: num(c.minutes), madeAt: num(c.madeAt), bonusPct: num(c.bonusPct), notify: typeof c.notify === 'string' && c.notify ? c.notify : null, state, ...(num(c.startedAt) ? { startedAt: num(c.startedAt) } : {}), ...(num(c.remindedAt) ? { remindedAt: num(c.remindedAt) } : {}), ...(num(c.bonusXp) ? { bonusXp: num(c.bonusXp) } : {}) })
   }
   const last = raw.lastRun ? parseRun(raw.lastRun) : null
   if (last) file.lastRun = { ...last, line: typeof raw.lastRun?.line === 'string' ? raw.lastRun.line : '' }
@@ -319,12 +336,12 @@ export function removeManualTime(input: WorkFile, date: string, index: number): 
 
 export function daySeconds(day: WorkDay | undefined): number {
   if (!day) return 0
-  return day.freeSeconds + (day.agentSeconds || 0) + manualSeconds(day) + Object.values(day.missions).reduce((sum, mission) => sum + mission.seconds, 0)
+  return day.freeSeconds + (day.agentSeconds || 0) + manualSeconds(day) + (day.rebuilt?.seconds || 0) + Object.values(day.missions).reduce((sum, mission) => sum + mission.seconds, 0)
 }
 
 function rawDayXp(day: WorkDay | undefined): number {
   if (!day) return 0
-  return day.freeXp + (day.agentXp || 0) + (day.commitBonusXp || 0) + (day.manual || []).reduce((sum, m) => sum + m.xp, 0) + Object.values(day.missions).reduce((sum, mission) => sum + mission.xp, 0)
+  return day.freeXp + (day.agentXp || 0) + (day.commitBonusXp || 0) + (day.rebuilt?.xp || 0) + (day.manual || []).reduce((sum, m) => sum + m.xp, 0) + Object.values(day.missions).reduce((sum, mission) => sum + mission.xp, 0)
 }
 
 export function dayXp(day: WorkDay | undefined): number {
@@ -466,6 +483,7 @@ export function applyWorkBeat(input: WorkFile, beat: WorkBeat, now: number, offs
     const today = Math.min(credited, Math.floor((now - midnight) / 1000))
     addSeconds(file, localDay(now, offsetMinutes), today, beat.focus)
     addSeconds(file, localDay(midnight - 1, offsetMinutes), credited - today, beat.focus)
+    addHourly(file, now, credited, 'c', offsetMinutes)
     noteTab(file, localDay(now, offsetMinutes), beat, today, now)
     noteTab(file, localDay(midnight - 1, offsetMinutes), beat, credited - today, now)
   }
@@ -579,7 +597,7 @@ export function finishRunInBook(input: WorkFile, now: number, startedAt?: number
   const bonusXp = commit && ended.kept && ended.plannedSeconds !== null ? Math.round(ended.xp * commit.bonusPct / 100) : 0
   const result = bonusXp ? { ...ended, bonusXp, bonusPct: commit!.bonusPct } : ended
   if (commit) {
-    file.commits = (file.commits || []).map(c => (c.id === commit.id ? { ...c, state: ended.kept ? 'kept' as const : 'missed' as const } : c))
+    file.commits = (file.commits || []).map(c => (c.id === commit.id ? { ...c, state: ended.kept ? 'kept' as const : 'missed' as const, ...(bonusXp ? { bonusXp } : {}) } : c))
     if (bonusXp) {
       const date = localDay(ended.endedAt, localOffsetMinutes(ended.endedAt))
       const day = file.days[date] || (file.days[date] = { freeSeconds: 0, freeXp: 0, missions: {} })
@@ -631,6 +649,20 @@ export function commitsToShow(file: WorkFile, now: number, offsetMinutes = local
     .sort((a, b) => a.at - b.at)
 }
 
+/**
+ * The commitments he has been through, newest first (kept with their bonus, missed): their place in Mindcraft (the owner,
+ * 2026-11-25: "the glory of the committed mission"). A bonus not stored on an older one is read from its run.
+ */
+export function commitsDone(file: WorkFile, now: number, max = 30): Commitment[] {
+  const runs = Object.values(file.days).flatMap(day => day.runs || [])
+  return (file.commits || [])
+    .map(c => ({ ...c, state: commitStateAt(c, now) }))
+    .filter(c => c.state === 'kept' || c.state === 'missed')
+    .map(c => (c.state === 'kept' && c.bonusXp === undefined ? { ...c, bonusXp: runs.find(r => r.file === c.file && r.startedAt === c.startedAt)?.bonusXp } : c))
+    .sort((a, b) => b.at - a.at)
+    .slice(0, max)
+}
+
 /** The day keeps the ended run, and the counter shows its line for a while. */
 export function recordRun(input: WorkFile, result: RunResult, offsetMinutes = localOffsetMinutes(result.endedAt)): WorkFile {
   const file: WorkFile = JSON.parse(JSON.stringify(input))
@@ -677,6 +709,53 @@ export function unnamedAgentHours(file: WorkFile): Array<{ date: string; seconds
     }
     return [{ date, seconds, unnamed, agents }]
   })
+}
+
+// ─── hours of the day ───────────────────────────────────────────────────────
+
+export const HOURLY_KEEP_DAYS = 8
+
+/** The local clock hour of a moment: "2026-11-24T14". */
+export function hourKey(ms: number, offsetMinutes = localOffsetMinutes(ms)): string {
+  return new Date(ms + offsetMinutes * 60_000).toISOString().slice(0, 13)
+}
+
+/**
+ * `seconds` of work that ended at `endMs`, into the clock hours it fell in (backwards from its end, so a beat or a
+ * turn across the hour gives each hour its part). c: his, s: the agents'. Old hours drop off.
+ */
+export function addHourly(file: WorkFile, endMs: number, seconds: number, kind: 'c' | 's', offsetMinutes = localOffsetMinutes(endMs)): void {
+  if (!(seconds > 0)) return
+  const hourly = (file.hourly ||= {})
+  if (!file.hourlySince) file.hourlySince = endMs - seconds * 1000
+  let left = seconds
+  let end = endMs
+  for (let guard = 0; left > 0 && guard < 48; guard += 1) {
+    const local = end + offsetMinutes * 60_000
+    const hourStart = Math.floor((local - 1) / 3600_000) * 3600_000 - offsetMinutes * 60_000
+    const part = Math.min(left, (end - hourStart) / 1000)
+    const key = hourKey(end - 1, offsetMinutes)
+    const bucket = hourly[key] || (hourly[key] = { c: 0, s: 0 })
+    bucket[kind] += part
+    left -= part
+    end = hourStart
+  }
+  const oldest = hourKey(endMs - HOURLY_KEEP_DAYS * 86_400_000, offsetMinutes)
+  for (const key of Object.keys(hourly)) if (key < oldest) delete hourly[key]
+}
+
+/** The last `count` clock hours up to now, oldest first, in seconds (an hour with nothing: 0). */
+export function lastHours(file: WorkFile, now: number, count = 24, offsetMinutes = localOffsetMinutes(now)): Array<{ hour: string; carbon: number; silicon: number; recorded: boolean }> {
+  const out: Array<{ hour: string; carbon: number; silicon: number; recorded: boolean }> = []
+  for (let i = count - 1; i >= 0; i -= 1) {
+    const at = now - i * 3600_000
+    const key = hourKey(at, offsetMinutes)
+    const h = file.hourly?.[key]
+    // An hour counts as recorded once the record had begun by its end.
+    const hourEnd = Math.floor((at + offsetMinutes * 60_000) / 3600_000 + 1) * 3600_000 - offsetMinutes * 60_000
+    out.push({ hour: key, carbon: Math.round(h?.c || 0), silicon: Math.round(h?.s || 0), recorded: Boolean(file.hourlySince && file.hourlySince < hourEnd - 3600_000 + 1) })
+  }
+  return out
 }
 
 // ─── agent hours ────────────────────────────────────────────────────────────
@@ -733,6 +812,7 @@ export function applyAgentWork(input: WorkFile, report: AgentWorkReport, offsetM
     hours.priority = Math.max(0, report.mission.priority)
     if (report.mission.file) (hours.missions ||= {})[report.mission.file] = (hours.missions?.[report.mission.file] || 0) + seconds
   }
+  addHourly(file, report.ts, seconds, 's', offsetMinutes)
   if (report.kind === 'turn') {
     hours.ownSeconds += seconds
     hours.turns += 1
@@ -945,6 +1025,8 @@ export function mindcraftBook(file: WorkFile, today = localDay(Date.now())): Min
       ...(day.agentSeconds ? [{ kind: 'agent' as const, label: 'With agents', seconds: day.agentSeconds, xp: round1(day.agentXp || 0), parts: Object.values(day.agents || {}).sort((a, b) => b.seconds - a.seconds).map(agent => ({ label: agent.name, seconds: agent.seconds })) }] : []),
       ...(day.freeSeconds ? [{ kind: 'free' as const, label: `In the Oasis ×${valor}`, seconds: day.freeSeconds, xp: round1(day.freeXp) }] : []),
       ...(day.manual || []).map((m, manualIndex) => ({ kind: 'manual' as const, label: `Added by hand: ${m.reason}`, seconds: m.seconds, xp: round1(m.xp), manualIndex })),
+      // Put back after the 24 Nov loss: not removable, and says where it came from.
+      ...(day.rebuilt?.seconds ? [{ kind: 'manual' as const, label: `Rebuilt: ${day.rebuilt.source}`, seconds: day.rebuilt.seconds, xp: round1(day.rebuilt.xp) }] : []),
     ].sort((a, b) => b.seconds - a.seconds)
     const stake = vowDays.get(date)
     const bonusXp = stake?.status === 'hit' ? stake.bonusXp : 0
@@ -956,6 +1038,8 @@ export function mindcraftBook(file: WorkFile, today = localDay(Date.now())): Min
       if (!seconds) continue
       const unit: WorkUnit = { kind: 'agent', label: h.name, seconds, xp: round1(agentXp(h)), ...(h.mission ? { mission: h.mission } : {}), ...(typeof h.priority === 'number' ? { priority: h.priority } : {}), ...(h.helperSeconds ? { split: { own: Math.round(h.ownSeconds), helpers: Math.round(h.helperSeconds) } } : {}) }
       agentUnits.push(unit)
+      // The days put back after the 24 Nov loss count in their day, but are not an agent in "who worked longest".
+      if (key === 'rebuilt') continue
       const agent = byAgent.get(key) || { key, name: h.name, seconds: 0, xp: 0, days: [] }
       byAgent.set(key, agent)
       if (!agent.days.length) {
@@ -1115,6 +1199,8 @@ export interface WorkSnapshot {
   lastRun: RunResult | null
   /** His committed missions: today's and the coming days'. */
   commits: Commitment[]
+  /** The ones he has been through: kept (with their bonus) or missed, newest first. */
+  commitsDone: Commitment[]
   /** The agents' working hours: today, yesterday, the mark reached today and the next one. History: ?agentHours=1. */
   agentHours: { today: number; yesterday: number; best: { date: string; seconds: number } | null; mark: string | null; next: { hours: number; label: string } | null }
   /** Who books the agents' hours: the engine (it reported in the last 15 min), or open pages. */
@@ -1168,6 +1254,7 @@ export function workSnapshot(file: WorkFile, now: number, offsetMinutes = localO
     counting: Boolean(file.holder && now - file.holder.at < 60_000),
     runs: day?.runs || [],
     commits: commitsToShow(file, now, offsetMinutes),
+    commitsDone: commitsDone(file, now),
     lastRun: file.lastRun && now - file.lastRun.endedAt < 3 * 3600_000 ? file.lastRun : null,
     settings: { freeValor: freeValor(file), dayStartsAt: '04:20' },
     agentHoursFrom: file.engineReportAt && now - file.engineReportAt < 15 * 60_000 ? 'engine' : 'page',

@@ -3,7 +3,7 @@
 // ─═̷─═̷─🅰─═̷─═̷─ Every chapter wants its own typography ─═̷─═̷─🅰─═̷─═̷─
 //
 // Each entry maps a stable id to a CSS variable defined in
-// src/app/oasis-ui-fonts.css (files in public/fonts/ui). Settings reference the id;
+// public/fonts/ui/oasis-ui-fonts.css (files beside it). Settings reference the id;
 // the actual font-family value resolves via `var(--font-<id>)` at render
 // time. Vibe + sample fields drive the picker preview.
 // ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░

@@ -29,6 +29,7 @@ import { agentEngineFileUrl } from '../../lib/agent-engine-client'
 import { groupThread, threadImages, toolRunShape, type ThreadItem } from '../../lib/village/village-thread'
 import { hasInjectedText, parseInjectedUserText, type TaskNotice } from '../../lib/village/village-injected'
 import { getOlderHistoryState, loadOlderHistory, noteThreadScroll, retryOlderHistory, subscribeOlderHistory } from './village-history'
+import { anchorOf, readThreadAnchor, scrollToAnchor, writeThreadAnchor, type ThreadAnchor } from './thread-anchor'
 import { formatMessageTime, fullMessageTime } from '../../lib/village/message-time'
 import { hideSpokenLive, splitSpoken } from '../../lib/village/village-spoken'
 import { SpokenAgentContext, SpokenReply } from './CompanionToggles'
@@ -736,6 +737,35 @@ export function AgentSessionView({ agentId, variant, header }: AgentSessionViewP
     if (el && historyFrom !== null) el.scrollTop = el.scrollTop // eslint-disable-line no-self-assign
   }, [historyFrom])
 
+  // Where he was in this thread, kept across a reload (thread-anchor.ts): saved while he scrolls; on mount, older
+  // history loads until that entry is there, and the view goes back to it.
+  const anchored = !compact && !subagentId
+  const restoreRef = useRef<{ anchor: ThreadAnchor; tries: number } | null>(null)
+  const restoreForRef = useRef<string | null>(null)
+  const saveTimerRef = useRef<number | null>(null)
+  useLayoutEffect(() => {
+    // Armed in the same layout pass that tries it (an effect would run after it, and the first try would be lost).
+    if (restoreForRef.current !== agentId) {
+      restoreForRef.current = agentId
+      const anchor = anchored ? readThreadAnchor(agentId) : null
+      restoreRef.current = anchor ? { anchor, tries: 0 } : null
+    }
+    const restore = restoreRef.current
+    const el = scrollRef.current
+    if (!restore || !el) return
+    if (scrollToAnchor(el, restore.anchor)) { restoreRef.current = null; return }
+    if (canLoadOlder && restore.tries < 12) { restore.tries += 1; void loadOlderHistory(agentId) } else restoreRef.current = null
+  }, [agentId, anchored, canLoadOlder, items.length, historyFrom])
+  const saveAnchorSoon = useCallback(() => {
+    if (!anchored || restoreRef.current || saveTimerRef.current !== null) return
+    saveTimerRef.current = window.setTimeout(() => {
+      saveTimerRef.current = null
+      const el = scrollRef.current
+      if (el) writeThreadAnchor(agentId, anchorOf(el))
+    }, 400)
+  }, [agentId, anchored])
+  useEffect(() => () => { if (saveTimerRef.current !== null) window.clearTimeout(saveTimerRef.current) }, [])
+
   if (!agent) return null
   const decisions = agent.owned ? agent.decisions : []
 
@@ -767,7 +797,9 @@ export function AgentSessionView({ agentId, variant, header }: AgentSessionViewP
         data-village-thread
         // Every scroll is noted: a piece of older history waits until the thread is still (village-history.ts). Not
         // wheel events: at the top the wheel moves nothing, and the next piece should land then.
-        onScroll={compact ? undefined : () => { noteThreadScroll(agentId); maybeLoadOlder() }}
+        onScroll={compact ? undefined : () => { noteThreadScroll(agentId); maybeLoadOlder(); saveAnchorSoon() }}
+        // His own wheel ends a restore still looking for its entry (he has moved on).
+        onWheel={compact ? undefined : () => { restoreRef.current = null }}
         className={`flex min-h-0 flex-1 flex-col-reverse overflow-y-auto pr-1 [scrollbar-width:thin] ${BRIGHT_GRAYS}`}
       >
       <div className="flex flex-col gap-1.5">
@@ -777,9 +809,11 @@ export function AgentSessionView({ agentId, variant, header }: AgentSessionViewP
             {subagent ? 'Nothing from this subagent in the thread yet.' : agent.owned || agent.bridged ? 'No messages yet. Say hello.' : 'Waiting for the session to do something.'}
           </div>
         )}
-        {items.map(item => (item.kind === 'tools'
-          ? <ToolRunRow key={item.key} item={item} compact={compact} />
-          : <LogEntryView key={item.key} entry={item.entry} compact={compact} />))}
+        {items.map(item => (
+          <div key={item.key} data-thread-key={item.key}>
+            {item.kind === 'tools' ? <ToolRunRow item={item} compact={compact} /> : <LogEntryView entry={item.entry} compact={compact} />}
+          </div>
+        ))}
         {!subagent && agent.live?.text && (
           <div className="text-[12.5px] leading-relaxed text-slate-100">
             <Markdown text={compact && agent.live.text.length > 600 ? `…${hideSpokenLive(agent.live.text).slice(-600)}` : hideSpokenLive(agent.live.text)} />

@@ -20,7 +20,7 @@ import type { VRM } from '@pixiv/three-vrm'
 import { loadAnimationClip, retargetClipForVRM, retargetUALClipForVRM, isUALAnimation, getClipTravel } from './forge/animation-library'
 import { buildAuthoredClip, isAuthoredClip } from './forge/authored-clips'
 import { locomotionClipId } from './forge/locomotion-set'
-import { measureStrideSpeed, pickGait, strideTimeScale } from './forge/stride-speed'
+import { measureStrideSpeed, pickGait, strideContacts, strideTimeScale } from './forge/stride-speed'
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TYPES
@@ -61,6 +61,9 @@ export class AnimationController {
   private loadingClips: Set<string> = new Set()
   /** Ground speed of walk / run / sprint on this body (stride-speed.ts), metres a second. */
   private naturalSpeeds: Map<string, number> = new Map()
+  /** When the feet come down in walk / run / sprint (fractions of each loop): the footstep sounds play then. */
+  private contacts: Map<string, number[]> = new Map()
+  private stepClock: { action: THREE.AnimationAction | null; last: number } = { action: null, last: 0 }
 
   // State
   private currentState: AnimState = 'idle'
@@ -138,7 +141,8 @@ export class AnimationController {
         const natural = measureStrideSpeed(this.vrm, retargeted)
         if (natural) this.naturalSpeeds.set(animId, natural)
         else this.naturalSpeeds.delete(animId)
-        console.debug(`[AnimController] ${animId} (${sourceId}) steps cover ${natural ? natural.toFixed(2) + ' m/s' : 'an unreadable distance'}; root travel ${JSON.stringify(getClipTravel(retargeted))}`)
+        this.contacts.set(animId, strideContacts(this.vrm, retargeted))
+        console.debug(`[AnimController] ${animId} (${sourceId}) steps cover ${natural ? natural.toFixed(2) + ' m/s' : 'an unreadable distance'}; feet down at ${JSON.stringify(strideContacts(this.vrm, retargeted).map(c => +c.toFixed(2)))} of the loop; root travel ${JSON.stringify(getClipTravel(retargeted))}`)
       }
 
       // Mark ready when idle is loaded
@@ -163,6 +167,7 @@ export class AnimationController {
     for (const id of ids) {
       this.clips.delete(id)
       this.naturalSpeeds.delete(id)
+      this.contacts.delete(id)
       void this.loadClip(id).then(() => {
         // The state that is playing now picks the new clip up at once.
         if (this.currentState === id) { const state = this.currentState; this.currentState = 'idle'; this.transitionTo(state) }
@@ -359,6 +364,41 @@ export class AnimationController {
       const natural = this.naturalSpeeds.get(state)
       if (natural) this.currentAction.timeScale = strideTimeScale(speed, natural)
     }
+  }
+
+  /**
+   * Footsteps since the last call: how many times a foot came down in the walk, run or sprint playing now (from
+   * the clip's own clock, so at any speed). Null when that clip's contacts are unknown (the caller keeps a timer).
+   */
+  consumeFootsteps(): number | null {
+    const state = this.currentState
+    const action = this.currentAction
+    if (!action || (state !== 'walk' && state !== 'run' && state !== 'sprint')) {
+      this.stepClock.action = null
+      return 0
+    }
+    const contacts = this.contacts.get(state)
+    if (!contacts || contacts.length === 0) return null
+    const duration = action.getClip().duration
+    if (!(duration > 0)) return null
+    const now = (((action.time % duration) + duration) % duration) / duration
+    if (this.stepClock.action !== action) {
+      // A new clip (walk turned into run): its clock starts here; the next contact it reaches is the next step.
+      this.stepClock = { action, last: now }
+      return 0
+    }
+    const last = this.stepClock.last
+    this.stepClock.last = now
+    if (now === last) return 0
+    let steps = 0
+    for (const at of contacts) {
+      const passed = now > last ? at > last && at <= now : at > last || at <= now
+      if (passed) steps++
+    }
+    if (steps > 0 && typeof window !== 'undefined' && (window as unknown as { __footstepDebug?: boolean }).__footstepDebug) {
+      console.debug(`[footsteps] ${state} ${steps} at ${now.toFixed(2)} (from ${last.toFixed(2)})`)
+    }
+    return steps
   }
 
   /** The measured ground speed of a locomotion clip on this body (null until loaded or when unreadable). */

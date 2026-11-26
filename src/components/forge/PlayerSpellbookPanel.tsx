@@ -9,7 +9,9 @@ import { SettingsContext } from '@/components/scene-lib/contexts'
 import { resolveFontFamily } from '@/lib/fonts'
 import { useFeatureKeys } from '@/lib/feature-keys-client'
 import { openKeychain } from '@/components/village/keychain-store'
+import { showNotice } from '@/components/forge/GlobalNotice'
 import { useLayer } from '@/lib/ui-kit/layers'
+import { PooledImage, keepImages } from '@/lib/ui-kit/image-pool'
 import {
   SPELLBOOK_PAGE_IDS,
   SPELLBOOK_PAGES,
@@ -35,6 +37,9 @@ type PlayerSpellbookPanelProps = {
    *  the rule, not just see a dead tile. */
   readOnly?: boolean
   lockedSpellIds?: readonly SpellId[]
+  /** Spells not in this build (spellbook.ts VILLAGE_NOT_IN_BUILD): greyed, their reason instead of their summary;
+   *  a click says the reason and casts nothing. */
+  notInBuild?: Partial<Record<SpellId, string>>
   /** The Wizard console exists for this visitor: show the button that opens it. */
   canOpenWizard?: boolean
 }
@@ -59,6 +64,37 @@ function spellTileSrc(spellId: SpellId): string {
   return `/ui/spellbook/tiles/${spellId}.gpt2.webp`
 }
 
+/**
+ * Every picture the book shows: the chapters' backgrounds, every spell's card, the button plate. Loaded once when the
+ * book first opens and kept for the session (ui-kit/image-pool.ts), so a chapter change shows them at once (the owner,
+ * 2026-11-24: "I go back to Agents again from Own... the textures are gone again. It's so ridiculous").
+ */
+const SPELLBOOK_PICTURES: string[] = [
+  ...SPELLBOOK_PAGE_IDS.map(page => `/ui/spellbook/frame/page-bg-${page}.jpg`),
+  ...SPELL_IDS.map(spellTileSrc),
+  '/ui/textures-extracted/buttons-red/red-4-rect-lg.png',
+]
+
+/** A card's picture: at once when the book has it; until then the card's plain face with the spell's name, never an empty box. */
+function SpellArt({ spellId, name }: { spellId: SpellId; name: string }) {
+  return (
+    <div data-spell-art="" className="mb-2 aspect-[3/4] w-full overflow-hidden rounded-md border border-[#6b4a1e]/60 bg-gradient-to-b from-black/30 to-black/70">
+      <PooledImage
+        url={spellTileSrc(spellId)}
+        alt={name}
+        className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+        fallback={<div
+          data-spell-face=""
+          className="flex h-full w-full items-center justify-center p-2 text-center"
+          style={{ background: 'radial-gradient(circle at 50% 40%, rgba(120,78,30,0.35), rgba(12,9,6,0.92) 70%)', boxShadow: 'inset 0 0 0 1px rgba(214,178,116,0.25), inset 0 0 24px rgba(0,0,0,0.6)' }}
+        >
+          <span className="text-[11px] font-black uppercase leading-tight tracking-[0.12em] text-amber-100/75">{name}</span>
+        </div>}
+      />
+    </div>
+  )
+}
+
 export function PlayerSpellbookPanel({
   visible,
   isOpen,
@@ -66,6 +102,7 @@ export function PlayerSpellbookPanel({
   onCastSpell,
   readOnly = false,
   lockedSpellIds = [],
+  notInBuild,
   canOpenWizard = false,
 }: PlayerSpellbookPanelProps) {
   const [activePage, setActivePage] = useState<SpellbookPageId>('recipe-catalog')
@@ -81,6 +118,8 @@ export function PlayerSpellbookPanel({
   useRailMenuExclusion('spellbook', isOpen, closeSpellbook)
   // The place layer (src/lib/ui-kit/layers.ts): Esc closes the spell book when it is the topmost thing.
   useLayer('spellbook', 'place', Boolean(visible && isOpen), closeSpellbook)
+  // Its pictures: loaded once, the first time it opens, and kept (see SPELLBOOK_PICTURES).
+  useEffect(() => { if (visible && isOpen) keepImages(SPELLBOOK_PICTURES, 'high') }, [visible, isOpen])
 
   const playMenuHover = useCallback(() => {
     useAudioManager.getState().play('buttonHover')
@@ -269,10 +308,10 @@ export function PlayerSpellbookPanel({
           animation: oasisChapterSelectedPulse 1500ms ease-in-out infinite;
         }
       `}</style>
-      <div
-        className="pointer-events-none absolute inset-0 bg-cover bg-center bg-no-repeat"
-        style={{ backgroundImage: `url(/ui/spellbook/frame/page-bg-${activePage}.jpg)` }}
-      />
+      {/* The chapter's background: the kept picture itself (no request on a chapter change). */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden" data-spellbook-bg="">
+        <PooledImage url={`/ui/spellbook/frame/page-bg-${activePage}.jpg`} className="h-full w-full object-cover" />
+      </div>
       <div className="pointer-events-none absolute inset-0 bg-black/50" />
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/16 via-transparent to-black/24" />
       <div
@@ -383,7 +422,8 @@ export function PlayerSpellbookPanel({
           {activeSpells.map(definition => {
             const highlighted = highlightSpellId === definition.id
             const selected = selectedSpellId === definition.id
-            const locked = (readOnly && !isCombatSpell(definition.id)) || lockedSpellIds.includes(definition.id)
+            const notYet = notInBuild?.[definition.id]
+            const locked = Boolean(notYet) || (readOnly && !isCombatSpell(definition.id)) || lockedSpellIds.includes(definition.id)
             // A generation spell whose service key is not on this machine: greyed, and its tab says what to add.
             const needsKey = featureKeys[definition.id]?.ready === false
             const animation = highlighted
@@ -394,8 +434,15 @@ export function PlayerSpellbookPanel({
             return (
               <article
                 key={definition.id}
+                data-spell-card={definition.id}
                 onPointerEnter={playMenuHover}
                 onClick={() => {
+                  // Not in this build: say why, and cast nothing.
+                  if (notYet) {
+                    useAudioManager.getState().play('buttonClick')
+                    showNotice(`${definition.name}: ${notYet}`, 'info')
+                    return
+                  }
                   // "Needs a key": the keychain opens at that key, its field ready (the Character menu, Keys tab).
                   if (needsKey && !locked) {
                     useAudioManager.getState().play('buttonClick')
@@ -416,21 +463,12 @@ export function PlayerSpellbookPanel({
                 title={needsKey ? featureKeys[definition.id]?.line : undefined}
                 style={animation ? { animation } : undefined}
               >
-                <div className="mb-2 aspect-[3/4] w-full overflow-hidden rounded-md border border-[#6b4a1e]/60 bg-gradient-to-b from-black/30 to-black/70">
-                  <img
-                    src={spellTileSrc(definition.id)}
-                    alt={definition.name}
-                    loading="lazy"
-                    className="h-full w-full object-cover opacity-0 transition-all duration-300 group-hover:scale-105"
-                    onLoad={event => { event.currentTarget.style.opacity = '1' }}
-                    onError={event => { event.currentTarget.style.display = 'none' }}
-                  />
-                </div>
+                <SpellArt spellId={definition.id} name={definition.name} />
                 <div className="text-[12px] font-black leading-tight text-orange-50 sm:text-[13px]">
                   {definition.name}
                 </div>
                 <div className="mt-0.5 line-clamp-2 text-[10px] leading-4 text-white/60 sm:text-[11px]">
-                  {definition.summary}
+                  {notYet || definition.summary}
                 </div>
                 {needsKey && !locked && (
                   <div className="pointer-events-none absolute right-1.5 top-1.5 rounded-md border border-amber-200/60 bg-black/80 px-1.5 py-1 text-[8px] font-black uppercase tracking-[0.12em] text-amber-100 shadow-[0_0_8px_rgba(0,0,0,0.6)]">
@@ -440,9 +478,9 @@ export function PlayerSpellbookPanel({
                 {locked && (
                   <div
                     className="pointer-events-none absolute right-1.5 top-1.5 rounded-md border border-amber-200/60 bg-black/80 px-1.5 py-1 text-[8px] font-black uppercase tracking-[0.12em] text-amber-100 shadow-[0_0_8px_rgba(0,0,0,0.6)]"
-                    title={definition.lockedSummary || 'Locked'}
+                    title={notYet || definition.lockedSummary || 'Locked'}
                   >
-                    🔒
+                    {notYet ? 'not yet' : '🔒'}
                   </div>
                 )}
               </article>

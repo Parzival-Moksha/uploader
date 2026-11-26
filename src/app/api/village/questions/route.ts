@@ -1,5 +1,5 @@
 // /api/village/questions — Mindcraft's Carbon tab: what the Oasis needs from the owner, one file each.
-// The folder: OASIS_QUESTIONS_DIR, else `questions` next to the missions folder (C:\7c_oasis\docs\questions).
+// The folder: OASIS_QUESTIONS_DIR, else `questions` next to the missions folder.
 //   GET   every mission, open first, highest priority first (the page sorts again as he likes)
 //   POST  { file, answer, state?: 'answered' | 'parked', took?, expected }  his answer, written into the file's
 //         header (state, answered or parked, answer, took). `expected` is the text he was looking at: a file that
@@ -12,7 +12,7 @@ import { NextRequest, NextResponse } from 'next/server'
 
 import { guardAgentRoute } from '@/lib/local-request-guard'
 import { engine, questionsDir, rewriteBoard, send, tellAgent } from '@/lib/village/carbon-server'
-import { answerCarbonMission, askingAgent, formatAnswerForAsker, formatAnswerNote, resolveAsker, formatUnclearNote, isCarbonFile, markUnclear, parseCarbonMission, sortCarbon } from '@/lib/village/carbon-missions'
+import { ANSWER_MAX, answerCarbonMission, askingAgent, formatAnswerForAsker, formatAnswerNote, resolveAsker, formatUnclearNote, isCarbonFile, markUnclear, parseCarbonMission, sortCarbon } from '@/lib/village/carbon-missions'
 import { isAutomationRequest } from '@/lib/village/work-vow'
 
 export const dynamic = 'force-dynamic'
@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
   if (!file || typeof body?.answer !== 'string' || !body.answer.trim() || typeof body.expected !== 'string') {
     return NextResponse.json({ error: 'file, answer and expected are required' }, { status: 400 })
   }
-  if (body.answer.length > 10_000) return NextResponse.json({ error: 'too long' }, { status: 413 })
+  if (body.answer.length > ANSWER_MAX) return NextResponse.json({ error: `the answer is ${body.answer.length.toLocaleString('en-GB')} characters; the most is ${ANSWER_MAX.toLocaleString('en-GB')}` }, { status: 413 })
   const state = body.state === 'parked' ? 'parked' : 'answered'
   const took = typeof body.took === 'number' && Number.isFinite(body.took) ? Math.max(0, Math.round(body.took)) : null
   let current: string

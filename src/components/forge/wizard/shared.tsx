@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react'
 import type { ConjureStatus, ConjuredAsset, RemeshQuality } from '../../../lib/conjure/types'
 import { PROVIDERS, REMESH_PRESETS } from '../../../lib/conjure/types'
 import { useThumbnailStore } from '../../../lib/thumbnail-store'
+import { kitConfirm } from '@/components/ui-kit'
 
 export const OASIS_BASE = process.env.NEXT_PUBLIC_BASE_PATH || ''
 
@@ -264,9 +265,8 @@ export function GalleryItem({ asset, onDelete, isInWorld, onPlace, onRemove: _on
           onClick={(e) => {
             e.stopPropagation()
             const name = asset.displayName || asset.prompt?.slice(0, 30) || asset.id
-            if (window.confirm(`Delete "${name}"? This removes the GLB file permanently.`)) {
-              onDelete(asset.id)
-            }
+            void kitConfirm({ title: `Delete "${name}"?`, body: 'This removes the GLB file for good.', confirm: 'Delete', danger: true })
+              .then(ok => { if (ok) onDelete(asset.id) })
           }}
           className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/70 text-gray-400 hover:text-red-400 text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
         >
@@ -395,7 +395,9 @@ export function GalleryItem({ asset, onDelete, isInWorld, onPlace, onRemove: _on
                   // Warn about high-poly models (Meshy rig limit: 300k faces)
                   const tris = asset.metadata?.triangleCount || 0
                   if (tris > 300000) {
-                    if (!window.confirm(`This model has ${Math.round(tris / 1000)}k triangles — Meshy rig limit is 300k. Remesh first to reduce poly count, then rig. Continue anyway?`)) return
+                    void kitConfirm({ title: 'Rig a heavy model?', body: `This model has ${Math.round(tris / 1000)}k triangles; Meshy rigs up to 300k. Remesh first to lower the count, then rig.`, confirm: 'Rig anyway' })
+                      .then(ok => { if (ok) onRig(asset.id) })
+                    return
                   }
                   onRig(asset.id)
                 }}

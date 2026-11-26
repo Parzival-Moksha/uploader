@@ -1,6 +1,8 @@
 # The Oasis
 
-Your Claude Code sessions as characters in a 3D village on your own machine. Walk around, see who is working, who is waiting and who needs a decision, and talk to any session by typing or by voice. What you say in the village arrives in that same session.
+![Walking up to a Claude Code session in the village at sunset and talking to it](oasis.gif)
+
+Your own Claude Code sessions as characters in a 3D village at sunset, on your own machine. Walk up to any of them and talk, by typing or by voice. What you say in the village arrives in that same session.
 
 ## Install: one sentence
 
@@ -10,17 +12,16 @@ Tell your Claude Code (or any coding agent that can run commands):
 install the Oasis from github.com/Parzival-Moksha/uploader and open it
 ```
 
-That is all: no plugin, no slash command. It clones this repository (**about 600 MB**: every world and avatar), installs and builds it and opens the village in your browser: about 5 minutes in all on our Windows test machine and on a clean Mac, measured on 24 Nov (more on a slow line; the download alone took half a minute on a fast one). Every Claude Code session on this machine shows up there. You need Node.js 20 or later and git.
+**Install takes 5 minutes · download 600 MB · 2.5 GB on disk.**
 
-By hand, the same thing:
+That is all: no plugin, no slash command. It clones this repository (**about 600 MB**: every world and avatar), installs and builds it and opens the village in your browser: about 5 minutes in all on our Windows test machine and on a clean Mac, measured on 24 Nov (more on a slow line; the download alone took half a minute on a fast one). Every Claude Code session on this machine shows up there. You need Claude Code, Node.js 20 or later and git, on Windows, macOS or Linux.
+
+By hand, the same thing, in any terminal (Windows PowerShell too):
 
 ```
 git clone --depth 1 https://github.com/Parzival-Moksha/uploader.git
-cd uploader
-node scripts/oasis.mjs start
+node uploader/scripts/oasis.mjs start
 ```
-
-On a slow or metered line, the small edition (about 32 MB: one world, 12 avatars) is on every release page as `oasis-lite-<version>.tar.gz`: unpack it and run `node scripts/oasis.mjs start` in it (with the plugin: `/oasis lite`).
 
 Start it only this way (`pnpm dev` and `npm start` run the same script): `next dev` or `next start` alone gives a page without the engine, the database or the village, an empty world where nobody can be summoned. `node scripts/oasis.mjs status` says what is running and which version, `node scripts/oasis.mjs stop` stops it. **To update:** in the Oasis folder, `node scripts/oasis.mjs update` (git pull, then a rebuild; your worlds, agents and keys stay). The version is in the main menu (M), under the Oasis's name. It works the same on Windows, macOS and Linux. (macOS: installs and opens on a clean Mac at every release, checked by machine; no person has watched a Mac install yet. Linux: written with care, not yet run by us.)
 
@@ -64,7 +65,7 @@ This is the packaged Oasis: the village, the agent engine, the Claude Code plugi
 - Your own body and every agent stand, idle, walk, jog, sprint, roll, talk with moving hands, cast, flinch and fall. These come from the Quaternius Universal Animation Library (CC0).
 - They do not dance, sit, wave or emote yet. The dances and some walks in the authors' own Oasis are Mixamo files, which Adobe does not allow to be passed on as files, so they are not in this package. A free set is being added.
 - With an ElevenLabs voice, an agent's mouth follows its words. With the browser's built-in voice it speaks, but the mouth does not move yet.
-- 42 avatars in the full Oasis, 12 in the lite one. All state CC0 in their own files.
+- 42 avatars, all stating CC0 in their own files.
 
 ## Something broke?
 

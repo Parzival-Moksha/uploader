@@ -35,6 +35,7 @@ import { useOasisStore } from '../../store/oasisStore'
 import { sampleTerrainHeightAt } from '../../lib/forge/terrain-brush'
 import { PortalGateVisual, preloadPortalGateVisualAssets } from './PortalGateVisual'
 import { SelectableWrapper } from './WorldObjects'
+import { kitAlert, kitConfirm, kitPrompt } from '@/components/ui-kit'
 
 const PORTAL_COOLDOWN_MS = 2500
 const PORTAL_WORLD_SWITCH_TUNNEL_FRACTION = 0.56
@@ -700,7 +701,7 @@ export function PortalGateLayer() {
         const fallbackName = action.name || 'New Oasis World'
         const requestedName = action.promptForName === false
           ? fallbackName
-          : window.prompt('Name this new world', fallbackName)
+          : await kitPrompt({ title: 'Name this new world', defaultValue: fallbackName, confirm: 'Create' })
         const name = requestedName?.trim()
         if (!name) return
         const nextWorldName = name.slice(0, 50)
@@ -734,14 +735,14 @@ export function PortalGateLayer() {
       if (action.type === 'external_url') {
         const nextUrl = new URL(action.url, window.location.href)
         if (nextUrl.protocol !== 'http:' && nextUrl.protocol !== 'https:') {
-          window.alert('This portal can only open http or https URLs.')
+          await kitAlert({ title: 'This portal cannot open that', body: 'A portal opens only http or https addresses.' })
           return
         }
         if (action.returnUrl && !nextUrl.searchParams.has('returnUrl')) {
           const returnUrl = action.returnUrl === 'current' ? window.location.href : action.returnUrl
           nextUrl.searchParams.set('returnUrl', returnUrl)
         }
-        if (action.requiresConfirm && !window.confirm(`Open ${action.label || nextUrl.hostname}?`)) return
+        if (action.requiresConfirm && !(await kitConfirm({ title: `Open ${action.label || nextUrl.hostname}?`, body: nextUrl.toString(), confirm: 'Open' }))) return
         if (isSameOriginDemoRouterUrl(nextUrl)) {
           const assignment = await fetchDemoAssignment(nextUrl)
           if (assignment?.worldId) {
@@ -759,10 +760,10 @@ export function PortalGateLayer() {
         return
       }
 
-      window.alert(action.message)
+      await kitAlert({ title: action.message })
     } catch (error) {
       console.error('[PortalGateLayer] Portal action failed:', error)
-      window.alert(error instanceof Error ? error.message : 'Portal action failed.')
+      void kitAlert({ title: 'The portal did not open', body: error instanceof Error ? error.message : 'Portal action failed.', danger: true })
     } finally {
       window.setTimeout(() => {
         if (activePortalActionRef.current === gate.id) activePortalActionRef.current = null

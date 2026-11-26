@@ -28,6 +28,7 @@ import { useOasisStore } from '../store/oasisStore'
 import { useInputManager, getInputCapabilities, consumeMouseLookDelta, wasUILayerClosedRecently } from '../lib/input-manager'
 import { getMobileInputSnapshot, isProbablyMobileDevice } from '../lib/mobile-controls'
 import { setCameraSnapshot } from '../lib/camera-bridge'
+import { sprintCanRun } from '../lib/post-effects'
 import { setPointerReleaseNotifier } from '../lib/pointer-release'
 import { isDragLookOn, setDragLookNotifier } from '../lib/drag-look'
 import { showNotice } from './forge/GlobalNotice'
@@ -521,6 +522,13 @@ export function CameraController() {
       updateAgentFocus(camera, null, state.viewport)
     }
     prevInputStateRef.current = inputState
+
+    // Only walking and flying write the sprint; anywhere else it would stay frozen where it was (E pressed during a
+    // sprint kept the fringe, the darker vignette and the speed lines on in the panel). Let it go here.
+    if (!sprintCanRun(inputState, useInputManager.getState()._previousCameraState)) {
+      sprintRef.current.intensity = 0
+      sprintRef.current.multiplier = 1
+    }
 
     switch (inputState) {
       case 'orbit':

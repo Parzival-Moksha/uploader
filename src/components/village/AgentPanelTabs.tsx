@@ -14,7 +14,16 @@ import { KitSlider, KitChip } from '@/components/ui-kit'
 
 export type AgentPanelTab = 'thread' | 'settings' | 'mindcraft'
 
-let tab: AgentPanelTab = 'thread'
+const TAB_KEY = 'oasis.village.panelTab.v1'
+// The page shown survives a reload of this tab (with the panel Debugger's reload-resume.ts opens again).
+let tab: AgentPanelTab = (() => {
+  try {
+    const saved = typeof window === 'undefined' ? null : window.sessionStorage.getItem(TAB_KEY)
+    return saved === 'settings' || saved === 'mindcraft' ? saved : 'thread'
+  } catch {
+    return 'thread'
+  }
+})()
 const listeners = new Set<() => void>()
 
 function notify(): void {
@@ -29,6 +38,7 @@ function subscribe(listener: () => void): () => void {
 export function setAgentPanelTab(next: AgentPanelTab): void {
   if (tab === next) return
   tab = next
+  try { window.sessionStorage.setItem(TAB_KEY, next) } catch { /* storage blocked */ }
   notify()
 }
 

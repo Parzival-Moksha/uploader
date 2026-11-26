@@ -76,6 +76,6 @@ export function localGate(req: LocalGateRequest, required: string): LocalGateVer
     }
   }
   const given = req.headerToken || req.cookieToken || ''
-  if (!sameToken(given, required)) return { action: 'deny', status: 401, error: 'This Oasis asks for its local key. Open it with /oasis in Claude Code, or with `node scripts/oasis.mjs start`.' }
+  if (!sameToken(given, required)) return { action: 'deny', status: 401, error: 'This Oasis asks for its local key. Open it with `node scripts/oasis.mjs open` in its folder (or /oasis with the Claude Code plugin).' }
   return { action: 'pass' }
 }

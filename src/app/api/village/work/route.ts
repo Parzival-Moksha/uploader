@@ -31,7 +31,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 import { guardAgentRoute } from '@/lib/local-request-guard'
-import { cancelOwnCommit, commitOwnMission, extendOwnMission, endOwnMission, noteOwnMission, notifyOwnMission, ownMissionNotes, pauseOwnMission, saveOwnMission, startOwnMission, declareAgentMission, editManualTime, reportAgentWork, reportWorkBeat, setWorkSettings, switchWorkMission, workDaySummary, workAgentHours, workMindcraft, workMissionTimers, workMissionActivity, workRebuilt, workVowSnapshot } from '@/lib/work-vow-server'
+import { cancelOwnCommit, commitOwnMission, extendOwnMission, endOwnMission, noteOwnMission, notifyOwnMission, ownMissionNotes, pauseOwnMission, saveOwnMission, startOwnMission, declareAgentMission, editManualTime, reportAgentWork, reportWorkBeat, setWorkSettings, switchWorkMission, workDaySummary, workAgentHours, workMindcraft, workMissionTimers, workHours, workMissionActivity, workRebuilt, workVowSnapshot } from '@/lib/work-vow-server'
 import { clientLabel, isAutomationRequest, type AgentWorkReport } from '@/lib/village/work-vow'
 import { fromOasisPage } from '@/lib/village/own-mission'
 
@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
     }
     // ?mindcraft=1: every day in the book as lists (the owner's, each agent's, the whole Oasis').
     // (with `rebuilt`: the days before the counter began, from the transcripts, when they have been rebuilt)
-    if (new URL(request.url).searchParams.get('mindcraft')) return NextResponse.json({ ...(await workMindcraft()), rebuilt: await workRebuilt() })
+    if (new URL(request.url).searchParams.get('mindcraft')) return NextResponse.json({ ...(await workMindcraft()), rebuilt: await workRebuilt(), hours: await workHours() })
     // ?agentHours=1: the agents' working hours per day, oldest first, with the mark each day reached.
     if (new URL(request.url).searchParams.get('agentHours')) return NextResponse.json({ marks: [24, 72, 168], days: await workAgentHours() })
     // ?missions=1: per mission, the owner's time on it and the agents' time on it.

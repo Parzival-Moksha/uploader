@@ -9,6 +9,7 @@ import { useContext, useEffect, useMemo, useState } from 'react'
 import { SettingsContext } from '@/components/scene-lib/contexts'
 import { DEFAULT_SPELL_SOUNDS } from '@/components/scene-lib/constants'
 import { SPELL_IDS, SPELL_DEFS, SPELLBOOK_PAGES, type SpellbookPageId, type SpellId } from '@/lib/spellbook'
+import { SHIPPED_STAND_IN } from '@/lib/spell-sounds'
 
 interface ManifestEntry {
   id: string
@@ -22,6 +23,8 @@ interface SpellSoundsManifest {
 }
 
 const MANIFEST_URL = '/audio/spells/manifest.json'
+/** The CC0 set every Oasis ships (a packaged Oasis has only this one). */
+const SHIPPED_MANIFEST_URL = '/audio/spells-cc0/manifest.json'
 
 function useSpellSoundsManifest() {
   const [entries, setEntries] = useState<ManifestEntry[]>([])
@@ -31,17 +34,16 @@ function useSpellSoundsManifest() {
     let cancelled = false
     // Absolute URL via window.location.origin avoids "Failed to fetch"
     // when the env-var path indirection misfires in production bundles.
-    const url = new URL(MANIFEST_URL, window.location.origin).toString()
-    fetch(url, { cache: 'force-cache' })
-      .then(res => res.ok ? res.json() : Promise.reject(new Error(`HTTP ${res.status}`)))
-      .then((data: SpellSoundsManifest) => {
-        if (cancelled) return
-        setEntries(Array.isArray(data.library) ? data.library : [])
-      })
-      .catch(err => {
-        if (cancelled) return
-        setError(err?.message || 'load failed')
-      })
+    const load = (path: string) => fetch(new URL(path, window.location.origin).toString(), { cache: 'force-cache' })
+      .then(res => res.ok ? res.json() as Promise<SpellSoundsManifest> : Promise.reject(new Error(`HTTP ${res.status}`)))
+      .then(data => (Array.isArray(data.library) ? data.library : []))
+    // The owner's set (absent in a packaged Oasis) and the shipped CC0 set, in that order.
+    void Promise.allSettled([load(MANIFEST_URL), load(SHIPPED_MANIFEST_URL)]).then(([own, shipped]) => {
+      if (cancelled) return
+      const list = [...(own.status === 'fulfilled' ? own.value : []), ...(shipped.status === 'fulfilled' ? shipped.value : [])]
+      setEntries(list)
+      if (list.length === 0) setError(shipped.status === 'rejected' ? String(shipped.reason?.message || 'load failed') : 'load failed')
+    })
     return () => { cancelled = true }
   }, [])
 
@@ -126,7 +128,9 @@ export function SpellSoundsSelector() {
                 <div className="space-y-1 px-2 pb-2 pt-0.5">
                   {spellIds.map(spellId => {
                     const def = SPELL_DEFS[spellId]
-                    const selected = settings.spellSounds?.[spellId] || DEFAULT_SPELL_SOUNDS[spellId] || ''
+                    const chosen = settings.spellSounds?.[spellId] || DEFAULT_SPELL_SOUNDS[spellId] || ''
+                    // A Mixkit choice this Oasis does not have shows (and plays) as its shipped stand-in.
+                    const selected = entries.some(e => e.id === chosen) ? chosen : SHIPPED_STAND_IN[chosen] ?? chosen
                     const selectedEntry = entries.find(e => e.id === selected)
                     return (
                       <div key={spellId} className="flex items-center gap-1.5">

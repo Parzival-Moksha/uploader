@@ -6,6 +6,7 @@
 // Kit components read this; a menu built with the kit changes with it and needs no code of its own.
 
 import { useSyncExternalStore } from 'react'
+import { CURSOR_SETS, DEFAULT_CURSOR_SET, applyCursorSet, type CursorSetId } from './cursors'
 
 export type MenuStyleId = 'glass' | 'forged' | 'parchment' | 'rune'
 
@@ -37,10 +38,12 @@ export interface MenuLook {
   transparency: number
   /** Glass: the colour behind the text, #rrggbb. */
   color: string
+  /** The mouse cursors (src/lib/ui-kit/cursors.ts); 'system' is the computer's own. */
+  cursor: CursorSetId
 }
 
 /** Defaults from the owner's walk-through: 75% / blur 5 at 15:17, revised at 42:39 to "default 90 transparency… blur of four". */
-export const DEFAULT_MENU_LOOK: MenuLook = { style: 'forged', toggle: 'gem', blur: 4, transparency: 90, color: '#1f2125' }
+export const DEFAULT_MENU_LOOK: MenuLook = { style: 'forged', toggle: 'gem', blur: 4, transparency: 90, color: '#1f2125', cursor: DEFAULT_CURSOR_SET }
 export const MENU_BLUR_MAX = 24
 export const MENU_SWATCHES = ['#1f2125', '#0b0c10', '#2a2d34', '#141a2a', '#1d1430', '#122326', '#2b1518', '#1a2416', '#2a2216', '#3a3f4a']
 
@@ -56,6 +59,7 @@ export function sanitizeMenuLook(raw: unknown): MenuLook {
     blur: num(r.blur, 0, MENU_BLUR_MAX, DEFAULT_MENU_LOOK.blur),
     transparency: num(r.transparency, 0, 100, DEFAULT_MENU_LOOK.transparency),
     color: typeof r.color === 'string' && /^#[0-9a-f]{6}$/i.test(r.color) ? r.color.toLowerCase() : DEFAULT_MENU_LOOK.color,
+    cursor: CURSOR_SETS.some(c => c.id === r.cursor) ? (r.cursor as CursorSetId) : DEFAULT_MENU_LOOK.cursor,
   }
 }
 
@@ -90,6 +94,7 @@ function publish(look: MenuLook) {
   root.dataset.menuStyle = look.style
   root.style.setProperty('--kit-glass-bg', glass.backgroundColor)
   root.style.setProperty('--kit-glass-blur', glass.backdropFilter)
+  applyCursorSet(look.cursor)
 }
 
 function notify() { store.listeners.forEach(fn => fn()) }

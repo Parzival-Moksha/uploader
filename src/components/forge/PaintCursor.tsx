@@ -15,6 +15,7 @@
 
 'use client'
 
+import { brushStrokeEnded, brushStrokeStarted } from '../../lib/sound-moments'
 import { useFrame, useThree } from '@react-three/fiber'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
@@ -181,6 +182,7 @@ export function PaintCursor({ active, authorId, authorColor }: PaintCursorProps)
 
       const strokeId = makeStrokeId()
       strokeIdRef.current = strokeId
+      brushStrokeStarted()
       lastSampleAtRef.current = performance.now()
       lastSampleRef.current = startPoint
       pointCountRef.current = 1
@@ -268,6 +270,7 @@ export function PaintCursor({ active, authorId, authorColor }: PaintCursorProps)
   function finishStroke() {
     const strokeId = strokeIdRef.current
     if (!strokeId) return
+    brushStrokeEnded()
     const finalPoint = projectPointerToWorld(lastPointerRef.current.x, lastPointerRef.current.y)
     if (finalPoint) sampleIfDue(finalPoint)
     strokeIdRef.current = null

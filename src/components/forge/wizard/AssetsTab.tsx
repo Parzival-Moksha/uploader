@@ -20,6 +20,7 @@ import { AssetCard } from '../AssetCard'
 import { DeleteButton } from '../DeleteButton'
 import { canMutateLibrary } from '../../../lib/library-permissions'
 import { catalogFallbackThumbnail } from '../../../lib/catalog-thumbnail-fallbacks'
+import { kitPrompt } from '@/components/ui-kit'
 
 export function AssetsTab() {
   const { conjuredAssets } = useConjure()
@@ -416,8 +417,8 @@ export function AssetsTab() {
                     onDoubleClick={(e) => {
                       e.stopPropagation()
                       e.preventDefault()
-                      const name = window.prompt('Rename asset:', asset.displayName || asset.prompt)
-                      if (name && name.trim()) renameAsset(asset.id, name.trim())
+                      void kitPrompt({ title: 'Rename asset', defaultValue: asset.displayName || asset.prompt, confirm: 'Rename' })
+                        .then(name => { if (name && name.trim()) renameAsset(asset.id, name.trim()) })
                     }}
                     title="Double-click to rename"
                   >
