@@ -43,6 +43,8 @@ node scripts/oasis.mjs link       put the keyed address on the clipboard, for an
 
 Ports taken? `OASIS_WEB_PORT=5016 OASIS_PORT=5030 node scripts/oasis.mjs start` picks others (the page is built for its engine's port: give the same pair every time).
 
+The start script installs with pnpm 10 (the PATH's pnpm only if it is 10.x, else corepack's, and it says which). To force one: `OASIS_PNPM="corepack pnpm@10.26.0" node scripts/oasis.mjs start`.
+
 ## 4. Open it
 
 The browser holds the Oasis's local key. Another browser, a private window or `127.0.0.1` instead of `localhost` has no key, and the page then says "This browser has not got this Oasis's key". The fix: `node scripts/oasis.mjs open` (or `/oasis` in Claude Code with the plugin) opens the default browser with the key; `node scripts/oasis.mjs link` puts the keyed address on the clipboard for a second browser.

@@ -124,11 +124,11 @@ export function secondsLeft(plan, index, elapsedInStep) {
 async function step(plan, name, work) {
   const index = plan.indexOf(name)
   const began = Date.now()
-  say(`Step ${index + 1} of ${plan.length}: ${STEP_WORDS[name]} (${aboutTime(secondsLeft(plan, index, 0))} left in all) …`)
+  say(`Step ${index + 1} of ${plan.length}: ${STEP_WORDS[name]} (${aboutTime(secondsLeft(plan, index, 0))} left in all) ...`)
   const timer = setInterval(() => {
     const elapsed = (Date.now() - began) / 1000
     const late = elapsed > (STEP_SECONDS[name] || 30) * 1.5
-    say(`  … step ${index + 1} of ${plan.length}, ${STEP_WORDS[name]}: ${minSec(elapsed)} so far, ${late ? 'longer than usual, still working' : `${aboutTime(secondsLeft(plan, index, elapsed))} left in all`}`)
+    say(`  ... step ${index + 1} of ${plan.length}, ${STEP_WORDS[name]}: ${minSec(elapsed)} so far, ${late ? 'longer than usual, still working' : `${aboutTime(secondsLeft(plan, index, elapsed))} left in all`}`)
   }, TICK_MS)
   try {
     return await work()
@@ -142,13 +142,41 @@ function works(command, argv) {
   return spawnSync(command, argv, { stdio: 'ignore', windowsHide: true, shell }).status === 0
 }
 
-/** pnpm as [command, ...leading args]: the one on the PATH, corepack's, or a pinned one through npx. */
-function pnpm() {
-  if (process.env.OASIS_PNPM) return [process.env.OASIS_PNPM]
-  if (works('pnpm', ['--version'])) return ['pnpm']
-  if (works('corepack', ['--version'])) return ['corepack', `pnpm@${PNPM_VERSION}`]
-  return ['npx', '--yes', `pnpm@${PNPM_VERSION}`]
+/** The version a command answers to --version, or '' when it is not there. */
+function versionOf(command) {
+  const shell = WIN && !/\.exe$/i.test(command)
+  const r = spawnSync(command, ['--version'], { encoding: 'utf8', windowsHide: true, shell })
+  return r.status === 0 ? String(r.stdout || '').trim().split(/\s+/).pop() : ''
 }
+
+/**
+ * Which pnpm installs the packages, and why (pure, tested). The PATH's pnpm only when its major version is the
+ * pinned one: a newer major reads the project's settings differently (pnpm 11 ignores package.json's "pnpm" field,
+ * so its first install stops on ERR_PNPM_IGNORED_BUILDS; the owner's second laptop, 26 Nov). Otherwise corepack's
+ * pinned pnpm, else the pinned one through npx. OASIS_PNPM overrides all of it.
+ */
+export function choosePnpm({ override = '', pathVersion = '', corepack = false, pinned = PNPM_VERSION } = {}) {
+  const major = (v) => String(v).split('.')[0]
+  // split into words: Mac and Linux spawn without a shell, so "corepack pnpm@10.26.0" must be a program and its argument
+  if (override.trim()) return { argv: override.trim().split(/\s+/), label: override.trim(), why: 'OASIS_PNPM is set' }
+  if (pathVersion && major(pathVersion) === major(pinned)) return { argv: ['pnpm'], label: `pnpm ${pathVersion}`, why: 'the pnpm on the PATH' }
+  const other = pathVersion ? `the PATH has pnpm ${pathVersion}, not ${major(pinned)}.x` : 'no pnpm on the PATH'
+  if (corepack) return { argv: ['corepack', `pnpm@${pinned}`], label: `pnpm ${pinned}`, why: `${other}; using pnpm ${pinned} through corepack` }
+  return { argv: ['npx', '--yes', `pnpm@${pinned}`], label: `pnpm ${pinned}`, why: `${other}; using pnpm ${pinned} through npx` }
+}
+
+let chosenPnpm = null
+/** pnpm as [command, ...leading args], chosen once per run (choosePnpm), with one line saying which and why. */
+function pnpm() {
+  if (!chosenPnpm) {
+    chosenPnpm = choosePnpm({ override: process.env.OASIS_PNPM || '', pathVersion: versionOf('pnpm'), corepack: works('corepack', ['--version']) })
+    say(`Packages: ${chosenPnpm.label} (${chosenPnpm.why}).`)
+  }
+  return chosenPnpm.argv
+}
+
+/** pnpm's environment for an install nobody may be asked anything in (an agent has no terminal): it never stops to confirm removing node_modules. */
+const PNPM_QUIET_ENV = () => ({ ...process.env, CI: 'true', npm_config_confirm_modules_purge: 'false', COREPACK_ENABLE_DOWNLOAD_PROMPT: '0' })
 
 const bin = (...parts) => path.join(HOME, 'node_modules', ...parts)
 
@@ -284,8 +312,10 @@ async function setup() {
   process.env.COREPACK_ENABLE_DOWNLOAD_PROMPT = '0'
   if (plan.includes('packages')) {
     const [command, ...lead] = pnpm()
-    const code = await step(plan, 'packages', () => runAsync(command, [...lead, 'install', '--frozen-lockfile', ...(SLIM ? ['--prod=false'] : [])]))
-    if (code !== 0) return fail('The package install failed.')
+    // The Oasis has no pnpm-workspace.yaml; one here was written by another pnpm (pnpm 11 leaves a stub) and can change the install.
+    if (fs.existsSync(path.join(HOME, 'pnpm-workspace.yaml'))) say('Note: a pnpm-workspace.yaml is in this folder; it is not the Oasis\'s own (another pnpm wrote it). If the install fails, delete it and start again.')
+    const code = await step(plan, 'packages', () => runAsync(command, [...lead, 'install', '--frozen-lockfile', ...(SLIM ? ['--prod=false'] : [])], { env: PNPM_QUIET_ENV() }))
+    if (code !== 0) return fail(`The package install failed (${chosenPnpm.label}: ${chosenPnpm.why}). Next: start again; if it fails the same way, delete the node_modules folder (another pnpm may have made it) and start again, or set OASIS_PNPM="corepack pnpm@${PNPM_VERSION}".`)
     if (SLIM) stamp(HOME, 'lock', path.join(HOME, 'pnpm-lock.yaml'))
     done.push('packages')
   }
@@ -331,7 +361,7 @@ async function setup() {
   // here leaves everything else working; hosting then says it cannot start.
   if (plan.includes('party')) {
     const [command, ...lead] = pnpm()
-    if (await step(plan, 'party', () => runAsync(command, [...lead, 'install', '--frozen-lockfile', '--prod'], { cwd: roomDir() })) === 0) { stamp(roomDir(), 'lock', path.join(roomDir(), 'pnpm-lock.yaml')); done.push('party server') }
+    if (await step(plan, 'party', () => runAsync(command, [...lead, 'install', '--frozen-lockfile', '--prod'], { cwd: roomDir(), env: PNPM_QUIET_ENV() })) === 0) { stamp(roomDir(), 'lock', path.join(roomDir(), 'pnpm-lock.yaml')); done.push('party server') }
     else say('The party server packages could not be installed; everything else works, hosting a party does not.')
   }
   if (plan.includes('build')) {
@@ -345,7 +375,7 @@ async function setup() {
     const build = () => runAsync(process.execPath, [bin('next', 'dist', 'bin', 'next'), 'build'], { env: { ...process.env, ...webEnv(), NODE_OPTIONS: buildNodeOptions() } })
     const code = await step(plan, 'build', async () => {
       if (await build() === 0) return 0
-      say('The build failed; trying once more …')
+      say('The build failed; trying once more ...')
       return build()
     })
     if (code !== 0) {
@@ -488,7 +518,7 @@ async function start() {
   // An update rebuilds the page and may reinstall packages: the servers this script started stop first (never others).
   const pending = setupPlan()
   if ((pending.includes('build') || pending.includes('packages')) && (alive(readRun().web) || alive(readRun().engine))) {
-    say('Stopping the running Oasis to update it …')
+    say('Stopping the running Oasis to update it ...')
     stop()
     await sleep(1500)
   }
@@ -545,7 +575,7 @@ async function updateCommand() {
     return 1
   }
   const before = oasisVersion()
-  say(`Updating the Oasis${before ? ` (${before})` : ''} from its repository: git pull …`)
+  say(`Updating the Oasis${before ? ` (${before})` : ''} from its repository: git pull ...`)
   if (await runAsync('git', ['pull', '--ff-only'], { shell: WIN })) {
     say('git pull did not finish (the lines above say why). Nothing was changed; the Oasis you had is as it was.')
     return 1

@@ -122,7 +122,8 @@ export function lastProgress(logText) {
   let found = null
   for (const line of String(logText || '').split(/\r?\n/)) {
     const head = /^Step (\d+) of (\d+): (.+?) \((.+?) left in all\)/.exec(line)
-    const tick = /^\s+… step (\d+) of (\d+), (.+?): .+? so far, (.+?)(?: left in all)?$/.exec(line)
+    // "…" from start scripts up to 0.7.0's first cut, "..." after (plain dots: Windows PowerShell 5.1 garbled the ellipsis)
+    const tick = /^\s+(?:…|\.\.\.) step (\d+) of (\d+), (.+?): .+? so far, (.+?)(?: left in all)?$/.exec(line)
     const m = head || tick
     if (m) found = { step: Number(m[1]), of: Number(m[2]), words: m[3], left: /longer than usual/.test(m[4]) ? 'longer than usual, still working' : `${m[4]} left` }
   }
