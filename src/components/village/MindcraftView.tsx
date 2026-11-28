@@ -134,7 +134,7 @@ function DayList({ days, today, target, empty, onRemoveManual, liveToday }: { da
  * from the file's word); "in hand" only if that was today or yesterday (48 h). The rest waits, longest-idle last.
  */
 function AgentMissionBoard({ today }: { today: string }) {
-  const [list, setList] = useState<Array<{ file: string; title: string; column: string; state: string; who: string; priority: number | null; tldr: string }> | null>(null)
+  const [list, setList] = useState<Array<{ file: string; title: string; column: string; state: string; who: string; priority: number | null; tldr: string; relation?: { kind: 'duplicate of' | 'merged into' | 'blocked by'; target: string } }> | null>(null)
   const [activity, setActivity] = useState<Record<string, { last: string; seconds: number; agents: Record<string, number> }>>({})
   useEffect(() => {
     let gone = false
@@ -150,7 +150,10 @@ function AgentMissionBoard({ today }: { today: string }) {
   }, [])
   if (!list?.length) return null
   const yesterday = addDays(today, -1)
-  const open = list.filter(m => m.column !== 'done').map(m => {
+  // A duplicate or a mission merged into another is one thing: the board shows the other one only (Anorak, 2026-11-26).
+  const folded = list.filter(m => m.column !== 'done' && (m.relation?.kind === 'duplicate of' || m.relation?.kind === 'merged into'))
+  const titleOf = (target: string) => list.find(x => x.file === target || x.file === `${target}.md` || x.title.toLowerCase() === target.toLowerCase())?.title || target
+  const open = list.filter(m => m.column !== 'done' && !folded.includes(m)).map(m => {
     const a = activity[m.file]
     const top = a ? Object.entries(a.agents).sort((x, y) => y[1] - x[1]).map(([name]) => name).slice(0, 3) : []
     return { ...m, last: a?.last || '', inHand: Boolean(a && a.last >= yesterday), workers: top }
@@ -164,10 +167,15 @@ function AgentMissionBoard({ today }: { today: string }) {
       {open.map(m => (
         <div key={m.file} className="flex items-start gap-3 text-white/85">
           <span className="w-[66px] shrink-0 pt-[2px] text-[11px] font-bold uppercase tracking-[0.08em]" style={{ color: m.inHand ? '#34d399' : 'rgba(255,255,255,0.4)' }}>{m.inHand ? 'in hand' : 'waiting'}</span>
-          <span className="min-w-0 flex-1 break-words">{m.title} <span className="text-white/50">· {m.who ? `who: ${m.who}` : 'nobody named'} · {when(m.last)}{m.workers.length && m.workers.join(', ').toLowerCase() !== (m.who || '').toLowerCase() ? ` (by ${m.workers.join(', ')})` : ''}</span></span>
+          <span className="min-w-0 flex-1 break-words">{m.title}{m.relation?.kind === 'blocked by' && <span className="ml-1.5 rounded border border-amber-300/50 px-1 text-[11px] text-amber-200">blocked by {titleOf(m.relation.target)}</span>} <span className="text-white/50">· {m.who ? `who: ${m.who}` : 'nobody named'} · {when(m.last)}{m.workers.length && m.workers.join(', ').toLowerCase() !== (m.who || '').toLowerCase() ? ` (by ${m.workers.join(', ')})` : ''}</span></span>
           <span className="w-[42px] shrink-0 text-right tabular-nums text-white/55" title="priority: ease × impact × urgency ÷ 125">{m.priority === null ? '—' : m.priority.toFixed(2)}</span>
         </div>
       ))}
+      {folded.length > 0 && (
+        <div className="mt-1 border-t border-white/10 pt-1 text-[12px] text-white/50">
+          {folded.map(m => <div key={m.file}>{m.title}: {m.relation?.kind} {titleOf(m.relation?.target || '')}</div>)}
+        </div>
+      )}
     </div>
   )
 }
@@ -223,6 +231,9 @@ function TodayBox({ tab, snapshot, mine, theirs, working }: { tab: 'carbon' | 's
   // What each working agent is on: its task in hand (the todo it is doing), else why it works, else its mission.
   const doing = useStoreForWork(s => working.map(w => {
     const a = s.agentEngine.agents[w.id]
+    // Between turns, a helper still at work (a background upload): what that helper does.
+    const helper = a && a.status !== 'working' ? a.subagents?.find(h => h.status === 'running') : undefined
+    if (helper) return `${w.name}\u0001${`helper: ${helper.description || 'working'}`.slice(0, 90)}`
     const todo = a?.todos?.find(t => t.status === 'in_progress')
     return `${w.name}\u0001${(todo?.activeForm || todo?.content || a?.statusReason || '').slice(0, 90)}`
   }).join('\u0002'))
@@ -234,18 +245,18 @@ function TodayBox({ tab, snapshot, mine, theirs, working }: { tab: 'carbon' | 's
     : (snapshot.summary?.agentHours.xp || 0) + Math.max(0, theirs - (snapshot.agentHours?.today || 0)) / 60
   const color = carbon ? '#f1dca8' : '#d8b4fe'
   return (
-    <div data-mindcraft="today-box" className="mc-card mx-auto flex min-h-[100px] w-full max-w-[560px] shrink-0 flex-col items-center justify-center gap-1 px-5 py-3 text-center">
-      <div className="flex flex-wrap items-baseline justify-center gap-x-4">
-        <span className="mc-clock text-[46px] font-bold leading-none tabular-nums" style={{ color }}>{formatClock(seconds)}</span>
-        <span className="text-[22px] font-bold tabular-nums text-white/75">{Math.round(xp * 10) / 10} XP</span>
+    <div data-mindcraft="today-box" className="flex min-w-0 flex-col items-start gap-0.5 pl-1">
+      <div className="text-[11px] uppercase tracking-[0.18em] text-white/50">{carbon ? 'your time today' : "your agents' time today"}</div>
+      <div className="flex flex-wrap items-baseline gap-x-3">
+        <span className="mc-clock text-[34px] font-bold leading-none tabular-nums" style={{ color }}>{formatClock(seconds)}</span>
+        <span className="text-[17px] font-bold tabular-nums text-white/75">{Math.round(xp * 10) / 10} XP</span>
       </div>
-      <div className="text-[13px] uppercase tracking-[0.18em] text-white/50">{carbon ? 'your time today' : "your agents' time today"}</div>
       {!carbon && (
-        <div className="mt-1 text-[14px] leading-snug text-white/85">
+        <div className="max-w-full text-[13px] leading-snug text-white/85">
           {list.length === 0 ? 'No agent is working right now.' : (
             <>
-              <b style={{ color }}>{list.length} working now</b>
-              {list.map(item => <div key={item.name}><b>{item.name}</b>{item.what ? <span className="text-white/60">: {item.what}</span> : null}</div>)}
+              <b style={{ color }}>{list.length} working now: </b>
+              {list.map((item, i) => <span key={item.name} title={item.what || undefined}>{i ? ', ' : ''}<b>{item.name}</b>{item.what ? <span className="text-white/55"> ({item.what.slice(0, 40)}{item.what.length > 40 ? '…' : ''})</span> : null}</span>)}
             </>
           )}
         </div>
@@ -322,11 +333,20 @@ export function MindcraftView({ carbonFile }: { carbonFile?: string | null } = {
   return (
     <div className="mc-scope flex h-full min-h-0 flex-col gap-3">
       {/* The title in the middle, the valor selector at the right, never over each other (three columns). */}
-      <div className="grid shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-3 pr-12 pt-4">
-        <span />
-        <div>
-          <div className="mc-title text-center text-[46px] leading-none tracking-[0.08em]">Mindcraft</div>
-          {vow && <div className="mc-note text-center" style={{ fontSize: 19 }}>{vow.label}.</div>}
+      {/* One short header (the owner, 2026-11-26: "the whole header less than 50% as tall"): today's time top left,
+          Mindcraft and its two tabs in the middle, the valor selector top right beside the X. */}
+      <div className="grid shrink-0 grid-cols-[1fr_auto_1fr] items-start gap-3 pr-12 pt-3">
+        <TodayBox tab={tab} snapshot={snapshot} mine={mine} theirs={theirs} working={live.working} />
+        <div className="flex flex-col items-center gap-1.5">
+          <div className="mc-title text-center text-[38px] leading-none tracking-[0.08em]">Mindcraft</div>
+          {vow && <div className="mc-note text-center" style={{ fontSize: 17 }}>{vow.label}.</div>}
+          <div className="flex flex-wrap justify-center gap-2.5">
+            {tabs.map(item => (
+              <button key={item.id} type="button" onClick={() => setTab(item.id)} className="mc-tab" style={{ minWidth: 170 }} data-on={tab === item.id ? '1' : '0'}>
+                <div>{item.label}</div>
+              </button>
+            ))}
+          </div>
         </div>
         <label className="mc-field flex items-center gap-2 justify-self-end px-2.5 py-1.5 text-[13px]" title="What a minute is worth when no agent and no mission is open">
           Valor with nothing in focus
@@ -340,14 +360,6 @@ export function MindcraftView({ carbonFile }: { carbonFile?: string | null } = {
           </select>
         </label>
       </div>
-      <div className="flex shrink-0 flex-wrap justify-center gap-2.5 px-1 pb-1">
-        {tabs.map(item => (
-          <button key={item.id} type="button" onClick={() => setTab(item.id)} className="mc-tab" style={{ minWidth: 200 }} data-on={tab === item.id ? '1' : '0'}>
-            <div>{item.label}</div>
-          </button>
-        ))}
-      </div>
-      <TodayBox tab={tab} snapshot={snapshot} mine={mine} theirs={theirs} working={live.working} />
       {/* Carbon fills the space and scrolls inside its own list; the other tabs scroll here. */}
       {/* Carbon scrolls too (the owner, 2026-11-24: in a narrow window the chart and Today stack and the list got no height). */}
       <div className={`min-h-0 flex-1 overflow-y-auto pr-1 ${tab === 'carbon' ? 'flex flex-col gap-3' : ''}`}>

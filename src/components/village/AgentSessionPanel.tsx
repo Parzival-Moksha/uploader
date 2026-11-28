@@ -7,7 +7,7 @@
 
 import { useEffect, useMemo, useState, useSyncExternalStore, type PointerEvent as ReactPointerEvent } from 'react'
 import { kitConfirm } from '../ui-kit'
-import { HERMES_MODES, MODE_LABEL, MODE_MEANING, PERMISSION_MODES, switchAgentMode } from './agent-mode'
+import { ACP_MODE_LABEL, HERMES_MODES, MODE_LABEL, MODE_MEANING, PERMISSION_MODES, switchAgentMode } from './agent-mode'
 import { CUSTOM_MODEL_VALUE, cleanModelId, mergeModelLists, type ModelOption } from '../../lib/village/village-models'
 import { useOasisStore } from '../../store/oasisStore'
 import { useUILayer } from '../../lib/input-manager'
@@ -47,6 +47,7 @@ import { KitSelectField, KitChip, kitPrompt } from '@/components/ui-kit'
 import { VILLAGE_FONT_BODY, VILLAGE_FONT_DISPLAY, VILLAGE_TYPE_CLASS, agentDisplayName, canTalkTo, cwdLabel, formatCost, modelLabel, statusColor, statusLabel } from './village-status'
 import { useKitStyle } from '@/components/ui-kit'
 import { raiseLayer, useLayer } from '@/lib/ui-kit/layers'
+import { isAcpRuntime, RUNTIME_LABEL } from '../../lib/agent-engine-types'
 
 
 function useViewport() {
@@ -363,7 +364,7 @@ export function AgentControls({ agent }: { agent: EngineAgentState }) {
               {models.map(model => <option key={model.value} value={model.value}>{model.displayName || model.value}</option>)}
               <option value={CUSTOM_MODEL_VALUE}>Other model id…</option>
           </KitSelectField>
-          {agent.runtime === 'hermes' && (
+          {isAcpRuntime(agent.runtime) && (
             <KitSelectField
                 label="Mode"
                 value={agent.permissionMode || ''}
@@ -375,12 +376,12 @@ export function AgentControls({ agent }: { agent: EngineAgentState }) {
                 onKeyDown={event => event.stopPropagation()}
               >
                 <option value="">{`settings (${agent.effectivePermissionMode || '?'})`}</option>
-                {HERMES_MODES.map(mode => <option key={mode} value={mode}>{mode}</option>)}
+                {(agent.modes?.length ? agent.modes : agent.runtime === 'hermes' ? HERMES_MODES : []).map(mode => <option key={mode} value={mode}>{ACP_MODE_LABEL[mode] || mode}</option>)}
             </KitSelectField>
           )}
           <EffortSelect agent={agent} />
           </div>
-          {agent.runtime !== 'hermes' && <ModeChooser agent={agent} />}
+          {!isAcpRuntime(agent.runtime) && <ModeChooser agent={agent} />}
           <FollowPair agent={agent} />
           <div className="flex flex-wrap items-center gap-2">
           {/* Its Claude account (engine accounts.js), when there is more than one. */}
@@ -399,7 +400,7 @@ export function AgentControls({ agent }: { agent: EngineAgentState }) {
       )}
       <ThreadFontSlider />
       <SessionIdLine sessionId={agent.sessionId} />
-      <div className="kit-hint">{agent.runtime === 'hermes' ? `Hermes${agent.remoteHost ? ` on ${agent.remoteHost}` : ''} · ` : ''}{modelLabel(agent)}</div>
+      <div className="kit-hint">{isAcpRuntime(agent.runtime) ? `${RUNTIME_LABEL[agent.runtime]}${agent.remoteHost ? ` on ${agent.remoteHost}` : ''} · ` : ''}{modelLabel(agent)}</div>
       {/* What the gear rolled down before (name, character, schedule, voice, walking, home, avatar, colour, all chats). */}
       <AgentSettingsSections agent={agent} />
     </div>

@@ -7,7 +7,7 @@ import os from 'node:os'
 import path from 'node:path'
 
 import { missionsDir } from '../oasis-settings'
-import { askingAgent } from './carbon-missions'
+import { askingAgent, formatAnswerForAsker, formatAnswerNote, resolveAsker, type CarbonMission } from './carbon-missions'
 
 /** OASIS_QUESTIONS_DIR, else `questions` next to the missions folder. */
 export function questionsDir(): string {
@@ -65,4 +65,19 @@ export async function tellAgent(by: string, text: string): Promise<string> {
   const target = askingAgent(by, e.agents)
   if (!target) return 'no such agent, and no Anorak in the village'
   return (await send(e, target, text)) ? `sent to ${target.name}` : 'the engine did not take it'
+}
+
+/**
+ * His answer goes straight to the agent that asked ("act on it"), and to Anorak, who keeps the books (Anorak's
+ * call, 2026-11-22). A mission Anorak or a helper asked, or one whose asker has left the village: Anorak only.
+ */
+export async function tellAnswer(mission: Pick<CarbonMission, 'file' | 'title' | 'by' | 'recommend' | 'predict'>, answer: string, state: 'answered' | 'parked', took: number | null): Promise<string> {
+  const e = await engine()
+  if (e.error) return e.error
+  const asker = resolveAsker(mission.by, e.agents)
+  const anorak = askingAgent('Anorak', e.agents)
+  let toldAsker = ''
+  if (asker.agent && !asker.isAnorak && (await send(e, asker.agent, formatAnswerForAsker(mission, answer, state)))) toldAsker = asker.agent.name
+  const toldAnorak = anorak ? await send(e, anorak, formatAnswerNote(mission, answer, state, took, toldAsker || undefined)) : false
+  return [toldAsker && `sent to ${toldAsker}`, toldAnorak && anorak && `sent to ${anorak.name}`].filter(Boolean).join(', ') || 'nobody in the village to tell'
 }

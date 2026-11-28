@@ -10,8 +10,8 @@ import { getRequiredOasisUserId } from '@/lib/session'
 import { levelFromXp, levelProgress, xpToNextLevel, getLevelTitle } from '@/lib/xp'
 import { profileXp } from '@/lib/profile-xp'
 import { FREE_CREDITS } from '@/lib/conjure/types'
-import { DEFAULT_PROFILE_AVATAR_3D_URL, DEFAULT_PROFILE_DISPLAY_NAME } from '@/lib/profile-defaults'
-import { buildPlayerProgression, withPassiveMana } from '@/lib/player-progression'
+import { DEFAULT_PROFILE_AVATAR_3D_URL, DEFAULT_PROFILE_DISPLAY_NAME, starterAvatar3dUrl } from '@/lib/profile-defaults'
+import { DEFAULT_PLAYER_SKILLS, buildPlayerProgression, withPassiveMana } from '@/lib/player-progression'
 import { getPlayerProgressionState } from '@/lib/player-progression-server'
 import { normalizeProfileAvatarUrl } from '@/lib/profile-avatar-url'
 
@@ -22,7 +22,7 @@ async function ensureProfile(userId: string) {
     create: {
       userId,
       displayName: DEFAULT_PROFILE_DISPLAY_NAME,
-      avatar3dUrl: DEFAULT_PROFILE_AVATAR_3D_URL,
+      avatar3dUrl: starterAvatar3dUrl(await prisma.profile.count()),
     },
     update: {},
   })
@@ -37,6 +37,13 @@ async function serializeProfile(p: Awaited<ReturnType<typeof ensureProfile>>) {
   const toNext = xpToNextLevel(level)
   const lt = getLevelTitle(level)
   const player = buildPlayerProgression({ ...withPassiveMana(p), level })
+  // The refill is counted from the profile's last save, and any save (a new body, an XP award) restarts that
+  // count: so the refilled mana is saved as soon as it is read, or a save would show the old, spent value again
+  // (the owner, 26 Nov: "my mana went down to nineteen, randomly"). Only when it grew, and only if nothing
+  // else wrote meanwhile (a cast that spent it wins).
+  if (typeof p.mana === 'number' && player.mana > p.mana) {
+    await prisma.profile.updateMany({ where: { userId: p.userId, updatedAt: p.updatedAt }, data: { mana: player.mana } }).catch(() => null)
+  }
   const progression = await getPlayerProgressionState(p.userId)
 
   return {
@@ -96,15 +103,7 @@ export async function GET(request: Request) {
       mana: 20,
       maxMana: 20,
       unspentSkillPoints: 0,
-      skills: {
-        fire: 0,
-        ice: 0,
-        lightning: 0,
-        vitality: 0,
-        focus: 0,
-        conjuration: 0,
-        mobility: 0,
-      },
+      skills: { ...DEFAULT_PLAYER_SKILLS },
       playerStats: {
         maxHp: 100,
         maxMana: 20,

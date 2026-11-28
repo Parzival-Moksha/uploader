@@ -24,7 +24,9 @@ export async function resolveActiveWorldForUser(userId: string): Promise<Resolve
     return { worldId: storedWorldId, source: 'stored', authoritative: mode === 'hosted' }
   }
 
-  for (const worldId of [WELCOME_HUB_WORLD_ID, ROOKIE_WIZARD_WORLD_ID]) {
+  // A deployment can name the world newcomers land in (the deployed Oasis: its free-for-all commons).
+  const landing = process.env.OASIS_LANDING_WORLD_ID?.trim()
+  for (const worldId of [...(landing ? [landing] : []), WELCOME_HUB_WORLD_ID, ROOKIE_WIZARD_WORLD_ID]) {
     if (await canLoadWorld(worldId, userId)) {
       return { worldId, source: 'welcome', authoritative: mode === 'hosted' }
     }

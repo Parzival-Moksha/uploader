@@ -69,3 +69,36 @@ export function groupAgentsByWorld(
   }
   return [...groups.values()].sort((a, b) => (a.here === b.here ? a.name.localeCompare(b.name) : a.here ? -1 : 1))
 }
+
+/**
+ * The world the village's agents call home: the one most of their homes are in (home spots in the homes file, and
+ * each agent's own home world). Null when no agent has a home anywhere (a fresh Oasis). Used when the village's world
+ * is unset or he switches back to "Agents live in one world", instead of the world he happens to stand in: the owner,
+ * 27 Nov, went through a portal into a brand-new private world and the whole village moved in behind him.
+ */
+export function villageHomeWorldFrom(homes: Record<string, Record<string, unknown>>, homeWorlds: ReadonlyArray<string | null | undefined>, isPlain: (world: string) => boolean = () => true): string | null {
+  const count = new Map<string, number>()
+  const add = (world: string | null | undefined, n = 1) => {
+    if (!world || world === VILLAGE_EVERYWHERE || !isPlain(world)) return
+    count.set(world, (count.get(world) || 0) + n)
+  }
+  for (const [world, byAgent] of Object.entries(homes || {})) add(world, Object.keys(byAgent || {}).length)
+  for (const world of homeWorlds) add(world)
+  let best: string | null = null
+  let bestN = 0
+  for (const [world, n] of [...count.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
+    if (n > bestN) { best = world; bestN = n }
+  }
+  return best
+}
+
+/**
+ * What decides where agents are, as one key for a memo: it changes whenever any part does. The world goes in as its
+ * id, never as a length or a count: every made world's id is 24 characters ("world-1794211873285-r54v"), so a key
+ * that took the length did not change from one made world to the next, the agents who are elsewhere were not worked
+ * out again, and the whole village stood in the new world (the owner, 27 Nov, on camera: "26 agents... I want a
+ * properly empty world"; Anorak found it, e2137fb7). A string, not a sum or a hash: nothing can cancel out or collide.
+ */
+export function villageWorldsKey(parts: { homes: number; follow: number; identity: number; come: number; world: string }): string {
+  return `${parts.homes}|${parts.follow}|${parts.identity}|${parts.come}|${parts.world}`
+}

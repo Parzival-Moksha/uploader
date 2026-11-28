@@ -98,8 +98,8 @@ import {
 import { DEFAULT_AGENT_WINDOW_RENDER_MODE } from '../lib/agent-window-renderers'
 import { useAudioManager, type SoundEvent } from '../lib/audio-manager'
 import {
-  SPATIAL_WEB_DEFAULT_SUBMIT_ENDPOINT,
   buildSpatialWebSubmission,
+  safeSpatialSubmitEndpoint,
   getNextSpatialWebValue,
   isAnsweredGoogleFormsTextField,
   resolveSpatialWebObjectPosition,
@@ -2373,7 +2373,8 @@ export const useOasisStore = create<OasisState>((set, get) => {
         ...buildSpatialWebSubmission(get().spatialWebObjects, object.formId),
         ...(action.destination ? { destination: action.destination } : {}),
       }
-      const endpoint = action.endpoint || SPATIAL_WEB_DEFAULT_SUBMIT_ENDPOINT
+      // Only this Oasis's own form endpoints, judged after ../ and escapes (Merge Goat, 28 Nov).
+      const endpoint = safeSpatialSubmitEndpoint(action.endpoint)
       let status = action.successMessage || 'Submitted.'
       let submitSucceeded = false
       let submitResult: SpatialSubmitResponse | null = null
@@ -2978,16 +2979,8 @@ export const useOasisStore = create<OasisState>((set, get) => {
       }
 
       if (action.type === 'api_call') {
-        try {
-          await fetch(action.endpoint, {
-            method: action.method || 'POST',
-            headers: action.method === 'GET' ? undefined : { 'Content-Type': 'application/json' },
-            credentials: 'same-origin',
-            body: action.method === 'GET' ? undefined : JSON.stringify(action.body || {}),
-          })
-        } catch {
-          playSpatialWebSound('error')
-        }
+        // Never run (Merge Goat's second HIGH, 28 Nov): an action from world data called any route with the
+        // visitor's session on one press of F. The server also strips it from every saved world.
         continue
       }
 

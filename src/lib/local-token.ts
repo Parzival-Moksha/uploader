@@ -41,6 +41,19 @@ export function isLoopbackHost(host: string | null | undefined): boolean {
   return LOOPBACK_HOSTS.has(name.toLowerCase())
 }
 
+/**
+ * A page opened on 127.0.0.1 has no key: the key's cookie lives on localhost (`oasis.mjs open` opens localhost,
+ * and the two names keep separate cookies). A page visit there without a key and without the cookie goes to the
+ * same address on localhost, instead of the "no key" message (Anorak, 28 Nov: the trap a person met). The address
+ * to go to, or null.
+ */
+export function localhostRedirect(req: { host: string | null; pathname: string; search: string; key: string | null; cookieToken: string | null; isDocument: boolean }): string | null {
+  if (!req.isDocument || req.key || req.cookieToken || req.pathname.startsWith('/api/')) return null
+  const host = req.host || ''
+  if (!/^127\.0\.0\.1(:\d+)?$/.test(host)) return null
+  return `http://localhost${host.slice('127.0.0.1'.length)}${req.pathname}${req.search}`
+}
+
 export interface LocalGateRequest {
   host: string | null
   origin: string | null

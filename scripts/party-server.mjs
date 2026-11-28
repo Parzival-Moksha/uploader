@@ -11,7 +11,7 @@
 //      no API keys (unless PARTY_SPELLS=1), no agent engine, agent routes off (OASIS_LAN=1)
 //   3. the Colyseus room server on 127.0.0.1:4603 (PARTY_ROOM_PORT)   live avatars and world changes; it loads and
 //      saves the world through part 2, never through this machine's own Oasis
-// Started by hand, or from the World menu's "Host a party on this Wi-Fi" (src/lib/party/host.ts).
+// Started by hand, or from an install through src/lib/party/host.ts (localStorage oasis-party-host=1 brings the World menu tile back, or POST /api/party/host; the menu tile left on 26 Nov).
 // Builds before 22 Nov 19:30 dial the room on the default port, so tonight's first party ran on 80 (PARTY_PORT=80).
 
 import { spawn } from 'node:child_process'
@@ -27,12 +27,12 @@ import { spawnSync } from 'node:child_process'
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 // The installed Oasis to serve: by default the one this launcher belongs to.
 const APP = path.resolve(process.env.PARTY_APP || REPO)
-// The party's own data (guests, budget, its folder and database): the same place the World menu uses.
+// The party's own data (guests, budget, its folder and database): the same place an install's party uses (host.ts).
 const DATA_DIR = path.resolve(process.env.PARTY_DATA_DIR || path.join(process.env.OASIS_DATA_DIR || path.join(os.homedir(), '.oasis'), 'party'))
 // 4680: any user may open it (80 needs root on macOS and Linux; 4600 is a packaged copy's page). Tonight's first party ran on 80.
 const PUBLIC_PORT = Number(process.env.PARTY_PORT || 4680)
 const HOST_NAME = (process.env.PARTY_HOST_NAME || os.userInfo().username || 'Someone').replace(/[<>\u0000-\u001f]/g, '').slice(0, 40)
-/** Set when the party runs from an ordinary install (World menu > Host a party): its own sandbox database here. */
+/** Set when the party runs from an ordinary install (src/lib/party/host.ts): its own sandbox database here. */
 const PARTY_DATABASE = process.env.PARTY_DATABASE ? path.resolve(process.env.PARTY_DATABASE) : null
 const DISCOVERY_PORT = Number(process.env.PARTY_DISCOVERY_PORT || 4599)
 /** Where the party's page server runs: its own folder for an install's party, so nothing of the host's is in reach. */
@@ -369,8 +369,8 @@ function startProxy(host) {
       const state = (ready, name, service, keychainKey) => ({ ready, line: ready ? '' : `${name} is not available at the party.`, keychainKey })
       sendJson(res, 200, { features: {
         'text-to-pic': state(has('OPENROUTER_API_KEY'), 'Text to Pic', 'OpenRouter', 'openrouter'),
-        'text-to-pic-building': state(has('OPENROUTER_API_KEY'), 'Text to Pic Building', 'OpenRouter', 'openrouter'),
-        'text-to-3d': state(has('MESHY_API_KEY') || has('TRIPO_API_KEY'), 'Text to 3D', 'Meshy or Tripo', 'meshy'),
+        'meshy-object': state(has('MESHY_API_KEY') || has('TRIPO_API_KEY'), 'Text to 3D Level 2', 'Meshy or Tripo', 'meshy'),
+        'pic-to-3d': state(has('MESHY_API_KEY') || has('TRIPO_API_KEY'), 'Pic to 3D', 'Meshy or Tripo', 'meshy'),
         'text-to-music': state(has('ELEVENLABS_API_KEY'), 'Text to Music', 'ElevenLabs', 'elevenlabs'),
         'text-to-video': state(false, 'Text to Video', 'fal.ai', 'fal'),
       } }, cookie)

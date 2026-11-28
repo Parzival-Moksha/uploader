@@ -21,7 +21,7 @@ import { useUILayer } from '@/lib/input-manager'
 import { useAudioManager } from '@/lib/audio-manager'
 import { useFeatureKey } from '@/lib/feature-keys-client'
 import { openKeychain } from '@/components/village/keychain-store'
-import { KitButton } from '@/components/ui-kit'
+import { KitButton, KitCloseButton, useKitStyle } from '@/components/ui-kit'
 
 const PANEL_MIN_WIDTH = 320
 const PANEL_MIN_HEIGHT = 420
@@ -119,6 +119,8 @@ export function SpellTabFrame({
   children,
 }: SpellTabFrameProps) {
   useUILayer(`spelltab-${spellId}`, isOpen)
+  // The window wears the menu style chosen in Settings (the owner, 27 Nov: the music panel "needs to look like a game").
+  const kit = useKitStyle()
   // Generation spells need the user's own key for their service (src/lib/feature-keys.ts).
   const keyState = useFeatureKey(spellId, isOpen)
   const keyMissing = keyState !== null && !keyState.ready
@@ -272,11 +274,7 @@ export function SpellTabFrame({
         width: 'min(320px, calc(100vw - 16px))',
         maxHeight: 'calc(100vh - 16px)',
         zIndex: 'calc(var(--z-place) + 50)',
-        background: 'rgba(8, 8, 18, 0.92)',
-        color: '#dde4ff',
-        backdropFilter: 'blur(16px)',
         boxShadow: '0 18px 60px rgba(0,0,0,0.45)',
-        border: `1px solid ${accentColor}55`,
       }
     : {
         position: 'fixed',
@@ -285,52 +283,35 @@ export function SpellTabFrame({
         width: size.width,
         height: size.height,
         zIndex: 'calc(var(--z-place) + 50)',
-        background: 'rgba(8, 8, 18, 0.92)',
-        color: '#dde4ff',
-        backdropFilter: 'blur(16px)',
         boxShadow: '0 18px 60px rgba(0,0,0,0.45)',
-        border: `1px solid ${accentColor}55`,
       }
 
   return createPortal(
     <div
       data-ui-panel
       data-menu-portal={`spelltab-${spellId}`}
-      className="overflow-hidden rounded-lg shadow-2xl flex flex-col"
+      data-kit-style={kit}
+      data-compact
+      className="kit-panel"
       style={panelStyle}
       onPointerDown={event => event.stopPropagation()}
       onClick={event => event.stopPropagation()}
     >
       {/* ── Title bar (drag handle on desktop) */}
       <div
-        className={`flex select-none items-center justify-between border-b px-3 py-2 ${mobile ? '' : 'cursor-move'}`}
-        style={{ borderColor: `${accentColor}33` }}
+        className={`kit-panel-head select-none ${mobile ? '' : 'cursor-move'}`}
         onPointerDown={beginDrag}
         onPointerMove={handleDrag}
         onPointerUp={endDrag}
         onPointerCancel={endDrag}
       >
-        <div className="min-w-0 flex items-center gap-2">
-          <span className="text-base">{accentColorIcon(spellId)}</span>
-          <span
-            className="text-[11px] font-bold uppercase tracking-[0.14em]"
-            style={{ color: accentColor }}
-          >
-            {title}
-          </span>
-        </div>
-        <button
-          onClick={onClose}
-          onPointerDown={event => event.stopPropagation()}
-          className="flex h-7 w-7 items-center justify-center rounded-md border border-white/10 text-lg leading-none text-white/70 hover:border-red-400/40 hover:text-red-200"
-          aria-label={`Close ${title}`}
-        >
-          &times;
-        </button>
+        <span className="text-base" aria-hidden>{accentColorIcon(spellId)}</span>
+        <div className="kit-panel-title">{title}</div>
+        <span onPointerDown={event => event.stopPropagation()}><KitCloseButton onClick={onClose} title={`Close ${title}`} /></span>
       </div>
 
       {/* ── Scrollable body */}
-      <div className="overflow-y-auto p-3 flex-1 min-h-0">
+      <div className="kit-panel-body">
         {/* No key for this feature on this machine: one plain line, and the controls greyed out. */}
         {keyMissing && (
           <div role="status" className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-md border border-amber-300/40 bg-amber-500/10 px-3 py-2 text-[12px] leading-5 text-amber-100">
@@ -347,7 +328,7 @@ export function SpellTabFrame({
       {!mobile && (
         <div
           className="absolute bottom-0 right-0 flex h-4 w-4 cursor-nwse-resize items-end justify-end"
-          style={{ color: `${accentColor}66` }}
+          style={{ color: `${accentColor}aa` }}
           onPointerDown={beginResize}
           onPointerMove={handleResize}
           onPointerUp={endResize}
@@ -368,7 +349,6 @@ export function SpellTabFrame({
 function accentColorIcon(spellId: string): string {
   if (spellId === 'text-to-3d') return '⚙️'
   if (spellId === 'text-to-pic') return '\u{1F3A8}'
-  if (spellId === 'text-to-pic-building') return '\u{1F3DB}️'
   if (spellId === 'text-to-music') return '\u{1F3B5}'
   if (spellId === 'text-to-video') return '\u{1F3AC}'
   return '✨'

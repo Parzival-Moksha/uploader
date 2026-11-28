@@ -126,17 +126,21 @@ try {
   check('ssh: a reverse forward for the world tools, same port both ends', fwd === `-R 127.0.0.1:${worldPort}:127.0.0.1:${worldPort}`, fwd);
   check('the remote line becomes `hermes acp` in the home folder', /^cd && /.test(call.remote) && /exec "\$H" acp$/.test(call.remote));
   check('Hermes works in the remote home folder', opened()[0]?.cwd === '/home/fake' && init.cwd === 'og:/home/fake', init.cwd);
-  check('it is given the world tools at the forwarded port', opened()[0]?.mcpServers?.[0]?.url === `http://127.0.0.1:${worldPort}/mcp`);
+  check('it is given the world tools at the forwarded port', new RegExp(`^http://127\.0\.0\.1:${worldPort}/mcp/[0-9a-f]{48}$`).test(opened()[0]?.mcpServers?.[0]?.url || ""));
 
   // 2. world tools through the line
   let m = c.mark();
   await c.cmd('send', { agentId: id, text: 'WORLD please' });
+  // The gate lists every tool and asks before one that changes worlds: this test says no.
+  const card = await c.until(m, kindOf('permission.request'), 15000, 'the card for clear_world');
+  check('a tool that changes worlds asks the owner first', card.toolName === 'mcp__oasis__clear_world');
+  await c.cmd('respond', { agentId: id, requestId: card.requestId, behavior: 'deny' });
   await c.until(m, kindOf('turn.end'), 15000, 'world turn');
   const w = reply(m);
-  check('the remote Hermes sees only the free tools', /world tools: get_world_info;/.test(w), w);
+  check('the remote Hermes sees every tool through the line', /world tools: get_world_info,clear_world,generate_image;/.test(w), w);
   check('it reads the world through the line', /World "Fake Oasis"/.test(w));
   check('no forward warning: the line carries the world tools', !logs.join('').includes('remote port forwarding failed'));
-  check('clear_world is refused and never reaches the Oasis', /clear_world refused: true/.test(w) && !oasisCalls.includes('call clear_world'), oasisCalls.join(','));
+  check('denied, clear_world never reaches the Oasis', /clear_world refused: true/.test(w) && !oasisCalls.includes('call clear_world'), oasisCalls.join(','));
 
   // 3. the network drops mid-turn; the host stays off for two tries; then it comes back
   m = c.mark();

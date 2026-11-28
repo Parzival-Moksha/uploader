@@ -27,6 +27,8 @@ import type {
   EngineTurnUsage,
   KnownEngineEvent,
 } from '../../lib/agent-engine-types'
+import { ENGINE_RUNTIMES } from '../../lib/agent-engine-types'
+import { mergeRunningSubagents } from '../../lib/village/running-subagents'
 
 export const AGENT_LOG_LIMIT = 300
 /** Once the owner scrolled back for older history, the log may grow this far before the oldest goes again. */
@@ -196,6 +198,8 @@ export interface EngineAgentState {
   chrome: boolean | null
   /** What runs it: a Claude Code session or a Hermes agent (engine hermes.js); 'claude' for engines older than runtimes. */
   runtime: EngineRuntime
+  /** An ACP agent's own permission modes, as it said at its start (null: none known, e.g. Claude). */
+  modes: string[] | null
   /** A Hermes on another machine: the ssh host it is reached on. */
   remoteHost: string | null
   /** Voice: its avatar says the <spoken> line of each reply out loud. null = the engine is older than the switch. */
@@ -353,7 +357,8 @@ function num(value: unknown): number | null {
 
 function toDecision(request: EnginePermissionRequest, receivedAt: number): EngineDecisionState | null {
   if (!request.requestId || request.readOnly) return null
-  return { ...request, requestId: request.requestId, receivedAt }
+  // The engine's asked-at time when it sent one: a reload doesn't restart how long it has waited.
+  return { ...request, requestId: request.requestId, receivedAt: num(request.askedAt) ?? receivedAt }
 }
 
 export function createAgentState(
@@ -382,6 +387,7 @@ export function createAgentState(
     eyes: null,
     chrome: null,
     runtime: 'claude',
+    modes: null,
     remoteHost: null,
     speak: null,
     voiceChoice: null,
@@ -459,9 +465,12 @@ export function applySnapshot(agent: EngineAgentState, snap: EngineAgentSnapshot
     resolvedEffort: snap.resolvedEffort !== undefined ? snap.resolvedEffort : agent.resolvedEffort,
     eyes: typeof snap.eyes === 'boolean' ? snap.eyes : agent.eyes,
     chrome: typeof snap.chrome === 'boolean' ? snap.chrome : agent.chrome,
-    runtime: snap.runtime === 'hermes' ? 'hermes' : snap.runtime === 'claude' ? 'claude' : agent.runtime,
+    runtime: snap.runtime && ENGINE_RUNTIMES.includes(snap.runtime) ? snap.runtime : agent.runtime,
+    modes: Array.isArray(snap.modes) ? snap.modes : agent.modes,
     remoteHost: snap.remote !== undefined ? snap.remote?.host || null : agent.remoteHost,
     speak: typeof snap.speak === 'boolean' ? snap.speak : agent.speak,
+    // Its helpers at work, as the engine knows them (a reload does not take a replayed start as running).
+    subagents: kind === 'owned' && Array.isArray(snap.runningSubagents) ? mergeRunningSubagents(agent.subagents, snap.runningSubagents, at) : agent.subagents,
     voiceChoice: snap.voiceChoice !== undefined ? snap.voiceChoice || null : agent.voiceChoice,
     lastOutcomeAt: typeof snap.lastOutcome?.at === 'number' ? snap.lastOutcome.at : agent.lastOutcomeAt,
     resumedAt: snap.resumedAt !== undefined ? snap.resumedAt ?? null : agent.resumedAt,
@@ -687,6 +696,7 @@ function foldAgentEventInner(agent: EngineAgentState, event: EngineEvent, ctx: F
         title: e.title || a.title,
         resolvedEffort: e.resolvedEffort !== undefined ? e.resolvedEffort : a.resolvedEffort,
         effectivePermissionMode: a.effectivePermissionMode || e.permissionMode || null,
+        modes: Array.isArray(e.modes) && e.modes.length ? e.modes : a.modes,
       }
 
     case 'status': {
@@ -1267,8 +1277,10 @@ export function selectHistoryCursor(agent: Pick<EngineAgentState, 'log' | 'histo
     for (const entry of body) if (typeof entry.at === 'number' && entry.at < min) min = entry.at
     return { before: min }
   }
+  // Not a call made inside a subagent: those are in the subagent's own transcript, not the session's, and the engine
+  // would answer "that tool call is not in the transcript" every time (the owner, 28 Nov: threads that stopped at the top).
   for (const entry of body) {
-    if ((entry.type === 'tool' || entry.type === 'subagent') && entry.toolUseId) return { before: null, anchor: entry.toolUseId }
+    if ((entry.type === 'tool' || entry.type === 'subagent') && entry.toolUseId && !('parentToolUseId' in entry && entry.parentToolUseId)) return { before: null, anchor: entry.toolUseId }
   }
   return null
 }

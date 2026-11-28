@@ -38,6 +38,7 @@ import { worldToolsUrl } from './worldtools.js';
 import { startWorldGateServer } from './worldproxy.js';
 import { registerAttachment } from './files.js';
 import { requiredToken } from './token.js';
+import { CODEX_ACP_MAIN, seenModels, setupRuntime } from './runtimes.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const VOICE_SCRIPT = path.resolve(HERE, '..', 'scripts', 'voice.mjs').replace(/\\/g, '/');
@@ -46,6 +47,8 @@ const PROXY_SCRIPT = path.resolve(HERE, 'worldproxy.js');
 const MODES = { default: 'default', manual: 'default', accept_edits: 'accept_edits', acceptEdits: 'accept_edits', dont_ask: 'dont_ask', dontAsk: 'dont_ask' };
 /** How long Hermes waits for an answer to a permission request before it denies by itself (approvals.timeout, 60). */
 const PERMISSION_MS = 60_000;
+/** How long the engine's gate waits for the owner's answer to a world tool that is not free. */
+const ASK_MS = Number(process.env.OASIS_ASK_TOOL_MS) || 55_000;
 /** A slash command (/compact, /reset, /model …) is a prompt of its own: Hermes reads what follows it as its arguments. */
 const isCommand = (text) => /^\s*\/[a-z]/i.test(text || '');
 /**
@@ -149,8 +152,43 @@ export function resolveHermesHome(given, env = process.env) {
   return { ok: true, path: home };
 }
 
-/** The argv that starts `hermes acp` (see the header). */
+/**
+ * ACP agents the engine runs (2026-11-24): Hermes, and other vendors' own command-line agents that speak the Agent
+ * Client Protocol over stdio. Each runs on the person's own sign-in; the Oasis holds no key for them.
+ * bin: an env var with the path (or a JSON argv, for tests); find: where its installer puts it; args: its ACP mode.
+ */
+const WIN = process.platform === 'win32';
+const APPDATA = process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming');
+export const ACP_RUNTIMES = {
+  hermes: { label: 'Hermes' },
+  // Grok Build (xAI): `grok agent stdio` is ACP (seen 2026-11-24, grok 0.2.106: initialize answers, authMethods grok.com).
+  grok: { label: 'Grok', bin: 'OASIS_GROK_BIN', find: () => [path.join(os.homedir(), '.grok', 'bin', WIN ? 'grok.exe' : 'grok')], args: ['agent', 'stdio'], fallback: 'grok' },
+  // Gemini CLI (Google): an npm package; on Windows its gemini.cmd shim cannot be spawned without a shell, so its
+  // script runs under this node. ACP flag from its docs (OASIS_GEMINI_ACP_FLAG overrides). Not run here yet.
+  // Codex (OpenAI): no ACP of its own; the Apache-2.0 adapter @agentclientprotocol/codex-acp drives codex app-server and
+  // speaks ACP (permission requests included). Found in ~/.oasis/runtimes/codex-acp (npm --prefix), the global npm
+  // folder, or OASIS_CODEX_BIN; it runs on the person's own Codex login (~/.codex) or OPENAI_API_KEY.
+  codex: { label: 'Codex', bin: 'OASIS_CODEX_BIN', find: () => [path.join(os.homedir(), '.oasis', 'runtimes', 'codex-acp', 'node_modules', '@agentclientprotocol', 'codex-acp', 'dist', 'index.js'), path.join(APPDATA, 'npm', 'node_modules', '@agentclientprotocol', 'codex-acp', 'dist', 'index.js')], args: [], fallback: 'codex-acp' },
+  gemini: {
+    label: 'Gemini', bin: 'OASIS_GEMINI_BIN',
+    find: () => [path.join(APPDATA, 'npm', 'node_modules', '@google', 'gemini-cli', 'dist', 'index.js'), path.join(os.homedir(), '.local', 'bin', 'gemini'), '/usr/local/bin/gemini'],
+    args: [process.env.OASIS_GEMINI_ACP_FLAG || '--acp'], fallback: 'gemini',
+  },
+};
+
+/** The argv for a non-Hermes ACP runtime: its env override, else where its installer puts it, else its name on PATH. */
+function presetCommand(runtime) {
+  const preset = ACP_RUNTIMES[runtime];
+  const v = process.env[preset.bin];
+  if (v) { try { const a = JSON.parse(v); if (Array.isArray(a) && a.length) return [...a.map(String), ...preset.args]; } catch { return [v, ...preset.args]; } }
+  const found = preset.find().find((p) => fs.existsSync(p));
+  if (found && found.endsWith('.js')) return [process.execPath, found, ...preset.args];
+  return [found || preset.fallback, ...preset.args];
+}
+
+/** The argv that starts the ACP agent (see the header). */
 export function hermesCommand(spec = {}) {
+  if (spec.runtime && spec.runtime !== 'hermes' && ACP_RUNTIMES[spec.runtime]) return presetCommand(spec.runtime);
   if (spec.remote) return sshCommand(spec.remote, { worldTools: spec.worldTools !== false });
   if (Array.isArray(spec.command) && spec.command.length && spec.command.every((s) => typeof s === 'string')) return spec.command;
   if (process.env.OASIS_HERMES_BIN) return [process.env.OASIS_HERMES_BIN, 'acp'];
@@ -167,7 +205,7 @@ export function hermesCommand(spec = {}) {
 /** Hermes 0.15 names them mcp_oasis_<tool>; 0.23 names a server the app hands over mcp__editor_oasis_<hash>__<tool>. */
 function toolName(title = '') {
   const head = String(title).split(':')[0].trim();
-  const m = /^mcp_oasis_(.+)$/.exec(head) || /^mcp__editor_oasis_[0-9a-f]+__(.+)$/.exec(head);
+  const m = /^mcp_oasis_(.+)$/.exec(head) || /^mcp__editor_oasis_[0-9a-f]+__(.+)$/.exec(head) || /^mcp\.oasis\.(.+)$/.exec(head); // Hermes 0.15, Hermes 0.23, Codex
   return m ? `mcp__oasis__${m[1]}` : head || 'tool';
 }
 
@@ -183,7 +221,8 @@ export class HermesAgent {
    */
   constructor(spec, hub) {
     this.kind = 'owned';
-    this.runtime = 'hermes';
+    this.runtime = ACP_RUNTIMES[spec.runtime] ? spec.runtime : 'hermes';
+    this.label = ACP_RUNTIMES[this.runtime].label;
     this.id = spec.id;
     this.name = spec.name;
     this.cwd = spec.cwd;
@@ -277,7 +316,7 @@ export class HermesAgent {
 
   rosterEntry() {
     return {
-      id: this.id, runtime: 'hermes', name: this.name, cwd: this.cwd, sessionId: this.sessionId, model: this.model, permissionMode: this.permissionMode,
+      id: this.id, runtime: this.runtime, name: this.name, cwd: this.cwd, sessionId: this.sessionId, model: this.model, permissionMode: this.permissionMode,
       eyes: this.eyes, speak: this.speak,
       ...(this.speakSet ? { speakSet: true } : {}), ...(this.voiceChoice ? { voiceChoice: this.voiceChoice } : {}), ...(this.voiceOffered ? { voiceOffered: true } : {}),
       ...(this.worldTools ? {} : { worldTools: false }), ...(this.command ? { command: this.command } : {}), ...(this.remote ? { remote: this.remote } : {}), ...(this.hermesHome ? { hermesHome: this.hermesHome } : {}),
@@ -302,13 +341,28 @@ export class HermesAgent {
       this.emit('error', { message: `cwd does not exist: ${this.cwd}` });
       return;
     }
+    // Codex's adapter is downloaded once (runtimes.js), the first time a Codex villager starts on this machine.
+    if (this.runtime === 'codex' && !process.env.OASIS_CODEX_BIN && !fs.existsSync(CODEX_ACP_MAIN)) {
+      if (this.settingUp) return;
+      this.settingUp = true;
+      this.setStatus(STATUS.WORKING, 'Setting up Codex for the Oasis (one time, about 540 MB)');
+      setupRuntime('codex', (line) => this.hub.log(`[${this.name}] ${line}`)).then((r) => {
+        this.settingUp = false;
+        if (this.killing || this.proc) return;
+        if (r.ok) this.start();
+        else { this.setStatus(STATUS.ERROR, r.error); this.emit('error', { message: r.error }); }
+      });
+      return;
+    }
     const [exe, ...args] = hermesCommand(this);
     const env = { ...process.env, PYTHONIOENCODING: 'utf-8', OASIS_AGENT_ID: this.id, ...(this.hub.url ? { OASIS_ENGINE_URL: this.hub.url } : {}) };
     for (const key of Object.keys(env)) if (key === 'CLAUDECODE' || key.startsWith('CLAUDE_CODE_')) delete env[key];
     // A Hermes here only ever runs in a real Hermes home: one with a config.yaml (the profile folder given, else
     // HERMES_HOME, else the installer's home). A folder that is not one (2026-11-19: a working folder typed into
     // the profile field made Hermes set up a fresh home, with a copy of the gh token, in a working folder) is refused.
-    if (!this.remote && !this.command) {
+    // Codex's adapter would offer a browser sign-in when it has no login: never a window from the engine; it fails instead.
+    if (this.runtime === 'codex') env.NO_BROWSER = '1';
+    if (this.runtime === 'hermes' && !this.remote && !this.command) {
       const home = resolveHermesHome(this.hermesHome);
       if (!home.ok) {
         this.setStatus(STATUS.ERROR, home.error);
@@ -324,7 +378,7 @@ export class HermesAgent {
     // session/new, seconds later. The last line's gate is closed first (same port).
     if (this.remote && this.worldTools) {
       const port = this.remote.worldPort;
-      this.gateReady = (this.gateClosing || Promise.resolve()).then(() => startWorldGateServer(worldToolsUrl(), { port })).then(
+      this.gateReady = (this.gateClosing || Promise.resolve()).then(() => startWorldGateServer(worldToolsUrl(), { port, ask: (name, args) => this.askTool(name, args) })).then(
         (g) => { this.gate = g; return g; },
         (e) => { this.hub.log(`[${this.name}] world gate on ${port} did not start (${e.message}): no world tools on this line`); return null; },
       );
@@ -379,8 +433,12 @@ export class HermesAgent {
   /** initialize, then the old session (session/load replays it) or a new one. No model call. */
   async open(proc) {
     const init = await this.call('initialize', { protocolVersion: 1, clientCapabilities: { fs: { readTextFile: false, writeTextFile: false }, terminal: false } }, 60000);
-    this.agentVersion = init?.agentInfo?.version || null;
+    this.agentVersion = init?.agentInfo?.version || init?._meta?.agentVersion || null;
+    this.authMethods = Array.isArray(init?.authMethods) ? init.authMethods : [];
+    this.authTried = false;
+    this.defaultAuth = init?._meta?.defaultAuthMethodId || null;
     this.canLoad = !!init?.agentCapabilities?.loadSession;
+    this.mcpHttp = !!init?.agentCapabilities?.mcpCapabilities?.http;
     const mcpServers = await this.worldToolsServers();
     // A remote Hermes works in the other machine's home folder (its shell says which), never in a path from here.
     const cwd = this.remote ? (this.remote.cwd || await Promise.race([this.remoteCwdReady, new Promise((r) => setTimeout(() => r(null), 10000))]) || '.') : this.cwd;
@@ -389,11 +447,11 @@ export class HermesAgent {
     if (this.sessionId && this.canLoad) {
       this.replaying = true;
       try {
-        opened = await this.call('session/load', { sessionId: this.sessionId, cwd, mcpServers }, 120000);
+        opened = await this.signedIn(() => this.call('session/load', { sessionId: this.sessionId, cwd, mcpServers }, 120000));
         this.flushText({ history: true });
-        this.emit('notice', { subtype: 'history', text: `resumed Hermes session ${this.sessionId.slice(0, 8)}` });
+        this.emit('notice', { subtype: 'history', text: `resumed ${this.label} session ${this.sessionId.slice(0, 8)}` });
       } catch (e) {
-        this.emit('notice', { subtype: 'history', text: `Hermes could not load session ${this.sessionId.slice(0, 8)} (${clip(e.message, 120)}): a new one starts` });
+        this.emit('notice', { subtype: 'history', text: `${this.label} could not load session ${this.sessionId.slice(0, 8)} (${clip(e.message, 120)}): a new one starts` });
         this.sessionId = null;
       } finally {
         this.replaying = false;
@@ -401,13 +459,13 @@ export class HermesAgent {
       }
     }
     if (!opened) {
-      opened = await this.call('session/new', { cwd, mcpServers }, 120000);
+      opened = await this.signedIn(() => this.call('session/new', { cwd, mcpServers }, 120000));
       this.sessionId = opened?.sessionId || null;
       if (!this.sessionId) throw new Error('session/new returned no sessionId');
     }
     if (proc !== this.proc) return; // stopped meanwhile
     this.readSessionState(opened);
-    const mode = this.permissionMode ? MODES[this.permissionMode] : null;
+    const mode = this.permissionMode ? this.modeIdFor(this.permissionMode) : null;
     if (mode && mode !== this.effectivePermissionMode) {
       await this.call('session/set_mode', { sessionId: this.sessionId, modeId: mode }).then(() => { this.effectivePermissionMode = mode; }, (e) => this.hub.log(`[${this.name}] set_mode ${mode} failed: ${e.message}`));
     }
@@ -420,9 +478,9 @@ export class HermesAgent {
     this.emit('init', {
       sessionId: this.sessionId, model: this.resolvedModel, permissionMode: this.effectivePermissionMode, cwd: this.remote ? `${this.remote.host}:${cwd}` : this.cwd,
       tools: [], mcpServers: mcpServers.map((s) => ({ name: s.name, status: 'given' })), agents: [],
-      claudeCodeVersion: null, runtime: 'hermes', hermesVersion: this.agentVersion,
+      claudeCodeVersion: null, runtime: this.runtime, hermesVersion: this.agentVersion, agentVersion: this.agentVersion,
     });
-    this.emit('meta', { models: this.models, subscription: null, claudeCodeVersion: null, permissionMode: this.effectivePermissionMode, resolvedEffort: null, runtime: 'hermes', hermesVersion: this.agentVersion });
+    this.emit('meta', { models: this.models, subscription: null, claudeCodeVersion: null, permissionMode: this.effectivePermissionMode, resolvedEffort: null, runtime: this.runtime, hermesVersion: this.agentVersion, agentVersion: this.agentVersion, modes: this.availableModes || null });
     this.recomputeStatus();
     this.pump();
   }
@@ -435,18 +493,52 @@ export class HermesAgent {
     if (!this.worldTools || this.command) return [];
     if (this.remote) {
       const gate = await this.gateReady;
-      return gate ? [{ type: 'http', name: 'oasis', url: `http://127.0.0.1:${this.remote.worldPort}/mcp`, headers: [] }] : [];
+      return gate ? [{ type: 'http', name: 'oasis', url: `http://127.0.0.1:${this.remote.worldPort}${gate.path}`, headers: [] }] : [];
+    }
+    // An agent that takes MCP over HTTP (Codex, Grok) gets the engine's gate: every Oasis tool, and a permission card
+    // before the ones that spend credits or change worlds (askTool). One gate per process, closed with it (onExit).
+    if (this.mcpHttp) {
+      if (!this.gate) {
+        this.gate = await startWorldGateServer(worldToolsUrl(), { port: 0, ask: (name, args) => this.askTool(name, args) }).catch((e) => {
+          this.hub.log(`[${this.name}] world gate did not start (${e.message}): free tools only`);
+          return null;
+        });
+      }
+      if (this.gate) return [{ type: 'http', name: 'oasis', url: this.gate.url, headers: [] }];
     }
     // Hermes may not hand its own environment to the servers it starts: the local key (token.js) goes along by name.
     const token = requiredToken();
     return [{ name: 'oasis', command: process.execPath, args: [PROXY_SCRIPT, worldToolsUrl()], env: token ? [{ name: 'OASIS_LOCAL_TOKEN', value: token }] : [] }];
   }
 
+  /**
+   * An agent that wants sign-in first (Grok) answers "Authentication required": authenticate once, with its own default
+   * method (the person's own login on this machine; the first time it may open their browser), then try again.
+   */
+  async signedIn(fn) {
+    try { return await fn(); } catch (e) {
+      if (!/auth/i.test(e.message) || !this.authMethods?.length || this.authTried) throw e;
+      this.authTried = true;
+      const methodId = this.defaultAuth || this.authMethods[0].id;
+      this.emit('notice', { subtype: 'auth', text: `${this.label} asks to sign in (${methodId}): using the login on this machine` });
+      await this.call('authenticate', { methodId }, 300000);
+      return fn();
+    }
+  }
+
+  /** A mode the page asks for, as this agent names it: Hermes's (and the Claude names for them), or one the agent listed. */
+  modeIdFor(mode) {
+    if (this.availableModes?.includes(mode)) return mode;
+    return this.runtime === 'hermes' ? MODES[mode] || null : null;
+  }
+
   readSessionState(r) {
+    if (Array.isArray(r?.modes?.availableModes)) this.availableModes = r.modes.availableModes.map((m) => m.id).filter(Boolean);
     const models = r?.models;
     if (models?.availableModels) {
       this.models = models.availableModels.map((m) => ({ value: m.modelId, resolvedModel: m.modelId, displayName: m.name || m.modelId }));
       this.resolvedModel = models.currentModelId || this.resolvedModel;
+      if (this.runtime !== 'hermes' && this.models.length) seenModels.set(this.runtime, { current: this.resolvedModel, list: this.models.map((m) => ({ id: m.value, name: m.displayName })) });
     }
     if (r?.modes?.currentModeId) this.effectivePermissionMode = r.modes.currentModeId;
   }
@@ -626,15 +718,18 @@ export class HermesAgent {
     const tc = params.toolCall || {};
     const requestId = `hermes-perm-${rpcId}`;
     const entry = { requestId, rpcId, toolCall: tc, options: Array.isArray(params.options) ? params.options : [], receivedAt: Date.now() };
-    // Hermes denies by itself after 60 s and says nothing: the card goes away then too.
-    entry.timer = setTimeout(() => {
+    this.hub.log(`[${this.name}] asks: ${clip(String(tc.title || "?"), 80)} (options ${entry.options.map((o) => `${o.optionId}/${o.kind}`).join(", ")})`);
+    // Hermes denies by itself after 60 s and says nothing: the card goes away then too. Other agents (Codex, Grok,
+    // Gemini) wait for the answer as long as it takes, like a Claude villager's card (Merge Goat, 28 Nov: dropping the
+    // card there would leave the agent waiting on a question nobody can see); an interrupt answers it "cancelled".
+    if (this.runtime === 'hermes') entry.timer = setTimeout(() => {
       if (this.permissions.get(requestId) !== entry) return;
       this.permissions.delete(requestId);
       this.emit('permission.resolved', { requestId, behavior: 'expired', toolName: toolName(tc.title) });
       this.emit('notice', { subtype: 'permission', text: `Hermes denied "${clip(String(tc.title || 'a command'), 120)}" by itself: nobody answered within 60 s.` });
       this.recomputeStatus();
     }, PERMISSION_MS);
-    entry.timer.unref?.();
+    entry.timer?.unref?.();
     this.permissions.set(requestId, entry);
     this.emit('permission.request', this.describePermission(entry));
     this.setStatus(STATUS.DECISION, 'permission');
@@ -643,21 +738,75 @@ export class HermesAgent {
   describePermission(r) {
     const tc = r.toolCall || {};
     const name = toolName(tc.title);
-    const always = r.options.find((o) => o.optionId === 'allow_session');
+    const always = r.local ? { optionId: 'always', name: 'Allow this tool until the agent restarts' } : r.options.find((o) => o.optionId === 'allow_session');
     return {
       requestId: r.requestId, requestKind: 'permission', toolName: name, toolUseId: tc.toolCallId || null,
       input: tc.rawInput ?? { text: contentText(tc.content) }, summary: clip(String(tc.title || name), 300), description: contentText(tc.content) || null,
       suggestions: always ? [{ type: 'hermes', optionId: always.optionId, label: always.name }] : [], blockedPath: null, decisionReason: null,
-      expiresAt: r.receivedAt + PERMISSION_MS, // Hermes denies by itself after 60 s
+      expiresAt: this.runtime === 'hermes' ? r.receivedAt + PERMISSION_MS : null, // Hermes denies by itself after 60 s
     };
   }
 
+  /**
+   * The gate's question for a world tool that spends credits or changes worlds: a permission card like any other.
+   * Resolves true when the owner allows it. "Allow always" lets that tool through for the rest of this process.
+   * Unanswered after ASK_MS it is a no (the agent's own MCP call would time out soon after anyway).
+   */
+  askTool(name, args) {
+    if (this.allowedTools?.has(name)) return Promise.resolve(true);
+    const requestId = `oasis-tool-${++this.rpcN}`;
+    return new Promise((resolve) => {
+      const entry = {
+        requestId, local: true, resolve, toolName: `mcp__oasis__${name}`, options: [], receivedAt: Date.now(),
+        toolCall: { toolCallId: requestId, title: `mcp__oasis__${name}`, rawInput: args, content: [{ type: 'content', content: { type: 'text', text: `Oasis tool ${name}: it spends credits or changes worlds` } }] },
+      };
+      entry.timer = setTimeout(() => {
+        if (this.permissions.get(requestId) !== entry) return;
+        this.permissions.delete(requestId);
+        this.emit('permission.resolved', { requestId, behavior: 'expired', toolName: entry.toolName });
+        this.recomputeStatus();
+        resolve(false);
+      }, ASK_MS);
+      entry.timer.unref?.();
+      this.permissions.set(requestId, entry);
+      this.emit('permission.request', this.describePermission(entry));
+      this.setStatus(STATUS.DECISION, 'permission');
+    });
+  }
+
   /** The owner's answer to a permission card. always: "allow for this session" (Hermes's allow_session). */
+  /** After session/cancel, every question the agent still waits on is answered "cancelled" (the ACP rule); the gate's own cards are a no. */
+  cancelPermissions() {
+    for (const [requestId, req] of [...this.permissions]) {
+      clearTimeout(req.timer);
+      this.permissions.delete(requestId);
+      if (req.local) req.resolve(false);
+      else { try { this.write({ jsonrpc: '2.0', id: req.rpcId, result: { outcome: { outcome: 'cancelled' } } }); } catch { /* the process is gone */ } }
+      this.emit('permission.resolved', { requestId, behavior: 'cancelled', toolName: req.local ? req.toolName : toolName(req.toolCall?.title) });
+    }
+  }
+
   respond(requestId, { behavior, always } = {}) {
     const req = this.permissions.get(requestId);
     if (!req) throw new Error(`no pending request ${requestId}`);
-    const has = (id) => req.options.some((o) => o.optionId === id);
-    const optionId = behavior === 'allow' ? (always && has('allow_session') ? 'allow_session' : 'allow_once') : 'deny';
+    if (req.local) {
+      clearTimeout(req.timer);
+      this.permissions.delete(requestId);
+      if (behavior === 'allow' && always) (this.allowedTools ||= new Set()).add(req.toolName.replace(/^mcp__oasis__/, ''));
+      req.resolve(behavior === 'allow');
+      this.emit('permission.resolved', { requestId, behavior, toolName: req.toolName });
+      this.recomputeStatus();
+      return { ok: true };
+    }
+    // Hermes's option ids first (allow_session is "for this session"), else the standard ACP kinds any agent uses.
+    const byId = (id) => req.options.find((o) => o.optionId === id)?.optionId;
+    const byKind = (kind) => req.options.find((o) => o.kind === kind)?.optionId;
+    const optionId = behavior === 'allow'
+      ? (always && (byId('allow_session') || byKind('allow_always'))) || byId('allow_once') || byKind('allow_once') || req.options[0]?.optionId
+      // Codex offers two noes: "decline" (continue without running it) and "cancel" (stop the turn). The Oasis's deny
+      // means the first, as for a Claude villager; stopping is what the interrupt is for.
+      : byId('deny') || byId('decline') || req.options.find((o) => o.kind === 'reject_once' && o.optionId !== 'cancel')?.optionId || byKind('reject_once') || byKind('reject_always');
+    if (!optionId) throw new Error(`${this.label} offered no option for "${behavior}"`);
     this.write({ jsonrpc: '2.0', id: req.rpcId, result: { outcome: { outcome: 'selected', optionId } } });
     clearTimeout(req.timer);
     this.permissions.delete(requestId);
@@ -763,6 +912,7 @@ export class HermesAgent {
     if (urgent) {
       this.interrupted = true;
       try { this.notify('session/cancel', { sessionId: this.sessionId }); } catch { /* the turn ends on its own; this still goes out next */ }
+      this.cancelPermissions();
     }
     this.pump();
     return { uuid, midTurn: turnWasRunning };
@@ -866,7 +1016,7 @@ export class HermesAgent {
       permissionDenials: [],
       terminalReason: stopReason || null,
       stopReason: stopReason || null,
-      runtime: 'hermes',
+      runtime: this.runtime,
     };
     if (this.scheduledRun && !this.scheduledMixed) ev = { ...ev, scheduled: true };
     this.lastOutcome = { ...ev, at: Date.now() };
@@ -897,6 +1047,7 @@ export class HermesAgent {
     if (this.turnRunning) {
       this.interrupted = true;
       try { this.notify('session/cancel', { sessionId: this.sessionId }); } catch (e) { return { ok: false, error: e.message }; }
+      this.cancelPermissions();
     }
     this.emit('notice', { subtype: 'interrupt', text: this.turnRunning ? `Interrupt sent${this.queue.length ? `, ${this.queue.length} message(s) still queued` : ''}` : 'Nothing to interrupt' });
     this.recomputeStatus();
@@ -916,8 +1067,8 @@ export class HermesAgent {
   }
 
   async setPermissionMode(mode) {
-    const modeId = MODES[mode];
-    if (!modeId) return { ok: false, error: `Hermes has the modes default, accept_edits and dont_ask (not "${mode}")` };
+    const modeId = this.modeIdFor(mode);
+    if (!modeId) return { ok: false, error: `${this.label} has the modes ${(this.availableModes || ['default', 'accept_edits', 'dont_ask']).join(', ')} (not "${mode}")` };
     if (!this.proc || !this.isReady) { this.permissionMode = modeId; this.persist(); this.emit('mode', { permissionMode: modeId, applied: 'on next start' }); return { ok: true }; }
     try {
       await this.call('session/set_mode', { sessionId: this.sessionId, modeId });
@@ -929,7 +1080,7 @@ export class HermesAgent {
     return { ok: true };
   }
 
-  async setEffort() { return { ok: false, error: 'a Hermes agent has no effort setting' }; }
+  async setEffort() { return { ok: false, error: `a ${this.label} agent has no effort setting here` }; }
   setChrome() { return { ok: false, error: 'Claude in Chrome is for Claude Code agents' }; }
 
   setVoiceChoice(voice) {

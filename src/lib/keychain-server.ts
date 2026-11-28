@@ -302,7 +302,11 @@ async function scanEntry(paths: KeychainPaths, cacheKey: string, run?: RunComman
   return { at: Date.now(), key: cacheKey, facts, folders: folders.length }
 }
 
-export async function keychainSnapshot(options: { fresh?: boolean; paths?: KeychainPaths; run?: RunCommand; env?: NodeJS.ProcessEnv } = {}): Promise<KeychainSnapshot> {
+/**
+ * The machine's facts (logins, key names, marks), from the one shared scan: reused for a while, one scan at a
+ * time. The keychain and model access (model-access.ts) both read this, so they never disagree.
+ */
+export async function keychainFacts(options: { fresh?: boolean; paths?: KeychainPaths; run?: RunCommand; env?: NodeJS.ProcessEnv } = {}): Promise<{ at: number; facts: KeychainFacts; folders: number }> {
   const paths = options.paths || defaultKeychainPaths()
   const cacheKey = `${paths.root}|${paths.state}`
   const injected = Boolean(options.paths || options.run || options.env)
@@ -323,6 +327,11 @@ export async function keychainSnapshot(options: { fresh?: boolean; paths?: Keych
       cachedFacts = entry
     }
   }
+  return entry
+}
+
+export async function keychainSnapshot(options: { fresh?: boolean; paths?: KeychainPaths; run?: RunCommand; env?: NodeJS.ProcessEnv } = {}): Promise<KeychainSnapshot> {
+  const entry = await keychainFacts(options)
   const { keys, skills } = await allKeysAndSkills()
   return { scannedAt: entry.at, keys: buildKeychain(keys, skills, entry.facts), sources: sourcesOf(entry.facts, entry.folders) }
 }

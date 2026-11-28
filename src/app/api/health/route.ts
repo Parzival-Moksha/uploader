@@ -8,6 +8,9 @@
 
 import { NextResponse } from 'next/server'
 
+// Read on every request: Next 14 prerenders a GET that reads no request at build time (the Innkeeper, 28 Nov: its BUILD_ID froze per build, not per restart).
+export const dynamic = 'force-dynamic'
+
 // Set once per server lifetime — changes on every restart
 const BUILD_ID = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 

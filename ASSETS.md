@@ -47,15 +47,16 @@ Every picture, sound, animation, avatar and font in this repository, with where 
 | `public/avatars/gallery/StitchWitch.vrm` | Stitch Witch | [VIPEDeployer / 0xded150f6c599b08950919cfb0b97516b6235a36b] | CC0 1.0 |
 | `public/avatars/gallery/The_Worm.vrm` | TheWorm | ToxSam.eth Worm Disciple 46 COTW | CC0 1.0 |
 | `public/avatars/gallery/UnicornPerson.vrm` | 110_Unicorn Persona | Polygonal Mind | CC0 1.0 |
+| `public/avatars/gallery/Vibedev.vrm` | Vibedev | Parzival | ours, not CC0: the founder's own likeness, free to wear inside the Oasis · 3D model made with Meshy (meshy.ai), credited as CC BY 4.0 asks |
 | `public/avatars/gallery/Witch.vrm` | Witch | Polygonal Mind | CC0 1.0 |
 
-The CC0 avatars state that licence inside the file (VRM metadata); the cut checks it each time.
+Each avatar states its licence and author inside the file (VRM metadata); the cut checks it each time. Avatars marked ours belong to the Oasis: free to wear inside it, not CC0.
 
 ## Everything else
 
 | Folder | Files | Source | Licence |
 |---|---|---|---|
-| `public/animations/ual/` | 3 | Quaternius, Universal Animation Library (Standard and Pro; both CC0 1.0 per their License.txt) | CC0 1.0 |
+| `public/animations/ual/` | 4 | Quaternius, Universal Animation Library (Standard and Pro; both CC0 1.0 per their License.txt) | CC0 1.0 |
 | `public/audio/ambience/` | 2 | Adam Clark, "Nightingale song May 2012" (South Norfolk, UK; archive.org/details/NightingaleSongMay2012); trimmed, evened and levelled for the Oasis. Details in manifest.json beside the file | CC0 1.0 (the edits too) |
 | `public/audio/kenney` | 474 | Kenney (kenney.nl) | CC0 1.0 |
 | `public/audio/spells-cc0/` | 1 | the Oasis: the list of shipped sounds (manifest.json); each sound has its own row | MIT with the code |
@@ -65,12 +66,13 @@ The CC0 avatars state that licence inside the file (VRM metadata); the cut check
 | `public/fonts/helvetiker_` | 2 | Magenta Ltd, MgOpen Moderna as "helvetiker" (three.js typeface files) | MgOpen licence (free to use, copy and distribute) |
 | `public/fonts/inter-` | 1 | Rasmus Andersson, Inter | SIL Open Font License 1.1 |
 | `public/fonts/ui/` | 18 | Google Fonts subsets of Cinzel, Cormorant Garamond, Space Grotesk and JetBrains Mono (their project authors) | SIL Open Font License 1.1 (OFL.txt beside the files) |
-| `public/ground/` | 19 | Poly Haven (polyhaven.com) | CC0 1.0 |
+| `public/ground/` | 29 | Poly Haven (polyhaven.com) | CC0 1.0 |
 | `public/ground/sbs1/` | 125 | Screaming Brain Studios, Tiny Texture Pack | CC0 1.0 |
 | `public/ground/sbs2/` | 160 | Screaming Brain Studios, Tiny Texture Pack 2 | CC0 1.0 |
-| `public/hdri/` | 13 | Poly Haven (polyhaven.com) and ambientCG night skies | CC0 1.0 |
+| `public/hdri/` | 14 | Poly Haven (polyhaven.com) and ambientCG night skies | CC0 1.0 |
 | `public/icons/` | 6 | the Oasis | Made for the Oasis; MIT with the code |
 | `public/lipsync/wlipsync/` | 4 | mrxz, wLipSync (browser runtime and starter profile) | MIT |
+| `public/media-library/manifest.json` | 1 | the Oasis | MIT with the code (a list of the media the Oasis ships) |
 | `public/models/cyberpunk/` | 74 | Quaternius, Cyberpunk Game Kit | CC0 1.0 |
 | `public/models/fantasy-props/` | 201 | Quaternius, Fantasy RPG Pack | CC0 1.0 |
 | `public/models/kenney-` | 149 | Kenney (kenney.nl) | CC0 1.0 |
@@ -83,11 +85,11 @@ The CC0 avatars state that licence inside the file (VRM metadata); the cut check
 | `public/models/stylized-nature/` | 156 | Quaternius, Stylized Nature MegaKit | CC0 1.0 |
 | `public/models/trains/` | 30 | Quaternius, Train Pack | CC0 1.0 |
 | `public/oasislogo.jpg` | 1 | the Oasis | Made for the Oasis; MIT with the code |
-| `public/portal-thumbs/` | 10 | the Oasis | Made for the Oasis; MIT with the code |
+| `public/portal-thumbs/` | 20 | the Oasis | Made for the Oasis; MIT with the code |
 | `public/skies/` | 15 | the Oasis | Made for the Oasis (generated panoramas, 2026-11-09); MIT with the code |
 | `public/splash/` | 15 | the Oasis | Made for the Oasis (generated art); MIT with the code |
-| `public/thumbs/` | 1012 | the Oasis | Made for the Oasis (pictures of the models above); MIT with the code |
-| `public/ui/` | 233 | the Oasis | Made for the Oasis (generated art); MIT with the code |
+| `public/thumbs/` | 1013 | the Oasis | Made for the Oasis (pictures of the models above); MIT with the code |
+| `public/ui/` | 234 | the Oasis | Made for the Oasis (generated art); MIT with the code |
 | `public/voice/` | 1 | the Oasis | Made for the Oasis; MIT with the code |
 | `public/audio/spells-cc0/cc0-bubbles.ogg` | 1 | 100 CC0 SFX other_01 (rubberduck, OpenGameArt) | CC0 1.0 |
 | `public/audio/spells-cc0/cc0-cast-whoosh.ogg` | 1 | 80 CC0 RPG SFX spell_01 (rubberduck, OpenGameArt) | CC0 1.0 |
@@ -130,7 +132,9 @@ The CC0 avatars state that licence inside the file (VRM metadata); the cut check
 
 The main Oasis repository holds more than this package. Each file below stays out, for the reason given. Nothing is deleted from the main repository: these files are only not passed on.
 
-### avatars whose metadata is not CC0 (10 files, 68.7 MiB)
+- Pictures on your own ChatGPT plan through the Codex CLI: left out. OpenAI's own pages send programmatic picture-making to their API, and their route for apps on a user's plan does not support image generation.
+
+### avatars whose metadata is not CC0 (11 files, 72.6 MiB)
 
 Why: CC BY for named licensees only, "Other", "Redistribution Prohibited", or made with a 3D generation service.
 
@@ -144,6 +148,7 @@ Why: CC BY for named licensees only, "Other", "Redistribution Prohibited", or ma
 - `public/avatars/gallery/VIPE_Hero__2784.vrm`: the file says CC_BY
 - `public/avatars/gallery/VIPE_Hero__2799.vrm`: the file says CC_BY
 - `public/avatars/gallery/VIPE_Hero__2902.vrm`: the file says CC_BY
+- `public/avatars/gallery/VibedevHendrix.vrm`: the file says https://vrm.dev/licenses/1.0/
 
 ### the Mixamo animations (.fbx) (24 files, 16.5 MiB)
 

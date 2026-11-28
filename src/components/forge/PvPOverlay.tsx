@@ -11,7 +11,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 
-import { getLocalSessionId, onDeath, onPlayerState, onRespawn, type PvpDeathEvent } from '@/lib/pvp-bridge'
+import { getLocalSessionId, onDeath, onPlayerState, onRespawn, sendPvpStandUp, type PvpDeathEvent } from '@/lib/pvp-bridge'
 import { requestPlayerAvatarTeleport } from '@/lib/player-avatar-runtime'
 
 interface DeadState {
@@ -103,6 +103,19 @@ export function PvPOverlay({ visible }: { visible: boolean }) {
     return () => window.clearInterval(interval)
   }, [dead, killToasts.length])
 
+  // ─═̷─ Space gets a knocked-down player up (party rules) ─═̷─
+  useEffect(() => {
+    if (!dead?.soft) return
+    const onKey = (event: KeyboardEvent) => {
+      if (event.code !== 'Space' || event.repeat) return
+      const el = event.target as HTMLElement | null
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return
+      sendPvpStandUp()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [dead?.soft])
+
   // ─═̷─ GC expired toasts ─═̷─
   useEffect(() => {
     if (killToasts.length === 0) return
@@ -119,8 +132,18 @@ export function PvPOverlay({ visible }: { visible: boolean }) {
     <>
       {/* Party knock-down: a line at the top, the world stays visible (you watch yourself get up). */}
       {dead?.soft && (
-        <div className="pointer-events-none fixed left-1/2 top-16 z-[calc(var(--z-hud)_+_30)] -translate-x-1/2 rounded-md border border-rose-300/40 bg-black/70 px-4 py-2 text-center text-[13px] font-black uppercase tracking-[0.16em] text-rose-100 shadow-[0_0_18px_rgba(248,113,113,0.35)]">
-          Knocked down by {dead.slainBy} · up in <span className="font-mono text-amber-200">{remainingSec}</span>
+        <div className="fixed left-1/2 top-16 z-[calc(var(--z-hud)_+_30)] flex -translate-x-1/2 items-center gap-3 rounded-md border border-rose-300/40 bg-black/70 px-4 py-2 text-center text-[13px] font-black uppercase tracking-[0.16em] text-rose-100 shadow-[0_0_18px_rgba(248,113,113,0.35)]">
+          <span className="pointer-events-none">Knocked down by {dead.slainBy} · up in <span className="font-mono text-amber-200">{remainingSec}</span></span>
+          {/* Get up now: Space, or this button (the phone). The room allows it a second after the fall. */}
+          <button
+            type="button"
+            data-get-up
+            onClick={() => sendPvpStandUp()}
+            className="pointer-events-auto rounded border border-amber-200/60 bg-amber-300/15 px-3 py-1 text-[12px] font-black uppercase tracking-[0.14em] text-amber-100 hover:bg-amber-300/30"
+            title="Get up now (Space)"
+          >
+            Get up <span className="ml-1 rounded border border-amber-100/40 px-1 text-[10px]">Space</span>
+          </button>
         </div>
       )}
 

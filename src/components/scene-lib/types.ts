@@ -37,6 +37,8 @@ export interface OasisSettings {
   // ─═̷─═̷─⚡ FPS COUNTER ─═̷─═̷─⚡
   fpsCounterEnabled: boolean
   fpsCounterFontSize: number  // 10-24px
+  /** The loading panel (what loads now, MB done, the slowest files): off unless asked for (Settings > Misc). */
+  loadingDebugger: boolean
   // ─═̷─═̷─🪟 WINDOW OPACITY ─═̷─═̷─🪟
   // ─═̷─═̷─🎮 CAMERA MODES ─═̷─═̷─🎮
   controlMode: 'orbit' | 'noclip' | 'third-person'

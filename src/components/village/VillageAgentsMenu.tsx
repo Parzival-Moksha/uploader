@@ -346,7 +346,7 @@ export function VillageAgentsMenu() {
           {rows.length === 0 && !villageEmpty && (
             // A newcomer's first sentence: what to do, and the button to do it (the plaza's own sign is often behind them).
             <div className="px-2 py-2 text-[11px] leading-snug text-white/70">
-              <div>No agents yet. Bring in one of your Claude Code sessions, or start a new one.</div>
+              <div>No agents yet. Bring in one of your Claude Code sessions, or summon a new agent (Claude Code or Codex).</div>
               <button
                 type="button"
                 className="mt-2 w-full rounded-md border border-emerald-300/45 bg-emerald-400/15 px-3 py-1.5 text-[12px] font-bold text-emerald-100 hover:bg-emerald-400/30"

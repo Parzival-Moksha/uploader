@@ -39,15 +39,25 @@ export function VoiceTypeMic() {
   const [box, setBox] = useState<Box | null>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
   /** The field and what was around the caret when the mic started. */
-  const sessionRef = useRef<{ el: TextField; before: string; after: string } | null>(null)
+  const sessionRef = useRef<{ el: TextField; before: string; after: string; skip?: number; lastValue?: string; lastSpoken?: string } | null>(null)
   const [errorShown, setErrorShown] = useState('')
 
   const write = useCallback((spoken: string) => {
     const s = sessionRef.current
     if (!s || !s.el.isConnected) return
+    // The field changed under the mic (a note sent and its box emptied, a word typed): what was said so far is done with;
+    // from here only the new words go in, after what the field holds now (the owner, 2026-11-26: a sent note came back).
+    if (s.lastValue !== undefined && s.el.value !== s.lastValue) {
+      s.before = s.el.value
+      s.after = ''
+      s.skip = (s.lastSpoken || '').length
+    }
+    s.lastSpoken = spoken
+    const fresh = s.skip ? spoken.slice(s.skip) : spoken
     const max = s.el.maxLength > 0 ? s.el.maxLength : null
-    const { value, caret } = spliceDictation(s.before, clampToMaxLength(s.before, spoken.trim(), s.after, max), s.after)
+    const { value, caret } = spliceDictation(s.before, clampToMaxLength(s.before, fresh.trim(), s.after, max), s.after)
     if (s.el.value !== value) setFieldValue(s.el, value)
+    s.lastValue = value
     if (document.activeElement === s.el) {
       try { s.el.setSelectionRange(caret, caret) } catch { /* some input types have no selection */ }
     }
@@ -64,6 +74,23 @@ export function VoiceTypeMic() {
     },
   })
   const listeningRef = useRef(false)
+  // Why the mic stopped, when it was not the owner's own press (the owner, 2026-11-26: "it stops recording after some
+  // time"): said under the button and noted in the console, so the next time tells us which it was.
+  const stopWhyRef = useRef<'' | 'press' | 'left'>('')
+  const wasListening = useRef(false)
+  useEffect(() => {
+    if (wasListening.current && !voice.listening) {
+      const why = stopWhyRef.current
+      if (why !== 'press') {
+        const line = why === 'left' ? 'The mic stopped: the text box lost the focus.' : 'The mic stopped by itself (the voice helper ended): press it again.'
+        console.warn(`[voice typing] ${new Date().toLocaleTimeString('en-GB')} ${line}`)
+        setErrorShown(line)
+        window.setTimeout(() => setErrorShown(current => (current === line ? '' : current)), 6000)
+      }
+      stopWhyRef.current = ''
+    }
+    wasListening.current = voice.listening
+  }, [voice.listening])
   listeningRef.current = voice.listening
   const stopRef = useRef(voice.stop)
   stopRef.current = voice.stop
@@ -80,7 +107,7 @@ export function VoiceTypeMic() {
       window.setTimeout(() => {
         const active = document.activeElement
         if (active && active === fieldRef.current) return
-        if (listeningRef.current) stopRef.current()
+        if (listeningRef.current) { stopWhyRef.current = 'left'; stopRef.current() }
         if (!(active && isVoiceTypeField(active as TextField))) setField(null)
       }, 0)
     }
@@ -124,6 +151,7 @@ export function VoiceTypeMic() {
       if (event.key !== 'Escape') return
       event.preventDefault()
       event.stopImmediatePropagation()
+      stopWhyRef.current = 'press'
       stopRef.current()
     }
     window.addEventListener('keydown', onKey, { capture: true })
@@ -152,6 +180,7 @@ export function VoiceTypeMic() {
       const end = el.selectionEnd ?? start
       sessionRef.current = { el, before: el.value.slice(0, start), after: el.value.slice(end) }
     }
+    stopWhyRef.current = voice.listening ? 'press' : ''
     void voice.toggle()
   }
 

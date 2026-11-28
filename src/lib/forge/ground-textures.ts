@@ -51,7 +51,7 @@ const _BASE_GROUND_PRESETS: GroundPreset[] = [
   },
   {
     id: 'grass',
-    name: 'Grass',
+    name: 'Yellow Moss and Rock',
     icon: '🌿',
     color: '#2d5a1e',
     assetName: 'aerial_grass_rock',
@@ -59,7 +59,7 @@ const _BASE_GROUND_PRESETS: GroundPreset[] = [
   },
   {
     id: 'dirt',
-    name: 'Dirt Path',
+    name: 'Muddy Dirt with Weeds',
     icon: '🟤',
     color: '#6b4e31',
     assetName: 'brown_mud_leaves_01',
@@ -75,7 +75,7 @@ const _BASE_GROUND_PRESETS: GroundPreset[] = [
   },
   {
     id: 'stone',
-    name: 'Stone Floor',
+    name: 'Cracked Sandstone',
     icon: '🪨',
     color: '#666666',
     assetName: 'rock_pitted_mossy',
@@ -83,7 +83,7 @@ const _BASE_GROUND_PRESETS: GroundPreset[] = [
   },
   {
     id: 'snow',
-    name: 'Snow',
+    name: 'Patchy Snow',
     icon: '❄️',
     color: '#e8e8f0',
     assetName: 'snow_field_aerial',
@@ -91,7 +91,7 @@ const _BASE_GROUND_PRESETS: GroundPreset[] = [
   },
   {
     id: 'cobble',
-    name: 'Cobblestone',
+    name: 'Pale Cobblestone',
     icon: '🧱',
     color: '#888888',
     assetName: 'cobblestone_floor_13',
@@ -107,7 +107,7 @@ const _BASE_GROUND_PRESETS: GroundPreset[] = [
   },
   {
     id: 'lava',
-    name: 'Rock Face',
+    name: 'Red-Brown Rock',
     icon: '🌋',
     color: '#4a4a4a',
     assetName: 'rock_face',
@@ -115,7 +115,7 @@ const _BASE_GROUND_PRESETS: GroundPreset[] = [
   },
   {
     id: 'concrete',
-    name: 'Concrete',
+    name: 'Stained Concrete',
     icon: '🏗️',
     color: '#aaaaaa',
     assetName: 'concrete_floor_02',
@@ -123,7 +123,7 @@ const _BASE_GROUND_PRESETS: GroundPreset[] = [
   },
   {
     id: 'marble',
-    name: 'Marble',
+    name: 'Sandstone Slabs',
     icon: '🏛️',
     color: '#e0d8cc',
     assetName: 'marble_01',
@@ -131,7 +131,7 @@ const _BASE_GROUND_PRESETS: GroundPreset[] = [
   },
   {
     id: 'metal',
-    name: 'Metal Grid',
+    name: 'Brown Rusty Diamond Plate',
     icon: '⚙️',
     color: '#555555',
     assetName: 'metal_plate',
@@ -140,7 +140,7 @@ const _BASE_GROUND_PRESETS: GroundPreset[] = [
   // ─═̷─═̷─ New batch — Feb 2026 ─═̷─═̷─
   {
     id: 'beach',
-    name: 'Beach',
+    name: 'Smooth Grey Sand',
     icon: '🏝️',
     color: '#d4c5a0',
     assetName: 'aerial_beach_01',
@@ -148,7 +148,7 @@ const _BASE_GROUND_PRESETS: GroundPreset[] = [
   },
   {
     id: 'rocks',
-    name: 'Aerial Rocks',
+    name: 'Mossy Rocks',
     icon: '🪨',
     color: '#7a7a6a',
     assetName: 'aerial_rocks_04',
@@ -156,7 +156,7 @@ const _BASE_GROUND_PRESETS: GroundPreset[] = [
   },
   {
     id: 'leaves',
-    name: 'Forest Leaves',
+    name: 'Dry Meadow',
     icon: '🍂',
     color: '#5a4a2e',
     assetName: 'forest_leaves_02',
@@ -164,7 +164,7 @@ const _BASE_GROUND_PRESETS: GroundPreset[] = [
   },
   {
     id: 'leaves2',
-    name: 'Autumn Leaves',
+    name: 'Dark Leaf Litter',
     icon: '🍁',
     color: '#6b4f28',
     assetName: 'forest_leaves_03',
@@ -180,7 +180,7 @@ const _BASE_GROUND_PRESETS: GroundPreset[] = [
   },
   {
     id: 'gravel',
-    name: 'Gravelly Sand',
+    name: 'Orange Sand',
     icon: '🏜️',
     color: '#b8a882',
     assetName: 'gravelly_sand',
@@ -196,7 +196,7 @@ const _BASE_GROUND_PRESETS: GroundPreset[] = [
   },
   {
     id: 'snow2',
-    name: 'Fresh Snow',
+    name: 'Speckled Snow',
     icon: '☃️',
     color: '#f0f0f8',
     assetName: 'snow_03',

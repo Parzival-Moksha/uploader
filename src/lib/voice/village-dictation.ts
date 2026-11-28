@@ -19,6 +19,7 @@ import { createWLipSyncLegacyController } from '../wlipsync-driver'
 import { isLiveDictationSupported, type DictationLine, type LiveDictation, type LiveDictationHandlers } from './live-dictation'
 import { isBrowserDictationSupported } from './browser-dictation'
 import { startVillageDictation } from './dictation-route'
+import { keepTypingRecordings, recordTypingStream, type TypingRecorderFactory, type TypingRecording } from './voice-typing-recorder'
 
 export type DictationPhase = 'idle' | 'starting' | 'listening' | 'stopping'
 
@@ -34,6 +35,9 @@ interface Session {
   level: number
   lipSync: LipSyncController | null
   startedAt: number
+  /** The microphone this dictation hears, and the recording of it running now (voice-typing-recorder.ts). */
+  stream: MediaStream | null
+  recording: TypingRecording | null
 }
 
 interface Store {
@@ -46,6 +50,10 @@ interface Store {
   /** Tests only: a fake dictation. Otherwise every press goes through startVillageDictation (dictation-route.ts). */
   testStarter?: (handlers: LiveDictationHandlers) => Promise<LiveDictation>
   lipSync: boolean
+  /** The sound behind each agent's draft, oldest first: kept with the text when it is sent, dropped when it is cleared. */
+  recordings: Map<string, TypingRecording[]>
+  typingRecorder: TypingRecorderFactory | null
+  typingKeeper: (agentId: string, text: string, recordings: TypingRecording[]) => Promise<void>
 }
 
 const STORAGE_KEY = 'oasis.village.drafts.v1'
@@ -69,7 +77,14 @@ const store: Store = g.__oasisVillageDictation ??= {
   version: 0,
   saveTimer: null,
   lipSync: true,
+  recordings: new Map(),
+  typingRecorder: recordTypingStream,
+  typingKeeper: keepTypingRecordings,
 }
+// A store from before the recordings (a hot reload) gets them.
+store.recordings ??= new Map()
+if (store.typingRecorder === undefined) store.typingRecorder = recordTypingStream
+store.typingKeeper ??= keepTypingRecordings
 
 export function joinText(base: string, spoken: string): string {
   if (!spoken) return base
@@ -129,8 +144,45 @@ export function setDraftText(agentId: string, text: string): void {
     session.lines.clear()
   }
   if (text) store.drafts.set(agentId, text)
-  else store.drafts.delete(agentId)
+  else {
+    store.drafts.delete(agentId)
+    dropTypingRecordings(agentId)
+  }
   notify()
+}
+
+// ─── the sound of voice typing (the owner, 27 Nov: "recorded and saved together with its text") ─────────────────
+// Not for the md reader's mic (md:<file>): that text is a file he edits, not a message.
+
+function startTypingRecording(agentId: string, session: Session): void {
+  const stream = session.stream
+  if (!stream || !store.typingRecorder || agentId.startsWith('md:')) return
+  const tracks = typeof stream.getAudioTracks === 'function' ? stream.getAudioTracks() : null
+  if (tracks && !tracks.some(track => track.readyState === 'live')) return
+  const recording = store.typingRecorder(stream)
+  if (!recording) return
+  session.recording = recording
+  const list = store.recordings.get(agentId) || []
+  list.push(recording)
+  store.recordings.set(agentId, list)
+}
+
+function stopTypingRecording(session: Session): void {
+  session.recording?.stop()
+  session.recording = null
+}
+
+/** The box was emptied without a send: its sound goes too. A dictation still running records on from now. */
+function dropTypingRecordings(agentId: string): void {
+  const list = store.recordings.get(agentId)
+  if (!list?.length) return
+  for (const recording of list) recording.stop()
+  store.recordings.delete(agentId)
+  const session = store.sessions.get(agentId)
+  if (session?.recording) {
+    session.recording = null
+    if (session.phase === 'listening' || session.phase === 'starting') startTypingRecording(agentId, session)
+  }
 }
 
 /**
@@ -145,6 +197,8 @@ export function takeDraftForSend(agentId: string): { text: string; sent: () => v
     stopDictation(agentId)
   }
   const text = draftText(agentId)
+  // The recordings behind this text (a dictation started after this press belongs to the next message).
+  const taken = store.recordings.get(agentId)?.length || 0
   notify()
   return {
     text,
@@ -154,6 +208,11 @@ export function takeDraftForSend(agentId: string): { text: string; sent: () => v
       const rest = now.startsWith(text) ? now.slice(text.length).trim() : (now === text ? '' : now)
       if (rest) store.drafts.set(agentId, rest)
       else store.drafts.delete(agentId)
+      // Its sound is kept with the text as sent (on this PC, by the engine).
+      const list = store.recordings.get(agentId) || []
+      const recordings = list.splice(0, taken)
+      if (!list.length) store.recordings.delete(agentId)
+      if (recordings.length && text.trim()) void store.typingKeeper(agentId, text.trim(), recordings).catch(() => {})
       notify()
     },
   }
@@ -182,6 +241,7 @@ function finish(agentId: string, session: Session): void {
   if (store.sessions.get(agentId) !== session) return
   freeze(agentId, session)
   stopLipSync(session)
+  stopTypingRecording(session)
   session.phase = 'idle'
   session.level = 0
   store.sessions.delete(agentId)
@@ -193,14 +253,18 @@ export async function startDictation(agentId: string, lang = 'en'): Promise<void
   // One mic at a time: another agent's dictation stops first, keeping its words.
   for (const other of [...store.sessions.keys()]) if (other !== agentId) stopDictation(other)
   store.errors.delete(agentId)
-  const session: Session = { phase: 'starting', dictation: null, lines: new Map(), frozenThrough: -1, stopRequested: false, status: 'Connecting to the voice helper…', level: 0, lipSync: null, startedAt: Date.now() }
+  const session: Session = { phase: 'starting', dictation: null, lines: new Map(), frozenThrough: -1, stopRequested: false, status: 'Connecting to the voice helper…', level: 0, lipSync: null, startedAt: Date.now(), stream: null, recording: null }
   store.sessions.set(agentId, session)
   notify(false)
   const mine = () => store.sessions.get(agentId) === session
   try {
     const dictation = await (store.testStarter || startVillageDictation)({
       lang,
-      onStream: stream => { void startLipSync(session, stream) },
+      onStream: stream => {
+        session.stream = stream
+        if (mine() && !session.stopRequested) startTypingRecording(agentId, session)
+        void startLipSync(session, stream)
+      },
       onStatus: text => { if (!mine()) return; session.status = text; notify(false) },
       onReady: () => { if (!mine()) return; session.status = ''; notify(false) },
       onLevel: value => { if (!mine()) return; session.level = value; notify(false) },
@@ -232,6 +296,7 @@ export function stopDictation(agentId: string): boolean {
   const session = store.sessions.get(agentId)
   if (!session || session.phase === 'stopping') return false
   stopLipSync(session)
+  stopTypingRecording(session)
   if (!session.dictation) {
     session.stopRequested = true
     notify(false)
@@ -311,4 +376,12 @@ export function __setDictationStarterForTest(starter: NonNullable<Store['testSta
   store.drafts.clear()
   store.sessions.clear()
   store.errors.clear()
+  store.recordings.clear()
+  store.typingRecorder = null
+}
+
+/** Tests: a fake recorder of the dictation's sound, and what receives the recordings of a sent text. */
+export function __setTypingRecorderForTest(recorder: TypingRecorderFactory | null, keeper: Store['typingKeeper']): void {
+  store.typingRecorder = recorder
+  store.typingKeeper = keeper
 }

@@ -76,9 +76,12 @@ import { sampleTerrainHeightAt } from '@/lib/forge/terrain-brush'
 import { CameraController as CameraControllerComponent, sprintRef, FPS_KEYBOARD_MAP } from './CameraController'
 import { useAudioManager } from '@/lib/audio-manager'
 import { preloadSpellSoundManifest, spellSoundFor } from '@/lib/spell-sounds'
+import { syncOnlyWhatShips } from '@/lib/only-what-ships'
+import { UpgradeRailButton } from '@/components/forge/UpgradeRailButton'
 import { writeBrowserStorage } from '@/lib/browser-storage'
 import { runLocalStorageAgentCacheMigration } from '@/lib/localstorage-agent-cache-migration'
-import { isProbablyMobileDevice } from '@/lib/mobile-controls'
+import { isProbablyMobileDevice, useMobileControls } from '@/lib/mobile-controls'
+import { installHeldKeysRelease } from '@/lib/held-keys'
 import { useIsHostedOasis, useOasisCapabilities } from '@/lib/oasis-mode-client'
 import { isVillageProfileClient } from '@/lib/oasis-profile'
 import { VillageWorld } from './village/VillageWorld'
@@ -91,6 +94,7 @@ import { AgentSessionPanel } from './village/AgentSessionPanel'
 import { SessionPicker } from './village/SessionPicker'
 import { readLatestFps, trackFrame } from '../lib/fps-meter'
 import { ReloadResume } from './forge/ReloadResume'
+import { BrowserWindowFocus } from './forge/BrowserWindowFocus'
 import { CHROMATIC_BASE, VIGNETTE_BASE, chromaticOffset, postEffectsNeeded, sprintCanRun, sprintEffect, vignetteDarkness } from '../lib/post-effects'
 import { VillageVoiceWidget } from './village/VillageVoiceWidget'
 import { VillageScreenBackdrop } from './village/VillageScreenBackdrop'
@@ -100,7 +104,7 @@ import { setPlayModeActive } from '../lib/play-mode'
 import { openSummonMenu } from './village/summon-request'
 import { useAcademyEnabled } from './village/academy-store'
 import { installTestHarness } from '@/lib/test-harness'
-import { HOSTED_USER_LOCKED_SPELL_IDS, VILLAGE_NOT_IN_BUILD, isHostedUserLockedSpell, type SpellId } from '@/lib/spellbook'
+import { HOSTED_NOT_IN_BUILD, HOSTED_USER_LOCKED_SPELL_IDS, VILLAGE_NOT_IN_BUILD, isHostedUserLockedSpell, type SpellId } from '@/lib/spellbook'
 import { useWorldEvents } from '@/hooks/useWorldEvents'
 import { AgentWindowPortals } from './forge/AgentWindowPortals'
 import { requestPortalGateReveal } from './forge/PortalGateLayer'
@@ -116,6 +120,9 @@ import { CraftSpellTab } from './forge/spelltabs/CraftSpellTab'
 import { GeneratePicSpellTab } from './forge/spelltabs/GeneratePicSpellTab'
 import { GenerateMusicSpellTab } from './forge/spelltabs/GenerateMusicSpellTab'
 import { GenerateVideoSpellTab } from './forge/spelltabs/GenerateVideoSpellTab'
+import { PortalCraftSpellTab } from './forge/spelltabs/PortalCraftSpellTab'
+import { MediaSpellTab } from './forge/spelltabs/MediaSpellTab'
+import { ConjureSpellTab } from './forge/spelltabs/ConjureSpellTab'
 import { WorldMenu } from './forge/WorldMenu'
 import { PlaceMenu } from './forge/PlaceMenu'
 import { GameMenuButton } from './forge/GameMenuButton'
@@ -622,6 +629,10 @@ function DesktopKeyHints({ village = false, fpsFontSize = null }: { village?: bo
   const selectedObjectId = useOasisStore(s => s.selectedObjectId)
   const hasAgentWindows = useOasisStore(s => s.placedAgentWindows.length > 0)
   const villageNearby = useOasisStore(s => Boolean(s.agentEngine.nearbyAgentId))
+  // Which agent T / E / F go to (the one they float over): its name next to Talk (the owner, 27 Nov: "when there are
+  // many agents, I want to see which one is ... the closest to me").
+  const nearbyName = useOasisStore(s => (s.agentEngine.nearbyAgentId && s.agentEngine.agents[s.agentEngine.nearbyAgentId]?.name) || '')
+  const filmMode = useContext(SettingsContext).settings.villageFilmMode === true
   const villageAgents = useOasisStore(s => s.agentEngine.order.length > 0)
   const hasSlides = useOasisStore(s => s.placedCatalogAssets.some(asset => Boolean(asset.imageUrl || asset.videoUrl)))
   const flopLevel = useFlopCaps().level
@@ -676,7 +687,12 @@ function DesktopKeyHints({ village = false, fpsFontSize = null }: { village?: bo
       {selectedObjectId && hint('Y', 'Size')}
       {hint('C', 'Camera')}
       {hint('Esc', village ? 'Back' : 'Mouse', { dim: !village && !pointerLocked })}
-      {village && hint('T', 'Talk', { dim: !villageNearby })}
+      {village && hint('T', villageNearby && nearbyName ? `Talk · ${nearbyName}` : 'Talk', { dim: !villageNearby })}
+      {village && filmMode && (
+        <span className="col-span-2 text-right text-[8.5px]" style={{ ...GAME_HUD_TEXT, color: '#fbbf24' }} title="Settings > Agents > Film mode">
+          Film mode: no keys over agents
+        </span>
+      )}
       {!village && hint('X', 'Dance')}
       {village
         ? hint('N', 'Next Agent', { dim: !villageAgents })
@@ -1417,6 +1433,7 @@ export default function Scene() {
   useEffect(() => {
     void runLocalStorageAgentCacheMigration()
     void preloadSpellSoundManifest()
+    void syncOnlyWhatShips()
   }, [])
 
   useEffect(() => {
@@ -1770,6 +1787,12 @@ export default function Scene() {
 
     const isCombat = spellId === 'firebolt' || spellId === 'lightning-bolt' || spellId === 'ice-bolt' || spellId === 'machine-gun'
     const hostedUserLocked = !canUseFullWizard && isHostedUserLockedSpell(spellId)
+    // The public Oasis offers no agent, browser window or upload (greyed in the book; this holds for any other way in).
+    const hostedNotHere = hostedMode ? HOSTED_NOT_IN_BUILD[spellId] : undefined
+    if (hostedNotHere) {
+      showNotice(hostedNotHere, 'warn')
+      return
+    }
 
     if (hostedUserLocked) {
       showNotice('That spell is local/admin only for now', 'warn')
@@ -1854,31 +1877,26 @@ export default function Scene() {
       // ─═̷─ Premium standalone spelltabs (Agent B builds these) ─═̷─
       case 'text-to-3d':
       case 'text-to-pic':
-      case 'text-to-pic-building':
       case 'text-to-music':
       case 'text-to-video':
         dispatchNextTick(new CustomEvent('oasis:open-spelltab', { detail: { spellId } }))
         return
 
-      // ─═̷─ Premium routed to WizCon directly ─═̷─
+      // ─═̷─ Text to 3D Level 2 and Pic to 3D: their own windows (the owner, 27 Nov), no longer the Wizard Console ─═̷─
       case 'meshy-object':
-      case 'meshy-character':
-        setPendingWizardTab('conjure')
-        setWizardOpen(true)
+      case 'pic-to-3d':
+        dispatchNextTick(new CustomEvent('oasis:open-spelltab', { detail: { spellId } }))
         return
+      // Its own window, not the placing palette (the owner, 27 Nov: "a custom Select Portal pop-up").
       case 'portal-create':
-        dispatchNextTick(new CustomEvent('oasis:open-place-menu', { detail: { tab: 'portal' } }))
+        dispatchNextTick(new CustomEvent('oasis:open-spelltab', { detail: { spellId } }))
         return
 
-      // ─═̷─ Own media uploads ─═̷─
+      // ─═̷─ Media: MP3, MP4, JPEG, each its own window (an upload button and the library; the owner, 27 Nov) ─═̷─
       case 'own-audio-upload':
-        dispatchNextTick(new CustomEvent('oasis:open-upload-panel', { detail: { kind: 'audio' } }))
-        return
       case 'own-video-upload':
-        dispatchNextTick(new CustomEvent('oasis:open-upload-panel', { detail: { kind: 'video' } }))
-        return
       case 'own-image-upload':
-        dispatchNextTick(new CustomEvent('oasis:open-upload-panel', { detail: { kind: 'image' } }))
+        dispatchNextTick(new CustomEvent('oasis:open-spelltab', { detail: { spellId } }))
         return
 
       // ─═̷─ Agents ─═̷─
@@ -2110,6 +2128,12 @@ export default function Scene() {
 
   // ─═̷─═̷─🧪─═̷─═̷─{ TEST HARNESS — Parzival's Hands }─═̷─═̷─🧪─═̷─═̷─
   useEffect(() => { installTestHarness() }, [])
+  // A movement key is never left down after its release was lost: focus gone (Alt-Tab, an iframe), tab hidden, or a
+  // keyup stopped on its way (lib/held-keys.ts; the owner, 28 Nov: "my avatar is gliding now. I'm not pushing W").
+  useEffect(() => installHeldKeysRelease(window, FPS_KEYBOARD_MAP.flatMap(entry => entry.keys), {
+    doc: document,
+    onLetGo: () => useMobileControls.getState().reset(),
+  }), [])
 
   // ─═̷─═̷─🎮─═̷─═̷─{ CANVAS }─═̷─═̷─🎮─═̷─═̷─
   const CanvasContent = (
@@ -2261,7 +2285,7 @@ export default function Scene() {
         onCastSpell={handleSpellbookCast}
         readOnly={readOnlyForcesRp1}
         lockedSpellIds={!canUseFullWizard ? HOSTED_USER_LOCKED_SPELL_IDS : []}
-        notInBuild={villageProfile ? VILLAGE_NOT_IN_BUILD : undefined}
+        notInBuild={villageProfile ? VILLAGE_NOT_IN_BUILD : hostedMode ? HOSTED_NOT_IN_BUILD : undefined}
         canOpenWizard={canShowWizardConsole}
       />
       {!hideEditTools && <PlaceMenu />}
@@ -2293,7 +2317,8 @@ export default function Scene() {
       <ModeSwitchLabel />
       <DesktopKeyHints village={villageProfile} fpsFontSize={settings.fpsCounterEnabled ? settings.fpsCounterFontSize : null} />
       <PortalTransitionOverlay />
-      <WorldLoadingBar />
+      {/* The loading panel is a debugger: off unless Settings > Misc > Loading debugger (the owner, 28 Nov: 'by default, definitely off') */}
+      {settings.loadingDebugger && <WorldLoadingBar />}
       {!villageProfile && (
         <RookieMerlinInteractionOverlay
           activeWorldId={activeWorldId}
@@ -2347,12 +2372,16 @@ export default function Scene() {
         {/* The Character menu's own button, always on screen like a game's char button (K). */}
         {!hostedMode && <CharacterRailButton />}
 
+        {/* A built, proven new version waits: one flashing button, press to switch and reload (src/lib/oasis-update-client.ts). */}
+        {!hostedMode && <UpgradeRailButton />}
+
         {/* ─═̷─ AgentQuickLauncher rail button retired 2026-05-20.
             All agent summoning lives in the Spellbook now (B key,
             "Agents" page). Component kept mounted (open=false) so it
             can still be opened via legacy event listeners / deep links;
             its onToggle is wired to the spellbook handler instead. ─═̷─ */}
-        {!villageProfile && (
+        {/* No quick agent launcher on the public Oasis: no agent runs there (the owner, 28 Nov). */}
+        {!villageProfile && !hostedMode && (
           <AgentQuickLauncher
             isOpen={agentLauncherOpen}
             mode={agentLauncherMode}
@@ -2422,10 +2451,15 @@ export default function Scene() {
           mode. Mobile renders them as a top-right strip so the world center
           (where the user targets) stays unobstructed. ─═̷─═̷─ */}
       <CraftSpellTab />
-      <GeneratePicSpellTab buildingMode={false} />
-      <GeneratePicSpellTab buildingMode={true} />
+      <GeneratePicSpellTab />
       <GenerateMusicSpellTab />
       <GenerateVideoSpellTab />
+      <PortalCraftSpellTab />
+      <MediaSpellTab spellId="own-audio-upload" />
+      <MediaSpellTab spellId="own-video-upload" />
+      <MediaSpellTab spellId="own-image-upload" />
+      <ConjureSpellTab spellId="meshy-object" />
+      <ConjureSpellTab spellId="pic-to-3d" />
 
       {/* 📋 Mindcraft 3D — Mission Window (outside Canvas, bridged via Zustand) */}
       {canUseLocalPanels && !villageProfile && <MindcraftMissionWindowBridge />}
@@ -2546,6 +2580,9 @@ export default function Scene() {
 
       {/* 🎙 Voice typing: a small mic on whichever text field has focus (needs the local agent engine). */}
       {!hostedMode && <VoiceTypeMic />}
+
+      {/* A browser window in the world: E opens it, its page gets the keys and the wheel, Esc leaves at once. */}
+      <BrowserWindowFocus />
 
       <ObjectHtmlOverlay />
 

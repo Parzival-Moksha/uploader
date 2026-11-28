@@ -54,20 +54,23 @@ export const PROVIDERS: ProviderDefinition[] = [
     name: 'meshy',
     displayName: 'Meshy',
     envKey: 'MESHY_API_KEY',
+    // Their API docs, 27 Nov 2026: Meshy 7.1 is the newest ("latest"); text: preview 20 credits + texture 10; from a
+    // picture, textured: 30. A Meshy API key needs a paid plan (Pro: 1,000 credits for 19 EUR a month, about 0.02 EUR each).
     tiers: [
-      { id: 'preview', name: 'Grey', description: 'Fast untextured mesh (meshy-6)', estimatedSeconds: 30, estimatedCost: '$1', creditCost: 1 },
-      { id: 'refine', name: 'Textured', description: 'Full PBR textured model', estimatedSeconds: 120, estimatedCost: '$1', creditCost: 1 },
+      { id: 'refine', name: 'Meshy 7.1, textured', description: 'Meshy 7.1 with PBR textures: 30 Meshy credits (about 0.57 EUR on Pro); needs a paid Meshy plan', estimatedSeconds: 150, estimatedCost: '~0.57 EUR', creditCost: 1 },
+      { id: 'preview', name: 'Meshy 7.1, grey', description: 'Meshy 7.1 shape without textures: 20 Meshy credits (about 0.38 EUR on Pro); needs a paid Meshy plan', estimatedSeconds: 45, estimatedCost: '~0.38 EUR', creditCost: 1 },
     ],
   },
   {
     name: 'tripo',
     displayName: 'Tripo',
     envKey: 'TRIPO_API_KEY',
+    // Their API docs, 27 Nov 2026: v3.1 is "our newest flagship model"; v3.0 the previous, v2.5 legacy (Turbo v1.0 and
+    // v2.0 are no longer listed). 1 credit = $0.01: textured from text 20 ($0.20), from a picture 30 ($0.30), rig 25.
     tiers: [
-      { id: 'turbo', name: 'Turbo', description: 'Fastest (Turbo v1.0)', estimatedSeconds: 10, estimatedCost: '$1', creditCost: 1 },
-      { id: 'draft', name: 'v2.0', description: 'Fast shape (v2.0)', estimatedSeconds: 20, estimatedCost: '$1', creditCost: 1 },
-      { id: 'standard', name: 'v2.5', description: 'Balanced quality (v2.5)', estimatedSeconds: 40, estimatedCost: '$1', creditCost: 1 },
-      { id: 'premium', name: 'v3.1', description: 'Latest, best detail (v3.1)', estimatedSeconds: 60, estimatedCost: '$1', creditCost: 1 },
+      { id: 'premium', name: 'Tripo v3.1', description: 'Tripo v3.1, newest, textured: $0.20 from words, $0.30 from a picture', estimatedSeconds: 60, estimatedCost: '$0.20', creditCost: 1 },
+      { id: 'draft', name: 'Tripo v3.0', description: 'Tripo v3.0, the previous model, textured: $0.20 from words, $0.30 from a picture', estimatedSeconds: 50, estimatedCost: '$0.20', creditCost: 1 },
+      { id: 'standard', name: 'Tripo v2.5', description: 'Tripo v2.5, legacy, textured: $0.20 from words, $0.30 from a picture', estimatedSeconds: 40, estimatedCost: '$0.20', creditCost: 1 },
     ],
   },
 ]

@@ -309,6 +309,8 @@ export function MobileOasisControls({
         }}
         onPointerUp={endMove}
         onPointerCancel={endMove}
+        // The stick lost its finger some other way (an overlay, the page losing the focus): it stops, not walks on.
+        onLostPointerCapture={event => { if (movePointerIdRef.current === event.pointerId) resetMove() }}
       >
         <div className="absolute inset-4 rounded-full border border-white/12" />
         <div

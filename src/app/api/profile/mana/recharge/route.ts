@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { getRequiredOasisUserId } from '@/lib/session'
-import { DEFAULT_PROFILE_AVATAR_3D_URL, DEFAULT_PROFILE_DISPLAY_NAME } from '@/lib/profile-defaults'
+import { DEFAULT_PROFILE_DISPLAY_NAME, starterAvatar3dUrl } from '@/lib/profile-defaults'
 import { buildPlayerProgression, computeManaRechargeTicks, MANA_REGEN_BASE_INTERVAL_MS_EXPORT, withPassiveMana } from '@/lib/player-progression'
 import { levelFromXp } from '@/lib/xp'
 
@@ -13,7 +13,7 @@ async function ensureProfile(userId: string) {
     create: {
       userId,
       displayName: DEFAULT_PROFILE_DISPLAY_NAME,
-      avatar3dUrl: DEFAULT_PROFILE_AVATAR_3D_URL,
+      avatar3dUrl: starterAvatar3dUrl(await prisma.profile.count()),
     },
     update: {},
   })

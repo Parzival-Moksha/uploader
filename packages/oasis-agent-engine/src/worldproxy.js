@@ -18,7 +18,7 @@
 // Not a sandbox: an agent with a shell can still reach the route itself (see the README, "Hermes agents").
 import http from 'node:http';
 import path from 'node:path';
-import { randomUUID } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { WORLD_TOOLS_ALLOWED, WORLD_SERVER } from './worldtools.js';
 import { tokenHeaders } from './token.js';
@@ -30,11 +30,11 @@ const METHODS = new Set(['initialize', 'ping', 'tools/list', 'tools/call', 'reso
 const BODY_MAX = 4 * 1024 * 1024;
 
 const fail = (id, message, code = -32000) => ({ jsonrpc: '2.0', id, error: { code, message } });
-const refusedTool = (id, name) => ({ jsonrpc: '2.0', id, result: { isError: true, content: [{ type: 'text', text: `${name} is not offered here: it spends credits or changes the owner's world, and this agent cannot ask him first.` }] } });
+const refusedTool = (id, name, why = 'it spends credits or changes the owner\'s world, and this agent cannot ask him first') => ({ jsonrpc: '2.0', id, result: { isError: true, content: [{ type: 'text', text: `${name} is not offered here: ${why}.` }] } });
 
-/** A tools list keeps only the free tools, whatever request it answers. */
-function filtered(msg) {
-  if (msg && typeof msg === 'object' && Array.isArray(msg.result?.tools)) {
+/** A tools list keeps only the free tools, whatever request it answers (unless the gate can ask: then all of them). */
+function filtered(msg, all = false) {
+  if (!all && msg && typeof msg === 'object' && Array.isArray(msg.result?.tools)) {
     msg.result.tools = msg.result.tools.filter((t) => FREE_WORLD_TOOLS.has(t?.name));
   }
   return msg;
@@ -73,7 +73,11 @@ async function messagesOf(res, id) {
  * The gate: handle(msg) takes one JSON-RPC message (or a batch) from the agent and resolves with the messages that go
  * back to it (none for a notification). close() ends the Oasis session.
  */
-export function createWorldGate(url, { headers: extraHeaders = tokenHeaders } = {}) {
+/**
+ * ask(name, args) -> Promise<boolean>: with it, the gate lists every tool and asks before one that is not free (the
+ * engine shows the owner a permission card); without it, only the free tools exist.
+ */
+export function createWorldGate(url, { headers: extraHeaders = tokenHeaders, ask = null } = {}) {
   let session = null;
   let protocol = null;
   let initMsg = null; // the client's initialize, kept to open a new session when the Oasis forgets ours
@@ -90,7 +94,7 @@ export function createWorldGate(url, { headers: extraHeaders = tokenHeaders } = 
     return res;
   }
 
-  const seen = (m) => { if (m?.result?.protocolVersion) protocol = m.result.protocolVersion; return filtered(m); };
+  const seen = (m) => { if (m?.result?.protocolVersion) protocol = m.result.protocolVersion; return filtered(m, !!ask); };
 
   function reopen() {
     if (!reopening) {
@@ -133,7 +137,13 @@ export function createWorldGate(url, { headers: extraHeaders = tokenHeaders } = 
     if (!msg || typeof msg !== 'object' || typeof msg.method !== 'string') return []; // answers from the client: we ask it nothing
     const isRequest = msg.id != null;
     if (!msg.method.startsWith('notifications/') && !METHODS.has(msg.method)) return isRequest ? [fail(msg.id, `${msg.method} is not offered here`, -32601)] : [];
-    if (msg.method === 'tools/call' && !FREE_WORLD_TOOLS.has(msg.params?.name)) return isRequest ? [refusedTool(msg.id, msg.params?.name)] : [];
+    if (msg.method === 'tools/call' && !FREE_WORLD_TOOLS.has(msg.params?.name)) {
+      if (!ask) return isRequest ? [refusedTool(msg.id, msg.params?.name)] : [];
+      const name = typeof msg.params?.name === 'string' ? msg.params.name : '';
+      let ok = false;
+      try { ok = !!name && await ask(name, msg.params?.arguments || {}); } catch { ok = false; }
+      if (!ok) return isRequest ? [refusedTool(msg.id, name || 'that tool', 'the owner did not allow it (or did not answer in time)')] : [];
+    }
     if (msg.method === 'initialize') {
       initMsg = { jsonrpc: '2.0', method: 'initialize', params: msg.params };
       // A client that connects again (Hermes 0.23 does at every turn start) begins a new Oasis session: sent on the
@@ -165,10 +175,30 @@ export function createWorldGate(url, { headers: extraHeaders = tokenHeaders } = 
  * its own Oasis session behind it. GET (a server-to-client stream) is not offered: 405, which MCP clients accept.
  * -> Promise<{ port, close() }>
  */
-export function startWorldGateServer(url, { port = 0, host = '127.0.0.1' } = {}) {
-  const gate = createWorldGate(url);
+/**
+ * Only the agent it was made for may use the gate (Merge Goat, 28 Nov: without this, any web page the owner opens
+ * could POST text/plain to a localhost port, no preflight, and change his world with his key). So: a secret path,
+ * /mcp/<48 hex>, handed to the agent alone (its mcpServers entry, the remote line); every other path is 404. A request
+ * with an Origin header comes from a browser page: refused. A Host other than 127.0.0.1:<port> or localhost:<port>
+ * is DNS rebinding: refused. Only application/json bodies.
+ */
+function refusal(req, port, secretPath) {
+  const p = (req.url || '').split('?')[0];
+  if (p !== secretPath) return 404;
+  if (req.headers.origin != null) return 403;
+  const h = String(req.headers.host || '').toLowerCase();
+  if (h !== `127.0.0.1:${port}` && h !== `localhost:${port}`) return 403;
+  if (req.method === 'POST' && !/^application\/json(\s*;|$)/i.test(String(req.headers['content-type'] || ''))) return 415;
+  return 0;
+}
+
+export function startWorldGateServer(url, { port = 0, host = '127.0.0.1', ask = null } = {}) {
+  const gate = createWorldGate(url, { ask });
   const sessionId = randomUUID();
+  const secretPath = `/mcp/${randomBytes(24).toString('hex')}`;
   const server = http.createServer((req, res) => {
+    const no = refusal(req, server.address()?.port, secretPath);
+    if (no) { req.resume(); res.writeHead(no).end(); return; }
     if (req.method === 'DELETE') { res.writeHead(200).end(); return; }
     if (req.method !== 'POST') { res.writeHead(405, { allow: 'POST, DELETE' }).end(); return; }
     let size = 0;
@@ -188,7 +218,8 @@ export function startWorldGateServer(url, { port = 0, host = '127.0.0.1' } = {})
     server.once('error', reject);
     server.listen(port, host, () => {
       server.off('error', reject);
-      resolve({ port: server.address().port, close: async () => { await gate.close(); await new Promise((r) => server.close(() => r())); } });
+      const p = server.address().port;
+      resolve({ port: p, path: secretPath, url: `http://127.0.0.1:${p}${secretPath}`, close: async () => { await gate.close(); await new Promise((r) => server.close(() => r())); } });
     });
   });
 }

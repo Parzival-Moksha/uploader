@@ -120,7 +120,7 @@ export function createPortalZeroSpellbookPickup(): SpatialWebObject {
       type: 'spawn_vfx',
       successMessage: 'Spellbook awakened.',
     },
-    statusMessage: 'HIT F TO PICK UP',
+    statusMessage: 'HIT E TO PICK UP',
   }
 }
 

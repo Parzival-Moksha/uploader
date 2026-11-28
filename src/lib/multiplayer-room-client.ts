@@ -381,6 +381,11 @@ export async function connectToWorldRoom(args: MultiplayerRoomConnectArgs): Prom
     get pvpEnabled() {
       return args.pvpEnabled === true || (room.state as RoomStateSchema | undefined)?.pvpEnabled === true
     },
+    sendStandUp: () => {
+      try { room.send('standUp') } catch (err) {
+        if (DEBUG) console.warn('[oasis-room] sendStandUp failed', err)
+      }
+    },
     sendShot: payload => {
       try { room.send('shot', payload) } catch (err) {
         if (DEBUG) console.warn('[oasis-room] sendShot failed', err)

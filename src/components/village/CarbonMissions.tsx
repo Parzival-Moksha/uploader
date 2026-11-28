@@ -11,12 +11,13 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAgentVoiceInput } from '../../hooks/useAgentVoiceInput'
 import { renderMarkdown } from '../../lib/anorak-renderers'
-import { ANSWER_MAX, askingAgent, quickAnswer, sortCarbon, splitCommands, type CarbonMission, type CarbonSort } from '../../lib/village/carbon-missions'
+import { ANSWER_MAX, nowMissions, askingAgent, quickAnswer, sortCarbon, splitCommands, type CarbonMission, type CarbonSort } from '../../lib/village/carbon-missions'
 import { setDraftText } from '../../lib/voice/village-dictation'
 import { useOasisStore } from '../../store/oasisStore'
 import { focusVillageAgent } from './village-actions'
 import { useMindcraftLook } from './mindcraft-look'
 import { startOwnRun } from './work-vow-client'
+import { NOW_CHANGED, NowCards, nowChanged } from './NowMissions'
 import { MinutesStepper } from './OwnMissionPanel'
 
 const SORTS: Array<{ id: CarbonSort; label: string }> = [
@@ -309,24 +310,29 @@ function CarbonMissionsList({ initialFile = null }: { initialFile?: string | nul
   useEffect(() => {
     void load()
     const timer = window.setInterval(() => { if (document.visibilityState === 'visible') void load() }, 30_000)
-    return () => window.clearInterval(timer)
+    const reload = () => { void load() }
+    window.addEventListener(NOW_CHANGED, reload)
+    return () => { window.clearInterval(timer); window.removeEventListener(NOW_CHANGED, reload) }
   }, [load])
 
-  const shown = useMemo(() => sortCarbon((missions || []).filter(m => filter === 'all' || (filter === 'mine' ? m.by.trim().toLowerCase() === 'owner' : m.state === filter)), filter === 'mine' ? 'newest' : sort), [missions, filter, sort])
+  // Now: up to three, Anorak's order (2026-11-26); with the open filter the table below is Later, without them.
+  const now = useMemo(() => nowMissions(missions || []), [missions])
+  const shown = useMemo(() => sortCarbon((missions || []).filter(m => filter === 'all' || (filter === 'mine' ? m.by.trim().toLowerCase() === 'owner' : m.state === filter)).filter(m => filter !== 'open' || !now.some(n => n.file === m.file)), filter === 'mine' ? 'newest' : sort), [missions, filter, sort, now])
   const open = (missions || []).filter(m => m.state === 'open')
   const openMinutes = open.reduce((sum, m) => sum + (m.minutes || 0), 0)
   const current = selected ? (missions || []).find(m => m.file === selected) || null : null
 
   if (current) {
-    return <MissionView key={current.file} mission={current} onBack={() => setSelected(null)} onAnswered={() => { setSelected(null); void load() }} />
+    return <MissionView key={current.file} mission={current} onBack={() => setSelected(null)} onAnswered={() => { setSelected(null); void load(); nowChanged() }} />
   }
   if (!missions) return <div className="p-4 text-white/55">{error ? `Can't read the missions: ${error}` : 'Reading the missions…'}</div>
 
   const header = 'grid grid-cols-[minmax(0,1fr)_58px_52px_34px_34px_34px_64px] items-center gap-x-2'
   return (
     <div data-mindcraft="carbon" className="flex h-full min-h-0 flex-1 flex-col gap-2 text-[14.5px]">
+      {filter === 'open' && <NowCards missions={now} onOpen={file => setSelected(file)} />}
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="text-white/75"><b className="text-white">{open.length} open</b>{openMinutes ? ` · about ${openMinutes} min of your time` : ''}</div>
+        <div className="text-white/75">{filter === 'open' ? <><b className="text-white">Later</b> · </> : null}<b className="text-white">{open.length - (filter === 'open' ? now.length : 0)} open</b>{openMinutes ? ` · about ${openMinutes} min of your time in all` : ''}</div>
         <div className="flex flex-wrap items-center gap-1.5">
           <label className="mc-field flex items-center gap-1.5 px-2 py-1 text-[13px]">
             sort

@@ -7,7 +7,7 @@
 
 import { useEffect, useState } from 'react'
 import { formatClock, localMidnight, type WorkDaySummary } from '../../lib/village/work-vow'
-import type { WorkingAgent } from './useLiveWork'
+import { runningAgentSeconds, type WorkingAgent } from './useLiveWork'
 
 export interface WorkRow {
   key: string
@@ -39,7 +39,7 @@ export function siliconRows(agents: Array<{ key: string; name: string; seconds: 
   const byName = new Map(agents.map(a => [a.name.toLowerCase(), a]))
   const rows: WorkRow[] = agents.map(a => ({ key: `s:${a.key}`, label: a.name, seconds: a.seconds, xp: a.xp, note: a.mission }))
   for (const w of working) {
-    const running = Math.max(0, now - Math.max(w.since, dayStart)) / 1000
+    const running = runningAgentSeconds(w, now, dayStart)
     const known = byName.get(w.name.toLowerCase())
     const row = known ? rows.find(r => r.key === `s:${known.key}`) : null
     if (row) {

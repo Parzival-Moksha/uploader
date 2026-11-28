@@ -9,18 +9,38 @@
 
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import { KitProgress, KitTabs } from '@/components/ui-kit'
-import { isVillageVoiceOn, setVillageVoiceOn, subscribeVillageVoice } from './village-companion'
+import { getVillageVoiceMode, setVillageVoiceMode, subscribeVillageVoice } from './village-companion'
+import { DEFAULT_VOICE_MODE, VOICE_MODE_TEXT, type VoiceMode } from '../../lib/village/voice-mode'
 import { getVoiceOutQuality, setVoiceOutQuality, subscribeVoiceOutQuality } from './voice-out-setting'
 import { DEFAULT_VOICE_OUT } from '../../lib/village/voice-out'
 
-type Choice = 'v4' | 'turbo' | 'off'
+type Choice = 'v4' | 'turbo'
 
 interface Credits { used: number; limit: number; resetAt: number | null }
 
 const HINT: Record<Choice, string> = {
   v4: 'ElevenLabs v4: the richest delivery, twice the credits of Turbo, about 2 s to make a line.',
   turbo: 'ElevenLabs v4 Turbo: the same voices (each agent keeps its own), half the credits of v4, about a second per line. Hungarian too.',
-  off: 'No spoken lines at all: nothing is made or bought. The replies still come as text.',
+}
+
+const MODES: VoiceMode[] = ['off', 'click', 'auto']
+
+/**
+ * The agents' spoken lines: Off, On click, Auto (lib/village/voice-mode.ts). Here (Settings > Sound) and in
+ * Settings > Agents: one switch.
+ */
+export function VillageVoiceModeTabs() {
+  const mode = useSyncExternalStore(subscribeVillageVoice, getVillageVoiceMode, () => DEFAULT_VOICE_MODE)
+  return (
+    <div data-voice-mode={mode}>
+      <KitTabs<VoiceMode>
+        tabs={MODES.map(id => ({ id, label: VOICE_MODE_TEXT[id].label, title: VOICE_MODE_TEXT[id].hint }))}
+        active={mode}
+        onChange={setVillageVoiceMode}
+      />
+      <div className="kit-hint mt-1">{VOICE_MODE_TEXT[mode].hint}</div>
+    </div>
+  )
 }
 
 function day(ms: number): string {
@@ -63,29 +83,29 @@ function emptyAround(credits: Credits, now = Date.now()): number | null {
 }
 
 export function VoiceOutSection() {
-  const on = useSyncExternalStore(subscribeVillageVoice, isVillageVoiceOn, () => true)
-  const quality = useSyncExternalStore(subscribeVoiceOutQuality, getVoiceOutQuality, () => DEFAULT_VOICE_OUT)
-  const choice: Choice = on ? quality : 'off'
+  const mode = useSyncExternalStore(subscribeVillageVoice, getVillageVoiceMode, () => DEFAULT_VOICE_MODE)
+  const choice: Choice = useSyncExternalStore(subscribeVoiceOutQuality, getVoiceOutQuality, () => DEFAULT_VOICE_OUT)
   const { credits, error } = useCredits()
-  const choose = (next: Choice) => {
-    if (next === 'off') { setVillageVoiceOn(false); return }
-    setVoiceOutQuality(next)
-    if (!on) setVillageVoiceOn(true)
-  }
+  const choose = (next: Choice) => setVoiceOutQuality(next)
   const empty = credits ? emptyAround(credits) : null
   return (
-    <section data-voice-out={choice}>
-      <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-1.5 font-mono">Voice out</div>
-      <KitTabs<Choice>
-        tabs={[
-          { id: 'v4', label: 'ElevenLabs v4', title: HINT.v4 },
-          { id: 'turbo', label: 'v4 Turbo · ½', title: HINT.turbo },
-          { id: 'off', label: 'Off', title: HINT.off },
-        ]}
-        active={choice}
-        onChange={choose}
-      />
-      <div className="kit-hint mt-1">{HINT[choice]} {'The agents’ own voices (Harry, Brian…) are in each agent’s Settings.'}</div>
+    <section data-voice-out={mode === 'off' ? 'off' : choice}>
+      <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-1.5 font-mono">Agent voices</div>
+      <VillageVoiceModeTabs />
+      {mode !== 'off' && (
+        <>
+          <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-1.5 mt-3 font-mono">Voice out</div>
+          <KitTabs<Choice>
+            tabs={[
+              { id: 'v4', label: 'ElevenLabs v4', title: HINT.v4 },
+              { id: 'turbo', label: 'v4 Turbo · ½', title: HINT.turbo },
+            ]}
+            active={choice}
+            onChange={choose}
+          />
+          <div className="kit-hint mt-1">{HINT[choice]} {'The agents’ own voices (Harry, Brian…) are in each agent’s Settings.'}</div>
+        </>
+      )}
       <div className="mt-2" data-voice-credits>
         {credits ? (
           <>

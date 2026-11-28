@@ -13,7 +13,7 @@
 //   ╚═══════════════════════════════════════════════════════════════╝
 //
 //   API: https://docs.meshy.ai/api-text-to-3d
-//   Model: meshy-6 (latest gen, best quality)
+//   Model: meshy-7.1 (their newest, 18 Sep 2026; meshy-5 answers 400 since 10 Oct, meshy-7 geometry ends 31 Dec)
 //
 // ░▒▓█ MESHY CONJURE CLIENT █▓▒░
 // ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
@@ -195,7 +195,7 @@ export class MeshyClient implements ConjureProviderClient {
     const previewBody: Record<string, unknown> = {
       mode: 'preview',
       prompt: finalPrompt,
-      ai_model: 'meshy-6',
+      ai_model: 'meshy-7.1',
     }
     // ░▒▓ Character mode: API params — belt AND suspenders ▓▒░
     // Meshy docs: pose_mode + symmetry_mode are the official knobs, and
@@ -455,7 +455,7 @@ export class MeshyClient implements ConjureProviderClient {
 
     const body: Record<string, unknown> = {
       image_url: imageUrl,
-      ai_model: 'meshy-6',
+      ai_model: 'meshy-7.1',
     }
     // Meshy image-to-3D supports pose_mode directly; keep character-mode image
     // conjures aligned with the text pipeline instead of silently dropping pose intent.

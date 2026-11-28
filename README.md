@@ -2,11 +2,13 @@
 
 ![Walking up to a Claude Code session in the village at sunset and talking to it](oasis.gif)
 
-Your own Claude Code sessions as characters in a 3D village at sunset, on your own machine. Walk up to any of them and talk, by typing or by voice. What you say in the village arrives in that same session.
+Your own Claude Code sessions, and the Codex or Claude Code agents you summon, as characters in a 3D village at sunset, on your own machine. Walk up to any of them and talk, by typing or by voice. What you say in the village arrives in that same session.
+
+**Codex users:** summon a Codex villager from the Summon circle, on your own Codex login (the first one downloads the Oasis's Codex adapter once, about 540 MB). It talks in the village and builds with the world tools. Codex sessions you run outside the Oasis don't appear as characters.
 
 ## Install: one sentence
 
-Tell your Claude Code (or any coding agent that can run commands):
+Tell your coding agent (Claude Code, Codex, or any agent that can run commands):
 
 ```
 install the Oasis from github.com/Parzival-Moksha/uploader and open it
@@ -14,7 +16,7 @@ install the Oasis from github.com/Parzival-Moksha/uploader and open it
 
 **Install takes 5 minutes · download 600 MB · 2.5 GB on disk.**
 
-That is all: no plugin, no slash command. It clones this repository (**about 600 MB**: every world and avatar), installs and builds it and opens the village in your browser: about 5 minutes in all on our Windows test machine and on a clean Mac, measured on 24 Nov (more on a slow line; the download alone took half a minute on a fast one). Every Claude Code session on this machine shows up there. You need Claude Code, Node.js 20 or later and git, on Windows, macOS or Linux.
+That is all: no plugin, no slash command. It clones this repository (**about 600 MB**: every world and avatar), installs and builds it and opens the village in your browser: about 5 minutes in all on our Windows test machine and on a clean Mac, measured on 24 Nov (more on a slow line; the download alone took half a minute on a fast one). Every Claude Code session on this machine shows up there. You need Claude Code or Codex, Node.js 20 or later and git, on Windows, macOS or Linux.
 
 By hand, the same thing, in any terminal (Windows PowerShell too):
 
@@ -22,6 +24,8 @@ By hand, the same thing, in any terminal (Windows PowerShell too):
 git clone --depth 1 https://github.com/Parzival-Moksha/uploader.git
 node uploader/scripts/oasis.mjs start
 ```
+
+The first start takes about 5 minutes; then the village opens in your browser by itself. Leave this window open.
 
 Start it only this way (`pnpm dev` and `npm start` run the same script): `next dev` or `next start` alone gives a page without the engine, the database or the village, an empty world where nobody can be summoned. `node scripts/oasis.mjs status` says what is running and which version, `node scripts/oasis.mjs stop` stops it. **To update:** in the Oasis folder, `node scripts/oasis.mjs update` (git pull, then a rebuild; your worlds, agents and keys stay). The version is in the main menu (M), under the Oasis's name. It works the same on Windows, macOS and Linux. (macOS: installs and opens on a clean Mac at every release, checked by machine; no person has watched a Mac install yet. Linux: written with care, not yet run by us.)
 
@@ -41,7 +45,8 @@ Then type `/oasis` in a new session (the first time it downloads the release and
 - **The page server** on `127.0.0.1:4516` (Next.js): the 3D village in your browser.
 - **The agent engine** on `127.0.0.1:4530`: it lists your Claude Code sessions from `~/.claude/projects`, mirrors them, and runs the ones you start in the village as ordinary `claude` processes under your own account, with the permission mode you choose. Permission prompts appear in the village for you to answer; nothing is approved for you.
 - **On its first start, the voice-typing helper sets itself up:** it needs a Python 3 on your machine, downloads about 50 MB of Python packages from PyPI (pinned versions) and a 259 MB English speech model (Moonshine, MIT) from download.moonshine.ai, each file checked against its published list. About a minute. It then turns your voice into text on this machine, without sending it anywhere. Until it is ready, and on machines where it cannot run (no Python 3, an Intel Mac, macOS before 15), the microphone uses your browser's own speech recognition, which sends the audio to the browser's maker. `OASIS_EARS_INSTALL=0` in `.env` switches the helper off.
-- **Only when you press "Host a party" (World menu):** a party server on this computer's address in your Wi-Fi, port 4680, and an answer to "who has a party?" on UDP port 4599, until you stop the party. Anyone on the same network can join, without a password. They get a separate copy of one world, run from its own folder (`~/.oasis/party`): no agents, none of your worlds, uploads or generated files, and none of your keys unless you switch paid spells on for the evening (then the four spell keys, with a budget). They do see the models in your catalog, to build with. The first time, Windows may ask whether Node.js may use the network.
+- **Only when you host a party (no longer in the menu; for now an experiment: set `oasis-party-host` to `1` in the page's local storage):** a party server on this computer's address in your Wi-Fi, port 4680, and an answer to "who has a party?" on UDP port 4599, until you stop the party. Anyone on the same network can join, without a password. They get a separate copy of one world, run from its own folder (`~/.oasis/party`): no agents, none of your worlds, uploads or generated files, and none of your keys unless you switch paid spells on for the evening (then the four spell keys, with a budget). They do see the models in your catalog, to build with. The first time, Windows may ask whether Node.js may use the network.
+- **Off unless you switch it on:** the old Codex panel, whose routes run `codex exec` without approvals or sandbox. Put `OASIS_CODEX_PANEL=1` in the Oasis's `.env` and start it again if you want it. Codex agents in the village don't need it.
 - Both servers listen on this machine only; only a party you host can be reached from your network. Nothing is sent to us: no account, no telemetry.
 
 ## Once it runs
@@ -65,7 +70,7 @@ This is the packaged Oasis: the village, the agent engine, the Claude Code plugi
 - Your own body and every agent stand, idle, walk, jog, sprint, roll, talk with moving hands, cast, flinch and fall. These come from the Quaternius Universal Animation Library (CC0).
 - They do not dance, sit, wave or emote yet. The dances and some walks in the authors' own Oasis are Mixamo files, which Adobe does not allow to be passed on as files, so they are not in this package. A free set is being added.
 - With an ElevenLabs voice, an agent's mouth follows its words. With the browser's built-in voice it speaks, but the mouth does not move yet.
-- 42 avatars, all stating CC0 in their own files.
+- 43 avatars: 42 CC0, each saying so in its own file, and one of ours, the founder's own body, free to wear inside the Oasis.
 
 ## Something broke?
 

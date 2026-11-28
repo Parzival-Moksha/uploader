@@ -23,6 +23,7 @@
 // Runs only in the real engine (port 4530) unless OASIS_TELEGRAM=1; OASIS_TELEGRAM=0 turns it off. Test engines on other
 // ports never touch the bot. The token never reaches a log line, a message or an error text (redact()).
 import { envValue, ownEnvValue, setting } from './settings.js';
+import { permissionHeadline } from './permission-reason.js';
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
@@ -220,7 +221,10 @@ export function pingText(a, { lastText = '', lastTurnEnd = null } = {}) {
   let what;
   if (req?.requestKind === 'question') what = req.input?.questions?.[0]?.question || 'it has a question';
   else if (req?.requestKind === 'plan') what = 'a plan to approve';
-  else if (req) {
+  else if (req && permissionHeadline(req.toolName, req.input, req.decisionReason, req.decisionReasonType)) {
+    // Claude Code's own check (a delete it cannot name) asks even in bypass: say what it is, then the command.
+    what = `${permissionHeadline(req.toolName, req.input, req.decisionReason, req.decisionReasonType)}. Allow?`;
+  } else if (req) {
     // summarizeTool already starts with the tool's name ("Write src/x.ts", "Bash: npm test")
     const s = String(req.summary || '');
     what = `allow ${s && req.toolName && s.startsWith(req.toolName) ? s : `${req.toolName || 'a tool'}${s ? `: ${s}` : ''}`}?`;

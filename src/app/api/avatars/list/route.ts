@@ -7,6 +7,11 @@ import { NextResponse } from 'next/server'
 import fs from 'fs'
 import path from 'path'
 
+import { browserChoiceOf, shippedView, shipsFilter } from '@/lib/only-what-ships-server'
+
+// Read on every request: Next 14 prerendered this list at build time (the Innkeeper, 28 Nov): avatars added later never showed.
+export const dynamic = 'force-dynamic'
+
 const GALLERY_DIR = path.join(process.cwd(), 'public', 'avatars', 'gallery')
 
 export interface DiskAvatarEntry {
@@ -32,13 +37,15 @@ function fileToDisplayName(filename: string): string {
     .trim()
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    // "Only what ships": an avatar the package leaves out (its licence) is not offered.
+    const ships = shipsFilter(await shippedView(browserChoiceOf(request)))
     try { await fs.promises.access(GALLERY_DIR) } catch { return NextResponse.json([]) }
     const dirents = await fs.promises.readdir(GALLERY_DIR, { withFileTypes: true })
     // Reject symlinks — static file serving would follow them and leak adjacent files.
     const entries = await Promise.all(dirents
-      .filter(d => d.isFile() && !d.isSymbolicLink() && d.name.toLowerCase().endsWith('.vrm'))
+      .filter(d => d.isFile() && !d.isSymbolicLink() && d.name.toLowerCase().endsWith('.vrm') && ships(`/avatars/gallery/${d.name}`))
       .map(async d => ({
         id: fileToId(d.name),
         file: d.name,

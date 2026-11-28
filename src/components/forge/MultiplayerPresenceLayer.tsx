@@ -19,6 +19,7 @@ import { colorForPlayerId as colorForId } from '@/lib/multiplayer-color'
 import { withProfileAvatarBust } from '@/lib/profile-avatar-url'
 import { useOasisStore } from '@/store/oasisStore'
 import { appendWorldChatMessage, recentChatBySession, setWorldChatSender, useWorldChat } from '@/lib/world-chat'
+import { getRemoteCast } from '../../lib/remote-cast'
 import { RemoteVRMAvatar } from './RemoteVRMAvatar'
 import {
   appendLiveStrokePoint,
@@ -366,7 +367,9 @@ function RemotePresenceAvatar({ player, chatBubble }: { player: MultiplayerRoomP
     group.position.y += (target.position[1] - group.position.y) * catchUp
     group.position.z += (target.position[2] - group.position.z) * catchUp
     const yawCatch = 1 - Math.exp(-REMOTE_YAW_CATCHUP * delta)
-    group.rotation.y += shortAngle(target.yaw, group.rotation.y) * yawCatch
+    // Just cast a bolt (remote-cast.ts): face where it went, not where the last pose said.
+    const cast = getRemoteCast(player.sessionId)
+    group.rotation.y += shortAngle(cast ? cast.yaw : target.yaw, group.rotation.y) * yawCatch
 
     // ── Infer ground-plane speed from the SNAPSHOT BUFFER's most recent two
     // entries (server-domain), not from the group's catch-up displacement.

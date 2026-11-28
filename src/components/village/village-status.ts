@@ -1,5 +1,6 @@
 import type { EngineAgentStatus } from '../../lib/agent-engine-types'
 import { effectiveStatus, hasOpenDecision, runningSubagentCount, type EngineAgentState } from '../../store/slices/agentEngineSlice'
+import { permissionSign } from '../../lib/village/village-decisions'
 
 /** Ring / pill colours: green working, blue finished-waiting, amber needs-decision, red error, gray idle. */
 export const VILLAGE_STATUS_COLOR: Record<EngineAgentStatus, string> = {
@@ -76,6 +77,10 @@ export function villageAgentLook(agent: Pick<EngineAgentState, 'status' | 'unsee
   if (helpers > 0 && (status === 'waiting' || status === 'idle')) {
     return { status: 'helpers', color: VILLAGE_HELPERS_COLOR, label: `helpers working (${helpers})`, helpers }
   }
+  // Waiting on his click: the sign says what it needs, in a few plain words ("needs your yes: delete files"), from its
+  // oldest open card (the owner, 26 Nov: blocked agents walk to him with it; blocked-walk.ts).
+  const oldest = (agent.decisions || []).reduce<EngineAgentState['decisions'][number] | null>((first, card) => (!first || card.receivedAt < first.receivedAt ? card : first), null)
+  if (oldest) return { status, color: statusColor(status), label: `${permissionSign(oldest)}${missionsNote(agent)}`, helpers }
   // The engine restarted while it worked and told it to carry on: say so while that turn runs.
   const resumed = status === 'working' && agent.resumedAt ? ' · resumed' : ''
   // Needs you: why, in a few words. Working with a mission out: it says so too.

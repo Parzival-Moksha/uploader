@@ -9,11 +9,10 @@ export const SPELL_IDS = [
   'catalog-place',
   'text-to-3d',
   'text-to-pic',
-  'text-to-pic-building',
   'text-to-music',
   'text-to-video',
   'meshy-object',
-  'meshy-character',
+  'pic-to-3d',
   'portal-create',
   'sky-background',
   'ground-texture',
@@ -25,9 +24,9 @@ export const SPELL_IDS = [
   'own-image-upload',
   // The Agents page in this order: what works first, then what is not in this build (VILLAGE_NOT_IN_BUILD).
   'summon-claude-code',
+  'summon-codex',
   'summon-hermes',
   'browser',
-  'summon-codex',
   'summon-djinn',
   'summon-custom-npc',
   'summon-openclaw',
@@ -39,7 +38,7 @@ export type SpellId = typeof SPELL_IDS[number]
 export const HOSTED_USER_LOCKED_SPELL_IDS = [
   'text-to-video',
   'meshy-object',
-  'meshy-character',
+  'pic-to-3d',
   'summon-fighter-npc',
   // Claude Code and Codex run on the owner's machine (the agent engine, the Codex CLI).
   'summon-claude-code',
@@ -53,11 +52,31 @@ export const HOSTED_USER_LOCKED_SPELL_IDS = [
  * gets a spell here, ready or with its reason, and nowhere else.
  */
 export const VILLAGE_NOT_IN_BUILD: Partial<Record<SpellId, string>> = {
-  'summon-codex': 'Not yet: Codex cannot join the village yet; the agent engine runs Claude Code and Hermes.',
   'summon-djinn': 'Not in this build: Merlin, the voice guide from the Oasis before the village.',
   'summon-custom-npc': 'Not in this build: the NPC maker from the Oasis before the village.',
   'summon-openclaw': 'Not in this build: needs an OpenClaw gateway on this machine.',
   'summon-fighter-npc': 'Not yet: comes with combat AI.',
+}
+
+/**
+ * Spells the deployed (hosted) Oasis does not offer, each with the one line its page shows instead (greyed; a click
+ * says it and nothing else happens). No agent runs on that server and nothing of a stranger's is uploaded there
+ * (the owner, 28 Nov: "they should all be greyed out. I should not be able to summon Hermes"). The server refuses
+ * the calls behind them as well: their routes are cut from that build and the room refuses agent changes.
+ */
+const NO_AGENTS_HERE = 'Not on the public Oasis: agents run in your own Oasis (install it from 04515.xyz).'
+export const HOSTED_NOT_IN_BUILD: Partial<Record<SpellId, string>> = {
+  'summon-claude-code': NO_AGENTS_HERE,
+  'summon-codex': NO_AGENTS_HERE,
+  'summon-hermes': NO_AGENTS_HERE,
+  'summon-djinn': NO_AGENTS_HERE,
+  'summon-custom-npc': NO_AGENTS_HERE,
+  'summon-openclaw': NO_AGENTS_HERE,
+  'summon-fighter-npc': NO_AGENTS_HERE,
+  'browser': 'Not on the public Oasis yet: browser windows are in your own Oasis.',
+  'own-audio-upload': 'Not on the public Oasis: uploads are in your own Oasis.',
+  'own-video-upload': 'Not on the public Oasis: uploads are in your own Oasis.',
+  'own-image-upload': 'Not on the public Oasis: uploads are in your own Oasis.',
 }
 
 export function isHostedUserLockedSpell(id: SpellId): boolean {
@@ -105,7 +124,8 @@ export const SPELLBOOK_PAGES: Record<SpellbookPageId, SpellbookPageDefinition> =
   premium: { id: 'premium', name: 'Premium Craft', shortName: 'Premium' },
   'world-root': { id: 'world-root', name: 'World Root', shortName: 'World' },
   creative: { id: 'creative', name: 'Creative', shortName: 'Creative' },
-  'own-spells': { id: 'own-spells', name: 'Own Spells', shortName: 'Own' },
+  // The owner, 27 Nov: the Own spells are Media (MP3, MP4, JPEG). The page id stays for saved progress.
+  'own-spells': { id: 'own-spells', name: 'Media', shortName: 'Media' },
   combat: { id: 'combat', name: 'Combat', shortName: 'Combat' },
   agent: { id: 'agent', name: 'Agents', shortName: 'Agents' },
 }
@@ -198,18 +218,8 @@ export const SPELL_DEFS: Record<SpellId, SpellDefinition> = {
     tier: 2,
     category: 'premium',
     achievementId: 'learn-text-to-pic',
-    summary: 'Generate images for framed art and future Conjure-style buildings.',
+    summary: 'Generate pictures to hang in frames, stand up as 4-sided blocks or paint the ground with.',
     stats: ['Image craft', 'Frames', 'Prompt-first'],
-    actionId: 'open-wizard',
-  },
-  'text-to-pic-building': {
-    id: 'text-to-pic-building',
-    name: 'Text to Pic Building',
-    tier: 2,
-    category: 'premium',
-    achievementId: 'learn-text-to-pic-building',
-    summary: 'Generate a textured in-world image structure in the Conjure building style.',
-    stats: ['Image craft', 'Building', 'Prompt-first'],
     actionId: 'open-wizard',
   },
   'text-to-music': {
@@ -233,25 +243,27 @@ export const SPELL_DEFS: Record<SpellId, SpellDefinition> = {
     actionId: 'open-wizard',
     lockedSummary: 'Local/admin only during the public demo.',
   },
+  // The owner, 27 Nov: Text to 3D (crafting from shapes) is level 1; Level 2 is a real model from words (the id
+  // meshy-object stays for saved progress); Pic to 3D from a picture; Text to Character became Level 2's Character choice.
   'meshy-object': {
     id: 'meshy-object',
-    name: 'Text to Object',
+    name: 'Text to 3D Level 2',
     tier: 3,
     category: 'premium',
     achievementId: 'learn-meshy-object',
-    summary: 'Generate a standalone 3D prop through the external 3D asset pipeline.',
-    stats: ['Meshy/Tripo', 'Prop', 'Generated asset'],
+    summary: 'A real textured 3D model from words (Meshy or Tripo): an object, or a character with a skeleton.',
+    stats: ['Meshy/Tripo', 'Object or character', 'Textured'],
     actionId: 'open-wizard',
     lockedSummary: 'Local/admin only during the public demo.',
   },
-  'meshy-character': {
-    id: 'meshy-character',
-    name: 'Text to Character',
+  'pic-to-3d': {
+    id: 'pic-to-3d',
+    name: 'Pic to 3D',
     tier: 3,
     category: 'premium',
-    achievementId: 'learn-meshy-character',
-    summary: 'Generate character-style assets for future NPCs and avatars.',
-    stats: ['Meshy/Tripo', 'Character', 'Generated asset'],
+    achievementId: 'learn-pic-to-3d',
+    summary: 'A picture becomes a textured 3D model (Meshy or Tripo): an object, or a character with a skeleton.',
+    stats: ['Meshy/Tripo', 'From a picture', 'Textured'],
     actionId: 'open-wizard',
     lockedSummary: 'Local/admin only during the public demo.',
   },
@@ -317,32 +329,32 @@ export const SPELL_DEFS: Record<SpellId, SpellDefinition> = {
   },
   'own-audio-upload': {
     id: 'own-audio-upload',
-    name: 'Own MP3',
+    name: 'MP3',
     tier: 1,
     category: 'own-spells',
     achievementId: 'learn-own-audio-upload',
-    summary: 'Bring a sound, chant, or loop into the world library.',
-    stats: ['Upload', 'Audio', 'World media'],
+    summary: 'Your sounds and music: upload them, hear them on hover, place a loudspeaker.',
+    stats: ['Upload', 'Library', 'Sound'],
     actionId: 'open-wizard',
   },
   'own-video-upload': {
     id: 'own-video-upload',
-    name: 'Own MP4',
+    name: 'MP4',
     tier: 1,
     category: 'own-spells',
     achievementId: 'learn-own-video-upload',
-    summary: 'Bring a video panel or moving memory into the world.',
-    stats: ['Upload', 'Video', 'World media'],
+    summary: 'Your videos: upload them and place them as screens in the world.',
+    stats: ['Upload', 'Library', 'Video'],
     actionId: 'open-wizard',
   },
   'own-image-upload': {
     id: 'own-image-upload',
-    name: 'Own Image',
+    name: 'JPEG',
     tier: 1,
     category: 'own-spells',
     achievementId: 'learn-own-image-upload',
-    summary: 'Bring an image, sigil, or texture into the world library.',
-    stats: ['Upload', 'Image', 'World media'],
+    summary: 'Every picture, uploaded or made by a spell: view full screen, frame it, paint the ground with it.',
+    stats: ['Upload', 'Library', 'Picture'],
     actionId: 'open-wizard',
   },
   'summon-claude-code': {
@@ -362,8 +374,8 @@ export const SPELL_DEFS: Record<SpellId, SpellDefinition> = {
     tier: 3,
     category: 'agent',
     achievementId: 'learn-summon-codex',
-    summary: 'Place the Codex coding agent as an in-world 3D window.',
-    stats: ['Agent', 'Codex', '3D window'],
+    summary: 'A Codex agent in a folder, as a villager in front of you, with the world tools. Runs on your own Codex sign-in.',
+    stats: ['Agent', 'Codex', 'Village desk'],
     actionId: 'place-codex',
     lockedSummary: 'Codex runs on your own machine (local Oasis only).',
   },

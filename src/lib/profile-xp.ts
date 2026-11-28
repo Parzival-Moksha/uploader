@@ -1,4 +1,7 @@
 // ░▒▓ PROFILE XP — on this machine the owner's Profile level is his Mindcraft XP ▓▒░
+// Since 2026-11-26 (the owner: "XP starts at zero... all the XP that I earned before I started earning XP for time spent
+// in the Oasis, that's just old stuff"): only the time-based XP counts, from the work book's first day (16 Nov). The old
+// Profile XP stays in the book (profileFold), shown nowhere.
 // The owner, 2026-11-19 ("fold in"): one XP. His old Profile XP (building, quests, logins) becomes a
 // starting balance, taken once; from then on his XP is what Mindcraft counts (1 XP a minute of
 // counted work, the commitment included). The old Profile row keeps its history and stops growing.
@@ -13,7 +16,7 @@ export interface ProfileXp {
   /** The XP to show and to level from. */
   xp: number
   /** Where it comes from (local only). */
-  sources?: { oldBalance: number; mindcraft: number; foldedAt: number }
+  sources?: { oldBalance: number; mindcraft: number; foldedAt: number; since?: string }
 }
 
 /** Does this machine's Profile follow Mindcraft? Local Oasis only, and only while the work book can be read. */
@@ -25,7 +28,7 @@ export async function profileXp(databaseXp: number): Promise<ProfileXp> {
   if (!profileFollowsMindcraft()) return { xp: databaseXp }
   try {
     const folded = await foldedOwnerXp(databaseXp)
-    return { xp: folded.total, sources: { oldBalance: folded.oldXp, mindcraft: folded.mindcraftXp, foldedAt: folded.foldedAt } }
+    return { xp: Math.max(0, Math.round(folded.mindcraftXp)), sources: { oldBalance: 0, mindcraft: folded.mindcraftXp, foldedAt: folded.foldedAt, since: folded.since } }
   } catch {
     // The work book can't be read: show the database's XP rather than nothing.
     return { xp: databaseXp }

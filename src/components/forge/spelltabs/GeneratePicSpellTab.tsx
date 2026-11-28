@@ -1,9 +1,8 @@
-// ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
-// GENERATE PIC SPELL TAB — Text-to-Pic popup, two flavors:
-//   • `text-to-pic` → toggle OFF, title "Text to Pic"
-//   • `text-to-pic-building` → toggle ON, title "Text to Pic Building"
-// ─═̷─ One component, two instances mount in Scene.tsx — one per spell. ─═̷─
-// ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+// ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+// GENERATE PIC SPELL TAB — the Text to Pic popup (spell `text-to-pic`), mounted once in Scene.tsx.
+// Text to Pic Building left on 27 Nov (the owner: "it is the same as Text to Pic, gets a remove"); a picture still
+// goes up as a 4-sided block from the gallery's 3D button.
+// ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
 
 'use client'
 
@@ -11,22 +10,17 @@ import { useEffect, useState } from 'react'
 import { SpellTabFrame } from './SpellTabFrame'
 import { GeneratePicBody } from './bodies/GeneratePicBody'
 
-interface GeneratePicSpellTabProps {
-  /** When true, the 4-sided building toggle is pre-set ON and the title is "Text to Pic Building". */
-  buildingMode?: boolean
-}
+const SPELL_ID = 'text-to-pic'
 
-export function GeneratePicSpellTab({ buildingMode = false }: GeneratePicSpellTabProps) {
-  const spellId = buildingMode ? 'text-to-pic-building' : 'text-to-pic'
-  const title = buildingMode ? 'Text to Pic Building' : 'Text to Pic'
-  const accent = buildingMode ? '#F59E0B' : '#EC4899'
+export function GeneratePicSpellTab() {
+  const accent = '#EC4899'
   const [isOpen, setIsOpen] = useState(false)
 
   useEffect(() => {
     const onOpen = (event: Event) => {
       const detail = (event as CustomEvent<{ spellId?: string }>).detail
       if (!detail || typeof detail.spellId !== 'string') return
-      setIsOpen(detail.spellId === spellId)
+      setIsOpen(detail.spellId === SPELL_ID)
     }
     const onClose = () => setIsOpen(false)
     window.addEventListener('oasis:open-spelltab', onOpen as EventListener)
@@ -35,21 +29,17 @@ export function GeneratePicSpellTab({ buildingMode = false }: GeneratePicSpellTa
       window.removeEventListener('oasis:open-spelltab', onOpen as EventListener)
       window.removeEventListener('oasis:close-spelltabs', onClose as EventListener)
     }
-  }, [spellId])
+  }, [])
 
   return (
     <SpellTabFrame
       isOpen={isOpen}
-      title={title}
-      spellId={spellId}
+      title="Text to Pic"
+      spellId={SPELL_ID}
       accentColor={accent}
       onClose={() => setIsOpen(false)}
     >
-      <GeneratePicBody
-        defaultBuildingMode={buildingMode}
-        showBuildingToggle
-        accentColor={accent}
-      />
+      <GeneratePicBody accentColor={accent} />
     </SpellTabFrame>
   )
 }

@@ -7,7 +7,7 @@
 
 'use client'
 
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useOasisStore } from '../../../../store/oasisStore'
 import { dispatch } from '../../../../lib/event-bus'
 import { extractPartialCraftData } from '../../../../lib/craft-stream'
@@ -37,6 +37,24 @@ export function CraftSpellBody({ defaultExpandNew = true, defaultExpandGallery =
   const setCraftingState = useOasisStore(s => s.setCraftingState)
 
   const [prompt, setPrompt] = useState('')
+  // Which models this machine can run (GET /api/craft/models: Claude Code signed in, an OpenRouter key). The owner,
+  // 27 Nov: active or greyed out by the subscriptions and keys you have. null until the answer is in.
+  const [choices, setChoices] = useState<Array<{ id: string; label: string; available: boolean; why: string }> | null>(null)
+  useEffect(() => {
+    let live = true
+    fetch(`${process.env.NEXT_PUBLIC_BASE_PATH || ''}/api/craft/models?current=${encodeURIComponent(useOasisStore.getState().craftModel)}`, { cache: 'no-store' })
+      .then(res => (res.ok ? res.json() : null))
+      .then(data => {
+        if (!live || !data) return
+        setChoices(data.options)
+        // A saved choice this machine cannot run moves to the first one it can.
+        if (typeof data.suggested === 'string' && data.suggested !== useOasisStore.getState().craftModel) useOasisStore.getState().setCraftModel(data.suggested)
+      })
+      .catch(() => {})
+    return () => { live = false }
+  }, [])
+  const options = choices ?? CRAFT_MODEL_OPTIONS.map(option => ({ id: option.id, label: option.label, available: true, why: '' }))
+  const noneAvailable = choices !== null && !choices.some(choice => choice.available)
   const [activeCrafts, setActiveCrafts] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [expandNew, setExpandNew] = useState(defaultExpandNew)
@@ -147,10 +165,17 @@ export function CraftSpellBody({ defaultExpandNew = true, defaultExpandGallery =
           onChange={e => setCraftModel(e.target.value)}
           className="w-full text-[10px] bg-black/60 border border-blue-500/30 rounded px-2 py-1 text-blue-200 font-mono focus:outline-none focus:border-blue-400/60 cursor-pointer"
         >
-          {CRAFT_MODEL_OPTIONS.map(m => (
-            <option key={m.id} value={m.id}>{m.label}</option>
+          {options.map(m => (
+            <option key={m.id} value={m.id} disabled={!m.available} title={m.why || undefined}>
+              {m.available ? m.label : `${m.label} · ${m.why}`}
+            </option>
           ))}
         </select>
+        {noneAvailable && (
+          <div className="text-[10px] font-mono text-amber-300/90">
+            No model can craft here yet: sign in to Claude Code, or add an OpenRouter key in the Keychain.
+          </div>
+        )}
 
         <textarea
           value={prompt}
@@ -167,7 +192,7 @@ export function CraftSpellBody({ defaultExpandNew = true, defaultExpandGallery =
           </span>
           <button
             onClick={handleCraft}
-            disabled={!prompt.trim()}
+            disabled={!prompt.trim() || noneAvailable}
             className="px-3 py-1.5 rounded-lg text-xs font-bold transition-all disabled:opacity-30 disabled:cursor-not-allowed"
             style={{
               background: 'rgba(59, 130, 246, 0.3)',

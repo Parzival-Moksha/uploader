@@ -70,5 +70,7 @@ export interface PlacementPending {
   portalTargetWorldName?: string
   portalAction?: PortalAction
   portalDirection?: 'one-way' | 'two-way'
+  /** Portal Craft's "New world": the world is made when the portal is put down (src/lib/forge/portal-new-world.ts). */
+  portalNewWorld?: import('./portal-new-world').PortalNewWorld
   spatialWebObject?: SpatialWebObject
 }

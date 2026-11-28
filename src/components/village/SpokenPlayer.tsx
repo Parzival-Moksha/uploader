@@ -14,6 +14,8 @@ import { formatSpokenClock, nextPlayerSpeed, spokenTokens, spokenWordAt } from '
 import {
   getAgentVoiceSettings,
   getVillageSpeech,
+  getVillageVoiceMode,
+  subscribeVillageVoice,
   getVillageSpeechClock,
   getVoiceSettingsVersion,
   knownVillageClip,
@@ -34,6 +36,8 @@ const mountedPlayers = new Map<string, number>()
 export function SpokenPlayer({ agentId, agentKey, agentName, own = null, spoken }: { agentId: string; agentKey: string; agentName: string | null; own?: string | null; spoken: string }) {
   const speech = useSyncExternalStore(subscribeVillageSpeech, getVillageSpeech, () => null)
   useSyncExternalStore(subscribeVoiceSettings, getVoiceSettingsVersion, () => 0)
+  // Voices Off: no Play button (a press would make nothing; lib/village/voice-mode.ts).
+  const voiceMode = useSyncExternalStore(subscribeVillageVoice, getVillageVoiceMode, () => 'click' as const)
   const settings = getAgentVoiceSettings(agentKey, agentName, own)
   const mine = speech?.agentId === agentId && speech.text === spoken
   const phase = mine ? speech.phase : 'idle'
@@ -140,6 +144,7 @@ export function SpokenPlayer({ agentId, agentKey, agentName, own = null, spoken 
   const shownDuration = active && clock.duration > 0 ? clock.duration / Math.max(0.1, rate) : known ? known.seconds / speechSpeedPlan(settings.speed).playbackRate : null
   const label = phase === 'speaking' ? 'Pause' : phase === 'paused' ? 'Continue' : phase === 'loading' ? 'Cancel' : 'Play'
 
+  if (voiceMode === 'off') return null
   return (
     <div
       data-spoken-player={phase}

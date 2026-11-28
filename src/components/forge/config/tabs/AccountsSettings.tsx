@@ -40,6 +40,7 @@ export function AccountsSettings() {
                 </span>
               </div>
               {account.permissions && <div className="text-[10px] text-gray-500" data-account-permissions>{account.permissions}</div>}
+              {account.browserLine && <div className={`text-[10px] ${account.browser?.count === 0 ? 'text-amber-300' : 'text-gray-500'}`} data-account-browser>{account.browserLine}</div>}
               </div>
             )
           })}

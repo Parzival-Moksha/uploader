@@ -7,6 +7,7 @@ import { NextResponse } from 'next/server'
 import { listAssets } from '@/lib/forge/library/library-service'
 import { getLocalUserId } from '@/lib/local-auth'
 import type { AssetKind, AssetScope } from '@/lib/forge/library/types'
+import { browserChoiceOf, shippedView, shipsFilter } from '@/lib/only-what-ships-server'
 
 export const dynamic = 'force-dynamic'
 
@@ -23,6 +24,8 @@ export async function GET(req: Request) {
   const limit = Math.min(parseInt(url.searchParams.get('limit') || '2000', 10), 5000)
   const worldId = url.searchParams.get('worldId') || undefined
   const viewerUserId = await getLocalUserId()
-  const assets = await listAssets({ viewerUserId, worldId, query, kind, scope, limit })
+  // "Only what ships" (src/lib/only-what-ships-server.ts): the models the package leaves out are not offered.
+  const ships = shipsFilter(await shippedView(browserChoiceOf(req)))
+  const assets = (await listAssets({ viewerUserId, worldId, query, kind, scope, limit })).filter(asset => ships(asset.path))
   return NextResponse.json({ assets, viewerUserId, count: assets.length })
 }

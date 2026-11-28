@@ -40,9 +40,15 @@ const servers = [];
 for (const spec of forwards) {
   const parts = spec.split(':');
   const [listenPort, toHost, toPort] = parts.length === 4 ? [parts[1], parts[2], parts[3]] : parts;
+  // On a real far machine the port is the same at both ends, so its HTTP client says Host 127.0.0.1:<listenPort>;
+  // here it connected to the shifted port, so the Host line is put back as the far machine would send it (the gate
+  // refuses any Host but its own: worldproxy.js refusal).
+  const shifted = `127.0.0.1:${Number(listenPort) + SHIFT}`;
   const srv = net.createServer((sock) => {
     const up = net.connect(Number(toPort), toHost);
-    sock.pipe(up).pipe(sock);
+    sock.on('data', (d) => up.write(SHIFT ? Buffer.from(String(d).split(`Host: ${shifted}`).join(`Host: 127.0.0.1:${listenPort}`).split(`host: ${shifted}`).join(`host: 127.0.0.1:${listenPort}`)) : d));
+    sock.on('end', () => up.end());
+    up.pipe(sock);
     up.on('error', () => sock.destroy());
     sock.on('error', () => up.destroy());
   });

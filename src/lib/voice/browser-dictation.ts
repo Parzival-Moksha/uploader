@@ -76,7 +76,9 @@ export async function startBrowserDictation(handlers: LiveDictationHandlers): Pr
   if (!Ctor) throw new Error("This browser has no speech recognition of its own: install the local helper in Settings → Sound, or use Chrome, Edge or Safari")
   const owner = browserRecognizerOwner()
 
-  // The mic for the level meter and the avatar's mouth (the recogniser opens its own); its prompt comes first.
+  // The mic for the level meter and the avatar's mouth (the recogniser opens its own); its prompt comes first. The
+  // system default on purpose, not Settings > Sound > Microphone: the recogniser always hears the default, and the
+  // meter should show what it hears.
   let stream: MediaStream | null = null
   try {
     stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } })

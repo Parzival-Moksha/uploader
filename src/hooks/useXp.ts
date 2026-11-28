@@ -68,6 +68,8 @@ function showXpFloat(amount: number, leveledUp: boolean, newLevel?: number) {
 // Screen flash + particle burst + title announcement + badge reveal
 // ═══════════════════════════════════════════════════════════════════════════
 
+// Not shown since 26 Nov (the owner: drop the titles for now; a level is "Level 5" and nothing else). Kept for when
+// he decides again; getTitleForLevel is not called.
 const LEVEL_TITLES: { min: number; max: number; title: string; badge: string }[] = [
   { min: 1,  max: 4,  title: 'Apprentice',   badge: '\u2591' },
   { min: 5,  max: 9,  title: 'Journeyman',   badge: '\u2592' },
@@ -80,7 +82,7 @@ const LEVEL_TITLES: { min: number; max: number; title: string; badge: string }[]
   { min: 50, max: 99, title: 'Enlightened',   badge: '\u0950' },
 ]
 
-function getTitleForLevel(level: number) {
+export function getTitleForLevel(level: number) {
   return LEVEL_TITLES.find(t => level >= t.min && level <= t.max) || LEVEL_TITLES[LEVEL_TITLES.length - 1]
 }
 
@@ -88,7 +90,6 @@ function showLevelUpVFX(newLevel: number) {
   if (typeof document === 'undefined') return
 
   useAudioManager.getState().play('levelUp')
-  const title = getTitleForLevel(newLevel)
 
   // ░▒▓ 1. SCREEN FLASH — white burst that fades to gold ▓▒░
   const flash = document.createElement('div')
@@ -148,10 +149,8 @@ function showLevelUpVFX(newLevel: number) {
   })
 
   announcement.innerHTML = `
-    <div style="font-size: 48px; margin-bottom: 4px; filter: drop-shadow(0 0 20px rgba(245,158,11,0.8));">${title.badge}</div>
     <div style="font-family: 'Courier New', monospace; font-size: 11px; color: #F59E0B; letter-spacing: 6px; text-transform: uppercase; text-shadow: 0 0 15px rgba(245,158,11,0.6); margin-bottom: 6px;">LEVEL UP</div>
-    <div style="font-family: 'Courier New', monospace; font-size: 32px; font-weight: bold; color: #FDE68A; text-shadow: 0 0 30px rgba(245,158,11,0.6), 0 0 60px rgba(168,85,247,0.3); letter-spacing: 2px;">${newLevel}</div>
-    <div style="font-family: 'Courier New', monospace; font-size: 14px; color: #C084FC; margin-top: 8px; letter-spacing: 3px; text-shadow: 0 0 12px rgba(192,132,252,0.5);">${title.title}</div>
+    <div style="font-family: 'Courier New', monospace; font-size: 32px; font-weight: bold; color: #FDE68A; text-shadow: 0 0 30px rgba(245,158,11,0.6), 0 0 60px rgba(168,85,247,0.3); letter-spacing: 2px;">Level ${newLevel}</div>
     <div style="margin-top: 12px; font-size: 9px; color: rgba(245,158,11,0.5); font-family: 'Courier New', monospace; letter-spacing: 4px;">RIGHT EFFORT</div>
   `
 

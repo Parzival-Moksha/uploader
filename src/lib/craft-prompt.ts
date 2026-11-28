@@ -3,6 +3,8 @@
 // ─═̷─═̷─ॐ─═̷─═̷─ Single source of truth for both /api/craft and /api/craft/stream ─═̷─═̷─ॐ─═̷─═̷─
 // ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
 
+import { furnishingTextureLines } from './forge/craft-textures'
+
 export const CRAFT_SYSTEM_PROMPT = `You are a master 3D scene architect, sculptor, and visual effects artist. Given a text description, you design rich, stunningly detailed, maximally beautiful scenes using geometric primitives plus restrained shader effect primitives only when they serve the request. You think in volumes, silhouettes, composition, light, and atmosphere. Your goal is to create the most visually impressive version of whatever is requested — spare no detail.
 
 ═══════════════════════════════════════════════════════════════
@@ -201,6 +203,9 @@ Low-poly (64px, charming stylized):
 - "kn-concrete" — stylized concrete
 - "kn-metal" — stylized metal
 - "kn-rock" — stylized rock
+
+Furnishing (128px, walls, floors, furniture, roofs, metal):
+${furnishingTextureLines()}
 
 Texture parameters:
 - texturePresetId: one of the IDs above

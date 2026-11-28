@@ -56,7 +56,7 @@ if (oasisUp) {
   const gate = await startWorldGateServer('http://127.0.0.1:4516/api/mcp/oasis');
   const connect = async () => {
     const post = async (body, sid) => {
-      const r = await fetch(`http://127.0.0.1:${gate.port}/mcp`, { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream', ...(sid ? { 'mcp-session-id': sid } : {}) }, body: JSON.stringify(body) });
+      const r = await fetch(gate.url, { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream', ...(sid ? { 'mcp-session-id': sid } : {}) }, body: JSON.stringify(body) });
       return { sid: r.headers.get('mcp-session-id'), body: r.status === 202 ? null : await r.json() };
     };
     const a = await post({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-11-25', capabilities: {}, clientInfo: { name: 't', version: '0' } } });
@@ -69,6 +69,31 @@ if (oasisUp) {
   check('gate: a second connection initializes too', !!second.init?.result?.protocolVersion, JSON.stringify(second.init?.error || ''));
   check('gate: both connections list the free tools', first.tools === FREE_WORLD_TOOLS.size && second.tools === FREE_WORLD_TOOLS.size, `${first.tools}, ${second.tools}`);
   await gate.close();
+}
+// 4. only the agent it was made for reaches the gate (Merge Goat, 28 Nov): a web page the owner has open must not.
+{
+  const upstream = [];
+  const up = http.createServer((req, res) => { let b = ''; req.on('data', (d) => (b += d)); req.on('end', () => { upstream.push(b); const m = JSON.parse(b || '{}'); res.writeHead(200, { 'content-type': 'application/json', 'mcp-session-id': 'u1' }).end(JSON.stringify({ jsonrpc: '2.0', id: m.id ?? null, result: m.method === 'initialize' ? { protocolVersion: '2025-06-18', capabilities: {} } : { content: [] } })); }); }).listen(0, '127.0.0.1');
+  await new Promise((r) => up.on('listening', r));
+  const gate = await startWorldGateServer(`http://127.0.0.1:${up.address().port}/mcp`);
+  const call = JSON.stringify({ jsonrpc: '2.0', id: 9, method: 'tools/call', params: { name: 'set_sky', arguments: { preset: 'night' } } });
+  const raw = (pathName, headers, body = call, method = 'POST') => new Promise((resolve) => {
+    const req = http.request({ host: '127.0.0.1', port: gate.port, path: pathName, method, headers }, (res) => { res.resume(); res.on('end', () => resolve(res.statusCode)); });
+    req.on('error', () => resolve(0)); req.end(body);
+  });
+  const json = { 'content-type': 'application/json' };
+  check('gate: its URL carries a secret path', /^http:\/\/127\.0\.0\.1:\d+\/mcp\/[0-9a-f]{48}$/.test(gate.url), gate.url);
+  check('gate: the plain /mcp path is 404', (await raw('/mcp', json)) === 404);
+  check('gate: a wrong secret is 404', (await raw('/mcp/' + '0'.repeat(48), json)) === 404);
+  check('gate: a browser page (Origin, text/plain: no preflight) is refused', (await raw(gate.path, { origin: 'https://evil.example', 'content-type': 'text/plain' })) === 403);
+  check('gate: an Origin is refused even with JSON and the right path', (await raw(gate.path, { ...json, origin: 'http://127.0.0.1:4516' })) === 403);
+  check('gate: a foreign Host (DNS rebinding) is refused', (await raw(gate.path, { ...json, host: `evil.example:${gate.port}` })) === 403);
+  check('gate: text/plain on the right path is refused', (await raw(gate.path, { 'content-type': 'text/plain' })) === 415);
+  check('gate: none of those reached the Oasis', upstream.length === 0, upstream.join(' | '));
+  check('gate: the agent itself (secret path, JSON, no Origin) gets through', (await raw(gate.path, json, JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'initialize', params: {} }))) === 200 && upstream.length >= 1);
+  await gate.close();
+  check('gate: closed, nothing listens on its port', (await raw(gate.path, json)) === 0);
+  up.close();
 }
 console.log(ok ? 'ALL PASSED' : 'FAILED');
 process.exit(ok ? 0 : 1);

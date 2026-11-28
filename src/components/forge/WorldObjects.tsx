@@ -16,6 +16,8 @@ import { Center, Text3D, TransformControls, useGLTF, Html } from '@react-three/d
 import * as THREE from 'three'
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js'
 import { useOasisStore, type ConjureVfxType, CONJURE_VFX_LIST } from '../../store/oasisStore'
+import { geometryVersion, groundHeightAt } from '../../lib/forge/ground-guard'
+import { groundingStep, lowestSole, measureSoleRest, type SoleRest } from '../../lib/forge/feet-on-ground'
 import type { AgentWindow, AgentWindowType } from '../../lib/agent-window-types'
 import { ConjuredObjectSafe } from './ConjuredObject'
 import { CraftedSceneRenderer, PrimitiveGeometry } from './CraftedSceneRenderer'
@@ -46,6 +48,7 @@ import { PaintStrokeMesh } from './PaintStrokeMesh'
 import { Text3DObjectMesh } from './Text3DObjectMesh'
 import { LiveStrokesLayer } from './LiveStrokesLayer'
 import type { PlacementPending } from '../../lib/forge/placement-types'
+import { placePortalToNewWorld } from '../../lib/forge/portal-new-world'
 import { consumeRecentPointerLockRightClick, useInputManager } from '../../lib/input-manager'
 import { isProbablyMobileDevice } from '../../lib/mobile-controls'
 import { createLipSyncController, registerLipSync, unregisterLipSync, getLipSync } from '../../lib/lip-sync'
@@ -1700,6 +1703,10 @@ const SHADER_GATE_MAX_MS = 8000
 export function VRMCatalogRenderer({ path, scale, objectId, displayName, activityAnimationId, activityOnce = false, activityFade, still = false, moving = false, lipSyncId }: { path: string; scale: number; objectId?: string; displayName?: string; activityAnimationId?: string | null; /** Play the activity clip once and hold its last frame (a death, a flinch). */ activityOnce?: boolean; /** Seconds to blend into the activity clip (a spell's quick steps); default 0.3, 0.6 between two standing clips. */ activityFade?: number; /** Hold the pose it has (the Academy's stone trainees): no mixer, blink or spring bones. */ still?: boolean; /** Its owner is moving it (a village agent following the player): play the walk clip. */ moving?: boolean; /** Lip-sync registry key for a body that is not a world object (village agents). */ lipSyncId?: string }) {
   const groupRef = useRef<THREE.Group>(null)
   const vrmRef = useRef<VRM | null>(null)
+  // Feet on the ground (feet-on-ground.ts): how high its foot bones sit above its soles, and the shift it has now.
+  const soleRestRef = useRef<SoleRest | null>(null)
+  const groundShiftRef = useRef(0)
+  const groundAt = useRef({ place: new THREE.Vector3(), scale: new THREE.Vector3() })
   const [vrm, setVrm] = useState<VRM | null>(null)
   const [hovered, setHovered] = useState(false)
   const catalogProxyRef = useRef<THREE.Mesh>(null)
@@ -1800,6 +1807,8 @@ export function VRMCatalogRenderer({ path, scale, objectId, displayName, activit
     if (rigRoot) skipMatrixPass(rigRoot)
 
     vrmRef.current = loadedVrm
+    soleRestRef.current = measureSoleRest(loadedVrm)
+    groundShiftRef.current = 0
     // With an environment the first frame swaps in IBL materials and precompiles those; without, these.
     shaderGateRef.current = sceneForGate.environment ? null : precompileObject(loadedVrm.scene)
     setVrm(loadedVrm)
@@ -2206,6 +2215,23 @@ export function VRMCatalogRenderer({ path, scale, objectId, displayName, activit
 
     v.update(delta)
     mixerRef.current?.update(delta)
+    // Its soles on the ground that is really under it (a village agent on the plaza, a body placed on a step): the
+    // ground its parent stands on, or a crafted floor within a step of it; eased up or down (feet-on-ground.ts).
+    const soleRest = soleRestRef.current
+    const parent = v.scene.parent
+    if (soleRest && parent) {
+      const { place, scale: parentScale } = groundAt.current
+      parent.getWorldPosition(place)
+      parent.getWorldScale(parentScale)
+      const worldState = useOasisStore.getState()
+      const geometryKey = `${worldState.activeWorldId}|${geometryVersion(worldState.craftedScenes, worldState.transforms)}`
+      const floor = groundHeightAt(state.scene, geometryKey, place.x, place.z, place.y)
+      const sole = lowestSole(soleRest)
+      if (sole !== null && parentScale.y > 1e-3) {
+        groundShiftRef.current = groundingStep(groundShiftRef.current, Math.max(place.y, floor ?? -Infinity) - sole, delta)
+        v.scene.position.y = groundShiftRef.current / parentScale.y
+      }
+    }
 
     const t = state.clock.elapsedTime + blinkOffset
     const expr = v.expressionManager
@@ -2962,6 +2988,8 @@ function PlacementOverlay() {
       placeVideoAt(placementPending.name, placementPending.videoUrl, pos, placementPending.imageFrameStyle, placementPending.imageFrameThickness, placementPending.mediaOpacity)
     } else if (placementPending.type === 'library' && placementPending.sceneId) {
       placeLibrarySceneAt(placementPending.sceneId, pos)
+    } else if (placementPending.type === 'portal' && placementPending.portalVariant && placementPending.portalNewWorld) {
+      void placePortalToNewWorld({ variant: placementPending.portalVariant, world: placementPending.portalNewWorld, position: pos })
     } else if (placementPending.type === 'portal' && placementPending.portalVariant) {
       placePortalGateAt({
         variant: placementPending.portalVariant,
@@ -3408,6 +3436,9 @@ function LightHelperOrb({ light }: { light: WorldLight }) {
 // Used by any realm that wants to show the user's placed creations
 // ═══════════════════════════════════════════════════════════════════════════════
 
+/** The owner's world "Mindcraft" of 29 March: the only world the old 3D mission map (MindcraftWorld) shows in. */
+const OLD_MINDCRAFT_MAP_WORLD_ID = 'world-1774823035369-jjqw'
+
 export function WorldObjectsRenderer() {
   const allConjuredAssets = useOasisStore(s => s.conjuredAssets)
   const worldConjuredAssetIds = useOasisStore(s => s.worldConjuredAssetIds)
@@ -3436,11 +3467,10 @@ export function WorldObjectsRenderer() {
   const nearestObjectInteractionKeyRef = useRef<string | null>(null)
   const spatialInteractionHintTickRef = useRef(0)
 
-  // ░▒▓ MINDCRAFT 3D — detect if active world is the Mindcraft mission map ▓▒░
-  const isMindcraftWorld = useOasisStore(s => {
-    const reg = s.worldRegistry.find(w => w.id === s.activeWorldId)
-    return reg?.name?.toLowerCase() === 'mindcraft'
-  })
+  // ░▒▓ MINDCRAFT 3D — the old mission map lives in the owner's world of 29 March, by its id ▓▒░
+  // Not by name (Anorak, 27 Nov): a world that changes what it shows because of how it is spelt is a trap, and the
+  // next world named "Mindcraft" (the new Mindcraft world among them) got the nine maturity bands.
+  const isMindcraftWorld = useOasisStore(s => s.activeWorldId === OLD_MINDCRAFT_MAP_WORLD_ID)
 
   // Per-world filtering: only show conjured assets placed in THIS world
   const worldAssets = allConjuredAssets.filter(a => worldConjuredAssetIds.includes(a.id))
@@ -4098,10 +4128,10 @@ function AgentAvatarsSection({ selectedObjectId, selectObject, transformMode, on
   const agentActivity = useOasisStore(s => s.agentActivity)
 
   useEffect(() => {
+    // The shipped clips only: the Mixamo walk and fight idle are fallbacks for when these fail, loaded then
+    // (preloading them asked every stranger's Oasis for two files the package leaves out: Hustler, 27 Nov).
     void loadAnimationClip('ual-walk')
-    void loadAnimationClip('walk')
     void loadAnimationClip('idle')
-    void loadAnimationClip('idle-fight')
     void loadAnimationClip(AGENT_WORK_ANIMATION_ID)
   }, [])
 

@@ -11,6 +11,7 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useConjure } from '../../hooks/useConjure'
 import { useOasisStore } from '../../store/oasisStore'
+import { defaultModelLabel, usePicturePlan } from '../../lib/picture-plan-client'
 import { useLayer } from '@/lib/ui-kit/layers'
 import { PROVIDERS, REMESH_PRESETS, LIGHT_INTENSITY_MAX, LIGHT_INTENSITY_STEP, type ProviderName, type ConjuredAsset, type ConjureStatus, type CraftedScene, type RemeshQuality, type WorldLightType, type GeneratedImage } from '../../lib/conjure/types'
 import type { PlacementPending, PlacementVfxType } from '../../lib/forge/placement-types'
@@ -441,7 +442,8 @@ function GalleryItem({ asset, onDelete, onRequestDelete, onPreview, isInWorld, o
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const IMAGINE_MODELS = [
-  { key: 'gemini-flash', label: 'Gemini Flash', desc: 'Google — fast multimodal' },
+  // 'gemini-flash' = the route's default for this page: the machine's own ChatGPT plan where it may be used, else Nano Banana 2 (src/lib/picture-plan.ts).
+  { key: 'gemini-flash', label: 'Nano Banana 2', desc: 'The default (Nano Banana 2, or your own ChatGPT plan where this Oasis may use it)' },
   { key: 'riverflow', label: 'Riverflow v2', desc: 'Sourceful — fast diffusion' },
   { key: 'flux-klein', label: 'FLUX Klein', desc: 'Black Forest Labs — 4B param' },
   { key: 'seedream', label: 'Seedream 4.5', desc: 'ByteDance — high quality' },
@@ -455,20 +457,10 @@ interface InFlightImage {
   error?: string
 }
 
-// ─═̷─ Prompt scaffold disabled 2026-05-20. The wrapping text ("4-sided
-// building elevation, orthographic, full façade, …") was confusing nano-banana
-// into producing collage layouts (4 mini-pics tiled on one image) instead of a
-// single textured façade. The toggle now ONLY controls how the result is
-// rendered in-world (cube vs flat plane) — the prompt is passed through raw.
-// Keep the function shape so the call site below doesn't need to change. ─═̷─
-function applyBuildingFraming(rawPrompt: string): string {
-  return rawPrompt.trim()
-}
-
 function ImagineTab({ cols, setLightboxUrl, onRequestDelete }: { cols: number; setLightboxUrl: (url: string | null) => void; onRequestDelete: (image: GeneratedImage, placedCount: number) => void }) {
   const [prompt, setPrompt] = useState('')
   const [selectedModel, setSelectedModel] = useState<string>('gemini-flash')
-  const [buildingMode, setBuildingMode] = useState(false)
+  const picturePlan = usePicturePlan()
   const [inFlight, setInFlight] = useState<InFlightImage[]>([])
   const [error, setError] = useState<string | null>(null)
   const generatedImages = useOasisStore(s => s.generatedImages)
@@ -504,8 +496,7 @@ function ImagineTab({ cols, setLightboxUrl, onRequestDelete }: { cols: number; s
     const flightId = `flight_${Date.now()}`
     const capturedPrompt = prompt.trim()
     const capturedModel = selectedModel
-    const wireBuilding = buildingMode
-    const wirePrompt = wireBuilding ? applyBuildingFraming(capturedPrompt) : capturedPrompt
+    const wirePrompt = capturedPrompt
     setInFlight(prev => [...prev, { id: flightId, prompt: capturedPrompt, model: capturedModel, startedAt: Date.now() }])
     setPrompt('')
     setError(null)
@@ -535,7 +526,7 @@ function ImagineTab({ cols, setLightboxUrl, onRequestDelete }: { cols: number; s
     }
     // Remove from in-flight on success
     setInFlight(prev => prev.filter(f => f.id !== flightId))
-  }, [prompt, selectedModel, buildingMode, addGeneratedImage])
+  }, [prompt, selectedModel, addGeneratedImage])
 
   const handleUseAsTile = useCallback((imageId: string) => {
     const image = generatedImages.find(i => i.id === imageId)
@@ -566,32 +557,13 @@ function ImagineTab({ cols, setLightboxUrl, onRequestDelete }: { cols: number; s
               Text to Image
             </div>
             <div className="flex items-center gap-2 ml-auto">
-              {/* ░▒▓ 4-sided building toggle — routes the prompt through Conjure-style
-                  façade framing so the image works as a building panel ▓▒░ */}
-              <label
-                className="flex items-center gap-1 cursor-pointer rounded px-1.5 py-0.5"
-                style={{
-                  border: `1px solid ${buildingMode ? 'rgba(245, 158, 11, 0.6)' : 'rgba(120, 120, 120, 0.3)'}`,
-                }}
-                title="Generate as 4-sided building (Conjure-style façade framing)"
-              >
-                <input
-                  type="checkbox"
-                  checked={buildingMode}
-                  onChange={e => setBuildingMode(e.target.checked)}
-                  className="w-3 h-3 rounded accent-amber-500"
-                />
-                <span className="text-[10px] font-mono" style={{ color: buildingMode ? '#FBBF24' : '#9CA3AF' }}>
-                  4-sided building
-                </span>
-              </label>
               <select
                 value={selectedModel}
                 onChange={e => setSelectedModel(e.target.value)}
                 className="text-[10px] bg-black/60 border border-pink-500/20 rounded px-1.5 py-0.5 text-pink-300 font-mono focus:outline-none focus:border-pink-500/50 cursor-pointer"
               >
                 {IMAGINE_MODELS.map(m => (
-                  <option key={m.key} value={m.key}>{m.label}</option>
+                  <option key={m.key} value={m.key}>{m.key === 'gemini-flash' ? defaultModelLabel(picturePlan) : m.label}</option>
                 ))}
               </select>
             </div>
@@ -602,9 +574,7 @@ function ImagineTab({ cols, setLightboxUrl, onRequestDelete }: { cols: number; s
               value={prompt}
               onChange={e => setPrompt(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') handleGenerate() }}
-              placeholder={buildingMode
-                ? "describe the building (e.g. wooden tea house, paper screens)..."
-                : "Describe what you see..."}
+              placeholder="Describe what you see..."
               className="flex-1 bg-black/60 border border-pink-500/20 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-pink-500/50 font-mono"
             />
             <button
@@ -612,15 +582,13 @@ function ImagineTab({ cols, setLightboxUrl, onRequestDelete }: { cols: number; s
               disabled={!prompt.trim()}
               className="px-4 py-2 rounded-lg text-xs font-bold transition-all disabled:opacity-30"
               style={{
-                background: buildingMode
-                  ? 'linear-gradient(135deg, rgba(245, 158, 11, 0.3), rgba(236, 72, 153, 0.3))'
-                  : 'linear-gradient(135deg, rgba(236, 72, 153, 0.3), rgba(168, 85, 247, 0.3))',
-                color: buildingMode ? '#FCD34D' : '#F9A8D4',
-                border: `1px solid ${buildingMode ? 'rgba(245, 158, 11, 0.4)' : 'rgba(236, 72, 153, 0.3)'}`,
+                background: 'linear-gradient(135deg, rgba(236, 72, 153, 0.3), rgba(168, 85, 247, 0.3))',
+                color: '#F9A8D4',
+                border: '1px solid rgba(236, 72, 153, 0.3)',
               }}
-              title={buildingMode ? 'Generate as 4-sided building façade' : 'Generate image'}
+              title="Generate image"
             >
-              {inFlight.length > 0 ? `Imagine (${inFlight.length})` : (buildingMode ? 'Conjure 🏛️' : 'Imagine')}
+              {inFlight.length > 0 ? `Imagine (${inFlight.length})` : 'Imagine'}
               {imagineCost > 0 && (
                 <span className="ml-1 opacity-60 text-[9px]">{imagineCost}cr</span>
               )}
@@ -655,7 +623,7 @@ function ImagineTab({ cols, setLightboxUrl, onRequestDelete }: { cols: number; s
                         <div className="text-2xl mb-2 animate-pulse">{'\u{1F3A8}'}</div>
                         <div className="text-[9px] text-pink-300 font-mono text-center line-clamp-2">{f.prompt}</div>
                         <div className="text-[8px] text-gray-500 font-mono mt-1">
-                          {IMAGINE_MODELS.find(m => m.key === f.model)?.label || f.model}
+                          {f.model === 'gemini-flash' ? defaultModelLabel(picturePlan) : IMAGINE_MODELS.find(m => m.key === f.model)?.label || f.model}
                         </div>
                         {/* Pulsing progress bar */}
                         <div className="w-full mt-2 h-1 bg-gray-800 rounded-full overflow-hidden">
@@ -1112,7 +1080,7 @@ export function WizardConsole({ isOpen, onClose, variant = 'local', initialTab }
     return HOSTED_WIZARD_MODES.has(tab.key) && !ADMIN_WIZARD_MODES.has(tab.key)
   })
   const [provider, setProvider] = useState<ProviderName>('meshy')
-  const [tier, setTier] = useState(PROVIDERS[0].tiers[1]?.id || PROVIDERS[0].tiers[0].id)  // Default: textured (refine)
+  const [tier, setTier] = useState(PROVIDERS[0].tiers[0].id)  // Default: textured (refine)
   const [prompt, setPrompt] = useState('')
   const [isCasting, setIsCasting] = useState(false)
   const [error, setError] = useState<string | null>(null)

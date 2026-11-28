@@ -31,6 +31,17 @@ function findHands(root: THREE.Object3D): [THREE.Object3D, THREE.Object3D] | nul
   return left && right ? [left, right] : null
 }
 
+/** Every bone under the two hands (the fingers), for the lowest point they reach. */
+function fingerBones(hands: [THREE.Object3D, THREE.Object3D]): THREE.Object3D[] {
+  const out: THREE.Object3D[] = []
+  for (const hand of hands) hand.traverse(object => { if (object !== hand && (object as THREE.Bone).isBone) out.push(object) })
+  return out
+}
+
+/** How far a fingertip reaches past its last joint (the bones stop at the last knuckle), and the air left under it. */
+const TIP_REACH = 0.012
+const HOVER = 0.006
+
 // ── Sizes (metres): a 13-inch laptop ──
 const BASE = { w: 0.31, h: 0.013, d: 0.215 }
 const LID = { w: 0.31, h: 0.205, d: 0.006 }
@@ -177,12 +188,15 @@ function laptopParts(): LaptopParts {
 export function TypingHologram({ active, bodyRoot }: { active: boolean; color?: string; bodyRoot: React.RefObject<THREE.Object3D> }) {
   const group = useRef<THREE.Group>(null)
   const hands = useRef<[THREE.Object3D, THREE.Object3D] | null>(null)
+  const fingers = useRef<THREE.Object3D[]>([])
+  /** The lowest the fingertips have come lately (in the laptop's parent's frame); it rises back slowly. */
+  const floor = useRef<number | null>(null)
   const searched = useRef<THREE.Object3D | null>(null)
   const lastSearch = useRef(0)
   const a = useMemo(() => new THREE.Vector3(), [])
   const b = useMemo(() => new THREE.Vector3(), [])
 
-  useFrameWhen(active, () => {
+  useFrameWhen(active, (_state, delta) => {
     const g = group.current
     const root = bodyRoot.current
     if (!g || !root || !g.parent) return
@@ -192,6 +206,8 @@ export function TypingHologram({ active, bodyRoot }: { active: boolean; color?: 
       searched.current = root
       lastSearch.current = now
       hands.current = findHands(root)
+      fingers.current = hands.current ? fingerBones(hands.current) : []
+      floor.current = null
     }
     const pair = hands.current
     if (!pair) { g.visible = false; return }
@@ -199,8 +215,20 @@ export function TypingHologram({ active, bodyRoot }: { active: boolean; color?: 
     pair[1].getWorldPosition(b)
     a.add(b).multiplyScalar(0.5)
     g.parent.worldToLocal(a)
-    // The hand bones are the wrists: the fingers rest on the keys a little forward and below them.
-    g.position.set(a.x, a.y - 0.045, a.z + 0.02)
+    // The keys sit just under the lowest the fingertips reach while they tap (the owner, 26 Nov: the fingers typed
+    // through the laptop): measured on this body's own finger bones, so any hand size hovers over the keys.
+    let low = a.y - 0.045
+    if (fingers.current.length) {
+      low = Infinity
+      for (const bone of fingers.current) {
+        bone.getWorldPosition(b)
+        g.parent.worldToLocal(b)
+        low = Math.min(low, b.y)
+      }
+      low -= TIP_REACH
+    }
+    floor.current = floor.current === null ? low : Math.min(low, floor.current + Math.min(0.05, delta) * 0.03)
+    g.position.set(a.x, floor.current - BASE.h / 2 - HOVER, a.z + 0.02)
     g.visible = true
   })
 

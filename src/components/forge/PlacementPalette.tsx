@@ -14,6 +14,7 @@ import type { AssetDefinition } from '@/components/scene-lib/types'
 import { FUNCTIONAL_THUMBNAIL_URL, catalogFallbackThumbnail } from '@/lib/catalog-thumbnail-fallbacks'
 
 import { AssetCard } from './AssetCard'
+import { showNotice } from './GlobalNotice'
 import { CraftedPreviewPanel, ModelPreviewPanel } from './ModelPreview'
 
 const OASIS_BASE = process.env.NEXT_PUBLIC_BASE_PATH || ''
@@ -424,7 +425,13 @@ export function PlacementPalette({ showConjured = true, columns = 3, initialTab 
                 subtitle={portalSubtitle}
                 compact
                 onClick={() => {
-                  if (!portalAction) return
+                  // "Go to a world" with no world chosen used to do nothing at all (27 Nov, the void door).
+                  if (!portalAction) {
+                    showNotice(portalActionPreset === 'load_world'
+                      ? 'Choose the world this portal goes to first (the list above the portals).'
+                      : 'Choose what this portal does first (the list above the portals).', 'warn')
+                    return
+                  }
                   enterPlacementMode({
                     type: 'portal',
                     name: portalAction.type === 'load_world'

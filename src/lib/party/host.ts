@@ -1,4 +1,4 @@
-// ░▒▓ HOSTING A PARTY FROM THIS OASIS ▓▒░  (server side of World menu > Host a party on this Wi-Fi)
+// ░▒▓ HOSTING A PARTY FROM THIS OASIS ▓▒░  (server side of hosting: localStorage oasis-party-host=1 brings the World menu tile back, or POST /api/party/host; the tile left the menu on 26 Nov)
 // Starts scripts/party-server.mjs from this very install, with a sandbox database of its own (one world, never this
 // Oasis's own), no agents, no files and no keys unless the host turns paid spells on. Only an installed Oasis can
 // host: the party serves the install's production build (next start), so a workshop running `next dev` cannot.

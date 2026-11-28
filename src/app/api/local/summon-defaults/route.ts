@@ -1,6 +1,7 @@
 // GET /api/local/summon-defaults — what the summon menu starts from: the home folder (for the Oasis folder a
 // newcomer's agents work in) and the real Hermes homes on this machine (the installer's home, HERMES_HOME, and
-// each profiles/<name> with a config.yaml), so a Hermes profile is picked, never typed.
+// each profiles/<name> with a config.yaml), so a Hermes profile is picked, never typed; and which runtimes this
+// machine can summon (runtime-check.ts: Claude Code, Codex, Hermes, read from disk).
 // Local requests only (the same guard as the agent routes). Reads folder names and one config line, nothing else.
 
 import fs from 'fs'
@@ -10,6 +11,7 @@ import { NextRequest, NextResponse } from 'next/server'
 
 import { guardAgentRoute } from '@/lib/local-request-guard'
 import { hermesInstallHome, hermesModelOf, oasisWorkspace, type HermesProfile } from '@/lib/village/summon-defaults'
+import { runtimeReport } from '@/lib/village/runtime-check'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -51,5 +53,5 @@ export async function GET(request: NextRequest) {
   // The Oasis's README (the app folder the page server runs from): the Guide's card points at it.
   const readmeFile = path.join(process.cwd(), 'README.md')
   const readme = fs.existsSync(readmeFile) ? readmeFile : ''
-  return NextResponse.json({ home, workspace: oasisWorkspace(home, path), readme, platform: process.platform, hermes: hermesProfiles() })
+  return NextResponse.json({ home, workspace: oasisWorkspace(home, path), readme, platform: process.platform, hermes: hermesProfiles(), runtimes: runtimeReport() })
 }

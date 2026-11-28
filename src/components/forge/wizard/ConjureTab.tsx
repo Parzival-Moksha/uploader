@@ -21,7 +21,7 @@ export function ConjureTabHeader({ setError }: ConjureTabProps) {
   const forgeColor = FORGE_COLOR
   // ─═̷─ Wizard state ─═̷─
   const [provider, setProvider] = useState<ProviderName>('meshy')
-  const [tier, setTier] = useState(PROVIDERS[0].tiers[1]?.id || PROVIDERS[0].tiers[0].id)
+  const [tier, setTier] = useState(PROVIDERS[0].tiers[0].id)
   const [conjurePrompt, setConjurePrompt] = useState('')
   const [isCastingText, setIsCastingText] = useState(false)
   const [isCastingImage, setIsCastingImage] = useState(false)

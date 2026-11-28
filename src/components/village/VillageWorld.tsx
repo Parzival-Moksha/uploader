@@ -90,7 +90,7 @@ import { getAgentAccent, getPanelLookVersion, subscribePanelLook } from '../../l
 import { getVillageCombatVersion, getVillageVitals, subscribeVillageCombat } from '../../lib/village/village-combat'
 import { useFrameWhen } from '../../lib/use-frame-when'
 import { getPlayerAvatarPose } from '../../lib/player-avatar-runtime'
-import { SPACE, createFollowState, pickVisitSpot, stepApart, stepFollow, stepStage, stepVisit, type FollowState, type FollowTarget, type VisitSpot } from '../../lib/village/village-follow'
+import { SPACE, VISIT, createFollowState, pickVisitSpot, stepApart, stepFollow, stepStage, stepVisit, type FollowState, type FollowTarget, type VisitSpot } from '../../lib/village/village-follow'
 import { COUNCIL } from '../../lib/village/village-council'
 import { getCouncilGoal, getCouncilVersion, getStageCast, isCouncilMember, isCouncilOn, reportCouncilSettled, subscribeCouncil } from './village-council'
 import { clickVillageAgent, getSentGoal, getSentGoalSeq, subscribeAgentSelection } from '@/lib/village/agent-selection'
@@ -105,20 +105,27 @@ import {
   registerVillageHead,
   setVillageArrived,
   setVillageAwaySpot,
+  setVillageVisitLine,
+  subscribeVillageVisitLine,
+  villageVisitLine,
   subscribeVillageFollow,
   subscribeVillageSpeech,
   villageLipSyncId,
 } from './village-companion'
 import { SettingsContext } from '../scene-lib/contexts'
-import { clipForPose, holdSeconds, type AgentPose } from '../../lib/village/agent-idles'
-import { CAST_CLIPS } from '../../lib/village/agent-cast'
+import { clipForPose, GROUND_SIT, holdSeconds, type AgentPose } from '../../lib/village/agent-idles'
+import { freeUalClips } from '../../lib/forge/ual-catalog'
+import { CAST_CLIPS, castLoops } from '../../lib/village/agent-cast'
 import { claimCompanionExit, companionRollAt, getCompanionsVersion, isCompanionRolling, subscribeCompanions } from '../../lib/village/travel-companions'
-import { isVillageComing, subscribeVillageCome } from './village-come'
+import { isVillageComing, subscribeVillageCome, villageComingTrip } from './village-come'
+import { blockedSince, blockedWalk, queueIndex, queueSpot } from '../../lib/village/blocked-walk'
+import { useOwnerPresent } from './owner-presence'
 import { useCastPhase, useVillageCastWatcher } from './village-cast'
 import { TypingHologram } from './TypingHologram'
 import { DESK_SCREENS_DEFAULT, DESK_SCREEN_LIMIT, isDeskScreensMode, pickDeskScreens, type DeskDistance } from '../../lib/village/desk-screens'
 import { useKitStyle } from '@/components/ui-kit'
 import { WORLD_Z_RANGE, layerZ, useLayer } from '@/lib/ui-kit/layers'
+import { isAcpRuntime, RUNTIME_LABEL } from '../../lib/agent-engine-types'
 
 /** Helper labels show for the agents near the camera (the rule desk screens had before the setting). */
 const NEAR_AGENTS_MAX = 6
@@ -138,16 +145,20 @@ const PREFERRED_BODIES = [
   'VIPE_Hero__2799', 'VIPE_Hero__2770', 'CoolAlien', 'CoolGuitar', 'EYE_Diviner', 'King_Mutatio',
 ].map(name => `/avatars/gallery/${name}.vrm`)
 
+// The UAL packs' clips that the library doesn't name (ualpro-1-GroundSit_Enter...): listed once, so they load by id.
+freeUalClips()
+
 /**
  * What this agent's body plays while it stands (src/lib/village/agent-idles.ts): talking when it talks to the owner,
- * a waiting idle when it needs him, a working one while it works, taking turns through its own order every 18 to
- * 36 s. Settings > Agents "Idle variety" off: one clip per state.
+ * its waiting idles in turn (every 18 to 36 s) when it needs him, tired once it has waited a few minutes, its own
+ * working clip while it works, its own rest (look around, fold arms, a ground sit...) with nothing to do.
+ * Settings > Agents "Idle variety" off: one clip per state.
  */
-function useAgentPoseClip(agentId: string, pose: AgentPose): string | null {
+function useAgentPoseClip(agentId: string, pose: AgentPose, waitingSince: number | null): string | null {
   const { settings } = useContext(SettingsContext)
   const variety = settings.agentIdleVariety !== false
   const [round, setRound] = useState(0)
-  const cycles = variety && (pose === 'waiting' || pose === 'working')
+  const cycles = variety && pose === 'waiting'
   useEffect(() => {
     if (!cycles) return
     const timer = window.setInterval(() => setRound(r => r + 1), holdSeconds(agentId) * 1000)
@@ -159,7 +170,30 @@ function useAgentPoseClip(agentId: string, pose: AgentPose): string | null {
     const forced = window.localStorage.getItem('oasis-dev-agent-pose')
     if (forced) return forced
   }
-  return clipForPose(agentId, pose, round, variety)
+  const waitedS = pose === 'waiting' && waitingSince ? (Date.now() - waitingSince) / 1000 : 0
+  return clipForPose(agentId, pose, round, variety, waitedS)
+}
+
+/**
+ * A ground sitter's getting down and up (the owner, 26 Nov: "ground sit enter, idle, and exit. It's genius"): while
+ * it should sit, the sit-down plays once, then the seated loop; when it should stand (you face it, it walks, it
+ * casts, it works), the stand-up plays once. Null while it simply stands.
+ */
+function useGroundSit(wantSeat: boolean): { clip: string; once: boolean } | null {
+  const [phase, setPhase] = useState<'standing' | 'down' | 'seated' | 'up'>('standing')
+  useEffect(() => {
+    if (wantSeat && (phase === 'standing' || phase === 'up')) setPhase('down')
+    else if (!wantSeat && (phase === 'down' || phase === 'seated')) setPhase('up')
+  }, [wantSeat, phase])
+  useEffect(() => {
+    if (phase !== 'down' && phase !== 'up') return
+    const timer = window.setTimeout(() => setPhase(phase === 'down' ? 'seated' : 'standing'), (phase === 'down' ? GROUND_SIT.enterS : GROUND_SIT.exitS) * 1000)
+    return () => window.clearTimeout(timer)
+  }, [phase])
+  if (phase === 'down') return { clip: GROUND_SIT.enter, once: true }
+  if (phase === 'seated') return { clip: GROUND_SIT.loop, once: false }
+  if (phase === 'up') return { clip: GROUND_SIT.exit, once: true }
+  return null
 }
 
 function useBodyPool(): string[] {
@@ -307,12 +341,15 @@ function useStationExtras(agentId: string): boolean {
 /** Over the head, in the picture itself: the name in the agent's own colour, its status word, "!" or "?". */
 function StationTag({ agentId, colorKey, avatarKey, keys }: { agentId: string; colorKey: string; avatarKey: string; keys: boolean }) {
   const info = useLabelInfo(agentId)
+  // Codex, Hermes and the other non-Claude runtimes say so on the tag: told apart at a glance whatever body they wear.
+  const runtime = useOasisStore(s => s.agentEngine.agents[agentId]?.runtime)
   useSyncExternalStore(subscribePanelLook, getPanelLookVersion, () => 0)
   if (!info) return null
+  const runtimeWord = isAcpRuntime(runtime) && runtime ? RUNTIME_LABEL[runtime] : ''
   return (
     <VillageTag
       agentId={agentId}
-      name={info.name}
+      name={runtimeWord && !info.name.toLowerCase().includes(runtimeWord.toLowerCase()) ? `${info.name} · ${runtimeWord}` : info.name}
       color={readableAccent(getAgentAccent(colorKey))}
       rim={getAgentAccent(colorKey)}
       status={info.label}
@@ -494,7 +531,17 @@ function useVillageFollower(agentId: string, placement: VillageStationPlacement,
   holdRef.current = hold
   /** Where it stands (following) or is headed (visiting), for the others' choice of spot. One object, changed in place. */
   const spot = useRef<VisitSpot>({ x: home.x, z: home.z })
-  const pick = useRef((distance: number) => pickVisitSpot(target.current, distance, otherAvatars(agentId, null)))
+  // Its place in the line beside him (blocked-walk.ts): oldest first, out of the middle of his view; a spot where
+  // someone already stands is skipped for the next one along the line.
+  const pick = useRef((distance: number) => {
+    const index = queueIndex(villageVisitLine(), agentId)
+    const others = otherAvatars(agentId, null)
+    for (let k = 0; k < 8; k += 1) {
+      const spot = queueSpot(target.current, index + k, distance)
+      if (others.every(other => Math.hypot(other.x - spot.x, other.z - spot.z) >= VISIT.clearance)) return spot
+    }
+    return queueSpot(target.current, index, distance)
+  })
   /** Stepping apart from an avatar it stands too close to (personal space, village-follow.ts stepApart). */
   const apart = useRef(false)
   const spaceTick = useRef(0)
@@ -575,6 +622,27 @@ function useVillageFollower(agentId: string, placement: VillageStationPlacement,
   }, [agentId, placement, home, wanted, visiting, staged])
 
   useEffect(() => () => setVillageArrived(agentId, false), [agentId])
+
+  // Someone joined or left the line beside him: a visitor takes its new place (a fresh pick next frame).
+  // Once more three seconds on: the one who left may still have stood on the free spot at the first look.
+  useEffect(() => {
+    const repick = () => {
+      const follow = state.current as FollowState
+      if (follow.mode !== 'visit' || follow.act === 'aside') return
+      follow.hasGoal = false
+      follow.act = 'stand'
+    }
+    let later = 0
+    const unsubscribe = subscribeVillageVisitLine(() => {
+      repick()
+      window.clearTimeout(later)
+      later = window.setTimeout(repick, 3000)
+    })
+    return () => {
+      unsubscribe()
+      window.clearTimeout(later)
+    }
+  }, [])
 
   useEffect(() => {
     followStates.set(agentId, state.current as FollowState)
@@ -762,6 +830,13 @@ function VillageStation({ agentId, placement, avatarUrl, windowVisible, helperLa
     const agent = s.agentEngine.agents[agentId]
     return agent && attentionRank(agent) !== null ? agent.attentionSince ?? 0 : null
   })
+  // Its body waits only for a real question to him (an open card: permission, plan, question); an error is a dead
+  // process, not a question (the owner, 27 Nov: "everybody is in zombie mode" after the night's stop turned every
+  // agent red): it rests its own way.
+  const asksSince = useOasisStore(s => {
+    const agent = s.agentEngine.agents[agentId]
+    return agent && attentionRank(agent) === 0 ? agent.attentionSince ?? 0 : null
+  })
   const [heardFor, setHeardFor] = useState<number | null>(null)
   const wasFocused = useRef(false)
   useEffect(() => {
@@ -776,7 +851,28 @@ function VillageStation({ agentId, placement, avatarUrl, windowVisible, helperLa
   // Come when done (village-come.ts): he asked it to come when the thing was done, or it came by itself: it walks
   // to him whatever the setting says, until he has heard it or waved it off.
   const comingToHim = useSyncExternalStore(subscribeVillageCome, () => isVillageComing(followKey), () => false)
-  const visiting = !stone && !isCouncilOn() && (comingToHim || (comeToMe && isVillageComeOn(followKey) && needsSince !== null && needsSince !== heardFor))
+  // Waiting on his click (a permission, a question, a plan) for a minute: it walks to him by itself, while he is in
+  // the Oasis, whatever "Come to me" says; its own Come to me switch can keep it home (blocked-walk.ts). It walks
+  // back when he has answered.
+  const waitingSince = useOasisStore(s => blockedSince(s.agentEngine.agents[agentId]))
+  const ownerHere = useOwnerPresent()
+  const blockedWalking = useRef(false)
+  const blockedNow = blockedWalk(waitingSince, Date.now(), ownerHere, isVillageComeOn(followKey), blockedWalking.current)
+  blockedWalking.current = blockedNow.walk
+  const [, wakeBlocked] = useState(0)
+  const blockedPending = blockedNow.wakeIn !== null
+  useEffect(() => {
+    if (!blockedPending || waitingSince === null) return
+    const timer = window.setTimeout(() => wakeBlocked(n => n + 1), Math.max(0, waitingSince + 60_000 - Date.now()) + 50)
+    return () => window.clearTimeout(timer)
+  }, [blockedPending, waitingSince])
+  const visiting = !stone && !isCouncilOn() && (comingToHim || blockedNow.walk || (comeToMe && isVillageComeOn(followKey) && needsSince !== null && needsSince !== heardFor))
+  // Its place in the line beside him: since when it waits on him.
+  const visitSince = visiting ? (blockedNow.walk && waitingSince !== null ? waitingSince : villageComingTrip(followKey)?.at ?? needsSince ?? 0) : null
+  useEffect(() => {
+    setVillageVisitLine(agentId, visitSince)
+  }, [agentId, visitSince])
+  useEffect(() => () => setVillageVisitLine(agentId, null), [agentId])
   // The owner is talking to another agent (its panel or its full screen): wait a few metres back, don't interrupt.
   const ownerBusy = useOasisStore(s => s.agentEngine.focusedAgentId !== null && s.agentEngine.focusedAgentId !== agentId)
   // Sent somewhere with a right-click while selected: it walks there and stays (an order beats "Follow me"),
@@ -796,10 +892,13 @@ function VillageStation({ agentId, placement, avatarUrl, windowVisible, helperLa
   // In the F view it stands still and looks at you while it talks (the gesturing clip turns the head away from the camera).
   const pose: AgentPose = focused && onScreen ? 'resting'
     : speaking ? 'talking'
-    : needsSince !== null ? 'waiting'
+    : asksSince !== null ? 'waiting'
     : status === 'working' ? 'working'
     : 'resting'
-  const poseClip = useAgentPoseClip(agentId, pose)
+  const ownClip = useAgentPoseClip(agentId, pose, asksSince)
+  // Facing you in the F view it stands and looks at you, whatever its own rest is.
+  const poseClip = focused && onScreen ? null : ownClip
+  const sit = useGroundSit(poseClip === GROUND_SIT.loop && !follower.walking && !castPhase && !combatPose && !companionRolling)
   const avatarGroup = useRef<THREE.Group>(null)
   // Typing (its working clip, standing at a keyboard): only while that clip is what its body plays.
   const typing = poseClip === 'authored-stand-type' && !combatPose && !castPhase && !companionRolling && !follower.walking
@@ -871,8 +970,8 @@ function VillageStation({ agentId, placement, avatarUrl, windowVisible, helperLa
                 path={`${avatarUrl}#village`}
                 scale={1}
                 displayName={name}
-                activityAnimationId={combatPose ? combatPose.animationId : companionRolling ? 'ual-roll' : castPhase ? CAST_CLIPS[castPhase] : poseClip}
-                activityOnce={Boolean(combatPose) || companionRolling || (castPhase !== null && castPhase !== 'charge')}
+                activityAnimationId={combatPose ? combatPose.animationId : companionRolling ? 'ual-roll' : castPhase ? CAST_CLIPS[castPhase] : sit ? sit.clip : poseClip === GROUND_SIT.loop ? null : poseClip}
+                activityOnce={Boolean(combatPose) || companionRolling || (castPhase !== null && !castLoops(castPhase)) || Boolean(sit?.once && !castPhase && !combatPose && !companionRolling)}
                 activityFade={companionRolling ? 0.1 : castPhase ? 0.12 : undefined}
                 moving={follower.walking && !combatPose}
                 lipSyncId={villageLipSyncId(agentId)}

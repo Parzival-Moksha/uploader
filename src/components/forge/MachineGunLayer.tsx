@@ -19,6 +19,7 @@ import { canCastBolt, isTypingTarget } from './bolts/shared'
 import { castOrigin, collectActorTargets, worldImpactAlong } from './bolts/aim'
 import { segmentSphereEntry } from './bolts/flight'
 import { sendPvpShot } from '@/lib/pvp-bridge'
+import { getPlayerMuzzleWorld } from './combat-stance'
 
 const ROUND_MS = 90
 const BULLET_DAMAGE = 8
@@ -203,7 +204,8 @@ export function MachineGunLayer({ enabled }: { enabled: boolean }) {
 
   function shoot(): void {
     const shot = traceShot(camera, scene)
-    const { origin: muzzle } = castOrigin(camera, shot.point.distanceTo(camera.getWorldPosition(_muzzleCam)))
+    // The held rifle's barrel tip when the gun is in hand (combat-stance.ts), else the hand or the camera.
+    const muzzle = getPlayerMuzzleWorld(new THREE.Vector3()) ?? castOrigin(camera, shot.point.distanceTo(camera.getWorldPosition(_muzzleCam))).origin
     const tracer = pool.tracers[pool.nextTracer]
     pool.nextTracer = (pool.nextTracer + 1) % TRACERS
     tracer.from.copy(muzzle)

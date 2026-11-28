@@ -7,9 +7,12 @@ import { useInputManager } from '@/lib/input-manager'
 import { DEFAULT_FEEL, FEEL_STYLES, type FeelId } from './menu-feel'
 import type { MenuPhase } from './menu-escape'
 
-export type MenuSoundId = 'glass' | 'arcade' | 'thud' | 'classic' | 'off'
+export type MenuSoundId = 'studio' | 'glass' | 'arcade' | 'thud' | 'classic' | 'off'
 
 export const MENU_SOUNDS: Array<{ id: MenuSoundId; label: string; blurb: string }> = [
+  // The owner, 26 Nov: the click "sounds good but... I wanna change it, and I could not": the recorded click played
+  // in every set. Now it is a set of its own and every other set clicks with its own sound.
+  { id: 'studio', label: 'Studio', blurb: 'The recorded click (made for the Oasis), soft bell ticks on hover.' },
   { id: 'glass', label: 'Glass', blurb: 'A soft bell tick, a two-note chime on click.' },
   { id: 'arcade', label: 'Arcade', blurb: 'Square-wave blips, a rising pair on click.' },
   { id: 'thud', label: 'Thud', blurb: 'A felt tap, a low wooden knock on click.' },
@@ -35,7 +38,7 @@ export interface MenuPrefs {
 
 export const DEFAULT_MENU_PREFS: MenuPrefs = {
   feel: DEFAULT_FEEL,
-  sound: 'glass',
+  sound: 'studio',
   tilt: true,
   tiltAmount: 1.7,
   drift: true,

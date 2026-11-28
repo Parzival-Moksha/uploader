@@ -22,6 +22,7 @@ import { useFrameWhen } from '../../lib/use-frame-when'
 import { hideUndrawnSubtrees } from '../../lib/forge/undrawn-subtrees'
 import { stationLocalToWorld } from '../../lib/village/village-layout'
 import { miniSeats, subagentLook, visibleSubagents, type SubagentLook } from '../../lib/village/village-subagents'
+import { helperStatusLine } from '../../lib/village/running-subagents'
 import { requestPlayerAvatarTeleport } from '../../lib/player-avatar-runtime'
 import {
   focusVillageSubagent,
@@ -63,6 +64,8 @@ interface MiniInfo {
   key: string
   look: SubagentLook
   description: string
+  /** What it does now, in a few words (its latest tool; running-subagents.ts helperStatusLine). */
+  doing: string
 }
 
 function useTick(active: boolean, everyMs: number): number {
@@ -166,6 +169,7 @@ function MiniLabel({ info, near }: { info: MiniInfo; near: boolean }) {
       <div className="whitespace-normal break-words rounded-md bg-slate-950/80 px-1.5 py-0.5 text-center text-[10px] font-semibold leading-tight text-white">
         {info.description || 'helper'}
       </div>
+      {info.doing && <div className="rounded bg-slate-950/70 px-1.5 text-[9px] italic leading-tight text-white/80">{info.doing}</div>}
       {near && (
         <div className="rounded border border-white/25 bg-black/75 px-1.5 py-[1px] text-[9px] font-bold text-white">
           <span className="mr-1 rounded bg-white/20 px-1 font-mono">E</span>see its work
@@ -228,7 +232,7 @@ function Mini({ agentId, info, position, avatarUrl, labelVisible, near, overlayZ
         <meshBasicMaterial transparent opacity={0} depthWrite={false} visible={false} />
       </mesh>
       {(labelVisible || near) && (
-        <Html position={[0, 1.08, 0]} center distanceFactor={6} zIndexRange={overlayZ} style={{ pointerEvents: 'none' }}>
+        <Html position={[0, 1.08, 0]} center distanceFactor={9} zIndexRange={overlayZ} style={{ pointerEvents: 'none' }}>
           <MiniLabel info={info} near={near} />
         </Html>
       )}
@@ -253,11 +257,11 @@ export function VillageSubagentMinis({ agentId, placement, avatarUrl, labelsVisi
   const key = useOasisStore(s => {
     const agent = s.agentEngine.agents[agentId]
     if (!agent || !agent.subagents.length) return ''
-    return visibleSubagents(agent, now).map(sub => [sub.key, subagentLook(sub), sub.description].join('\u0001')).join('\u0002')
+    return visibleSubagents(agent, now).map(sub => [sub.key, subagentLook(sub), sub.description, subagentLook(sub) === 'running' ? helperStatusLine(sub.lastToolName) : ''].join('\u0001')).join('\u0002')
   })
   const infos = useMemo<MiniInfo[]>(() => (key ? key.split('\u0002').map(item => {
-    const [subKey, look, description] = item.split('\u0001')
-    return { key: subKey, look: look as SubagentLook, description }
+    const [subKey, look, description, doing] = item.split('\u0001')
+    return { key: subKey, look: look as SubagentLook, description, doing: doing || '' }
   }) : []), [key])
   const layout = useMemo(() => miniSeats(infos.length), [infos.length])
   const nearby = useSyncExternalStore(subscribeNearbyVillageMini, getNearbyVillageMini, () => null)

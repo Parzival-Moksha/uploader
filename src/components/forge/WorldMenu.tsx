@@ -2,7 +2,7 @@
 
 import { PartyTile } from './PartyTile'
 import { useContext, useEffect, useMemo, useRef, useState, type ChangeEvent, type ReactNode } from 'react'
-import { useKitStyle } from '@/components/ui-kit'
+import { KitButton, KitChip, useKitStyle } from '@/components/ui-kit'
 import { useMindcraftLook } from '@/components/village/mindcraft-look'
 
 import { useOasisStore } from '@/store/oasisStore'
@@ -17,9 +17,17 @@ import { WELCOME_HUB_WORLD_ID } from '@/lib/portal-gates'
 import { travelToWorld } from '@/lib/world-travel-exit'
 
 import { GameMenuButton } from './GameMenuButton'
-
 import { useLayer } from '@/lib/ui-kit/layers'
+
 const OASIS_BASE = process.env.NEXT_PUBLIC_BASE_PATH || ''
+
+/** Multiplayer's Worlds tab: which worlds it lists (the owner, 27 Nov: public, free for all, unlisted, mine). */
+const WORLD_PILLS: Array<{ key: 'public' | 'sandbox' | 'unlisted' | 'mine'; label: string; tip: string }> = [
+  { key: 'public', label: 'Public', tip: 'Visit and look around. Owner edits.' },
+  { key: 'sandbox', label: 'Free for all', tip: 'Anyone can build.' },
+  { key: 'unlisted', label: 'Unlisted', tip: 'Link-only. Not in browse.' },
+  { key: 'mine', label: 'Mine', tip: 'Your own worlds.' },
+]
 
 const SHAREABLE_VISIBILITIES = new Set([
   'public',
@@ -157,7 +165,13 @@ function formatWizardSeenAt(updatedAt: number): string {
   return `${Math.round(ageSeconds / 60)}m ago`
 }
 
-export function WorldMenu({ actionLogControl }: { actionLogControl?: ReactNode }) {
+/**
+ * The World menu (the owner, 27 Nov). Local Oasis: a world selector at the top of the screen: New World big, Import
+ * and Export (this world) small beside it, the list of his worlds; no stats, visibility, wizards or PvP (it is just
+ * him). Multiplayer (the deployed Oasis, the Innkeeper's): two tabs, World info (what This World showed) and Worlds
+ * (Public, Free for all, Unlisted, Mine). One component; `variant` forces one, else the Oasis mode decides.
+ */
+export function WorldMenu({ actionLogControl, variant }: { actionLogControl?: ReactNode; variant?: 'local' | 'multiplayer' }) {
   useMindcraftLook() // the frame's stylesheet
   const menuStyle = useKitStyle()
   const [isOpen, setIsOpen] = useState(false)
@@ -184,18 +198,21 @@ export function WorldMenu({ actionLogControl }: { actionLogControl?: ReactNode }
   // ░▒▓ 3-tab world menu: This World / My Worlds / Public Worlds ▓▒░
   const [worldTab, setWorldTab] = useState<'this' | 'my' | 'public'>('this')
   // Within Public Worlds, filter pills for visibility tier.
-  const [publicFilter, setPublicFilter] = useState<'public' | 'sandbox' | 'unlisted'>('public')
+  const [publicFilter, setPublicFilter] = useState<'public' | 'sandbox' | 'unlisted' | 'mine'>('public')
   // Viewer identity may be corrected by /api/viewer/me after mount.
   // In local mode, stale viewer-* cookies collapse back to local-user.
   const [viewerUserId, setViewerUserId] = useState(() => getViewerUserIdClient())
   const oasisMode = useClientOasisMode()
+  const multiplayer = variant ? variant === 'multiplayer' : oasisMode !== 'local'
+  // Local: only the world list. Multiplayer: World info ('this') or Worlds ('public', its pills include Mine).
+  const tab: 'this' | 'my' | 'public' = multiplayer ? (worldTab === 'my' ? 'public' : worldTab) : 'my'
   const capabilities = useOasisCapabilities()
   const menuRef = useRef<HTMLDivElement>(null)
   const importInputRef = useRef<HTMLInputElement>(null)
   useUILayer('world-menu', isOpen)
-  const { settings, updateSetting, rp1Locked } = useContext(SettingsContext)
   // The place layer (src/lib/ui-kit/layers.ts): Esc closes World when it is the topmost thing.
   useLayer('world-menu', 'place', isOpen, () => setIsOpen(false))
+  const { settings, updateSetting, rp1Locked } = useContext(SettingsContext)
   const playClick = () => useAudioManager.getState().play('buttonClick')
 
   const activeWorldId = useOasisStore(s => s.activeWorldId)
@@ -276,7 +293,7 @@ export function WorldMenu({ actionLogControl }: { actionLogControl?: ReactNode }
   }, [isOpen])
 
   useEffect(() => {
-    if (!isOpen || worldTab !== 'this' || !worldId || !shortLinkEligible || shortCode) return
+    if (!isOpen || tab !== 'this' || !worldId || !shortLinkEligible || shortCode) return
     let cancelled = false
     void fetch(`${OASIS_BASE}/api/worlds/${encodeURIComponent(worldId)}/short-code`, {
       method: 'POST',
@@ -322,7 +339,7 @@ export function WorldMenu({ actionLogControl }: { actionLogControl?: ReactNode }
   }, [])
 
   useEffect(() => {
-    if (!isOpen || worldTab !== 'this' || !worldId) return
+    if (!isOpen || tab !== 'this' || !worldId) return
     let cancelled = false
     let firstLoad = true
 
@@ -620,7 +637,7 @@ export function WorldMenu({ actionLogControl }: { actionLogControl?: ReactNode }
           // A kit panel: it wears the one menu style (Settings' top right), like every menu (ui-kit).
           data-kit-style={menuStyle}
           style={{ display: 'block' }}
-          className="kit-panel absolute left-full top-0 z-[var(--z-place)] ml-2 max-h-[82vh] w-[410px] overflow-y-auto px-1 pb-1 pt-0 font-mono text-white max-[700px]:fixed max-[700px]:left-2 max-[700px]:right-2 max-[700px]:top-[58px] max-[700px]:ml-0 max-[700px]:max-h-[calc(100vh-70px)] max-[700px]:w-auto max-[700px]:p-2"
+          className="kit-panel fixed left-[166px] top-4 z-[var(--z-place)] max-h-[calc(100vh-32px)] w-[410px] overflow-y-auto px-1 pb-1 pt-0 font-mono text-white max-[700px]:fixed max-[700px]:left-2 max-[700px]:right-2 max-[700px]:top-[58px] max-[700px]:ml-0 max-[700px]:max-h-[calc(100vh-70px)] max-[700px]:w-auto max-[700px]:p-2"
           onMouseDown={event => event.stopPropagation()}
         >
           <style>{`
@@ -679,8 +696,8 @@ export function WorldMenu({ actionLogControl }: { actionLogControl?: ReactNode }
                   </label>
                 </div>
               </div>
-              <div className="mt-1 text-[10px] uppercase tracking-[0.14em] text-cyan-100/60">{visibilityLabel}</div>
-              <div className="mt-2 flex items-center gap-2 text-[11px] text-white/75">
+              {multiplayer && <div className="mt-1 text-[10px] uppercase tracking-[0.14em] text-cyan-100/60">{visibilityLabel}</div>}
+              {multiplayer && <div className="mt-2 flex items-center gap-2 text-[11px] text-white/75">
                 {ownerAvatar ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={ownerAvatar} alt="" className="h-6 w-6 rounded-full object-cover" referrerPolicy="no-referrer" />
@@ -692,7 +709,7 @@ export function WorldMenu({ actionLogControl }: { actionLogControl?: ReactNode }
                 <span className="shrink-0 text-white/45">Author:</span>
                 <span className="min-w-0 truncate">{ownerName}</span>
                 <span className="shrink-0 text-cyan-200/75">Lv {ownerLevel}</span>
-              </div>
+              </div>}
             </div>
           </div>
 
@@ -722,14 +739,13 @@ export function WorldMenu({ actionLogControl }: { actionLogControl?: ReactNode }
             </div>
           )}
 
-          {/* ░▒▓ TAB BAR — This World / My Worlds / Public Worlds ▓▒░ */}
-          <div className="mt-3 flex gap-1 border-b border-white/10 pb-2 text-[10px] font-black uppercase tracking-[0.12em]">
+          {/* ░▒▓ TAB BAR — multiplayer only: World info / Worlds ▓▒░ */}
+          {multiplayer && <div className="mt-3 flex gap-1 border-b border-white/10 pb-2 text-[10px] font-black uppercase tracking-[0.12em]">
             {([
-              { key: 'this' as const, label: 'This World' },
-              { key: 'my' as const, label: 'My Worlds' },
-              { key: 'public' as const, label: 'Public Worlds' },
+              { key: 'this' as const, label: 'World info' },
+              { key: 'public' as const, label: 'Worlds' },
             ]).map(tab => {
-              const active = worldTab === tab.key
+              const active = worldTab === tab.key || (tab.key === 'public' && worldTab === 'my')
               return (
                 <button
                   key={tab.key}
@@ -745,9 +761,9 @@ export function WorldMenu({ actionLogControl }: { actionLogControl?: ReactNode }
                 </button>
               )
             })}
-          </div>
+          </div>}
 
-          {worldTab === 'this' && (
+          {tab === 'this' && (
           <div className="grid grid-cols-4 gap-2 py-3 text-center">
             <div className="rounded-md border border-white/10 bg-white/5 px-2 py-2">
               <div className="text-sm font-black text-cyan-100">{objectCount}</div>
@@ -779,7 +795,7 @@ export function WorldMenu({ actionLogControl }: { actionLogControl?: ReactNode }
           )}
 
           {/* ░▒▓ WIZARDS — live room roster for the current world ▓▒░ */}
-          {worldTab === 'this' && (
+          {tab === 'this' && (
             <div className="mb-3 rounded-md border border-white/10 bg-white/5 p-2">
               <div className="mb-2 flex items-center gap-2">
                 <div className="min-w-0 flex-1 text-[10px] font-black uppercase tracking-[0.14em] text-white/55">
@@ -851,40 +867,50 @@ export function WorldMenu({ actionLogControl }: { actionLogControl?: ReactNode }
               browser-session ids, etc) left orphan owners on otherwise-yours
               worlds. Filtering by userId would hide them. Hosted still
               filters strictly so multi-user privacy holds. */}
-          {worldTab === 'my' && (() => {
+          {(tab === 'my' || (tab === 'public' && publicFilter === 'mine')) && (() => {
             const isLocal = oasisMode === 'local'
             const myWorlds = worldRegistry.filter(w =>
               w.id !== WELCOME_HUB_WORLD_ID
               && (isLocal || w.userId === viewerUserId),
             )
             return (
-              <div className="mb-3 rounded-md border border-white/10 bg-white/5 p-2">
-                <div className="mb-2 flex items-center gap-2">
-                  <div className="min-w-0 flex-1 text-[10px] font-black uppercase tracking-[0.14em] text-white/55">{myWorlds.length} worlds</div>
-                  <input
-                    ref={importInputRef}
-                    type="file"
-                    accept=".json,application/json"
-                    className="hidden"
-                    onChange={handleImportWorldFile}
-                  />
-                  <button
-                    onClick={() => importInputRef.current?.click()}
-                    className="rounded border border-fuchsia-300/20 bg-fuchsia-300/10 px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-fuchsia-100 transition hover:bg-fuchsia-300/20"
-                  >
-                    Import
-                  </button>
-                  {!isViewMode && (
-                    <button
-                      onClick={() => setNewWorldOpen(open => !open)}
-                      className="rounded border border-cyan-300/20 bg-cyan-300/10 px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-cyan-100 transition hover:bg-cyan-300/20"
-                    >
-                      New
-                    </button>
+              <div className="mb-3 mt-3">
+                {multiplayer && publicFilter === 'mine' && (
+                  <div className="mb-2 flex flex-wrap gap-1">
+                    {WORLD_PILLS.map(p => <KitChip key={p.key} pressed={publicFilter === p.key} title={p.tip} onClick={() => setPublicFilter(p.key)}>{p.label}</KitChip>)}
+                  </div>
+                )}
+                <input ref={importInputRef} type="file" accept=".json,application/json" className="hidden" onChange={handleImportWorldFile} />
+                {!isViewMode && (
+                  <KitButton variant="primary" className="w-full !py-3 !text-[15px]" data-world-new onClick={() => setNewWorldOpen(open => !open)}>
+                    ✦ New World
+                  </KitButton>
+                )}
+                <div className="mt-2 flex flex-wrap items-center gap-1.5" data-world-small-actions>
+                  <KitChip onClick={() => importInputRef.current?.click()} title="Bring in a world from a .json file">Import</KitChip>
+                  {ownedMeta && !isViewMode && <KitChip onClick={() => handleExportWorld(ownedMeta)} title={`Save ${worldName} as a .json file`}>Export this world</KitChip>}
+                  {!multiplayer && canEditSettings && (
+                    <KitChip pressed={snapshotsOpen} onClick={() => { const next = !snapshotsOpen; setSnapshotsOpen(next); if (next) void fetchSnapshots() }} title="Saved states of this world">Snapshots</KitChip>
                   )}
+                  {!multiplayer && canEditSettings && <KitChip tone="danger" onClick={() => setDeleteOpen(true)} title={`Delete ${worldName}`}>Delete</KitChip>}
+                  {busyLabel && <span className="kit-hint !mt-0">{busyLabel}…</span>}
                 </div>
+                {menuMessage && <div className="kit-hint mt-1">{menuMessage}</div>}
+                {!multiplayer && snapshotsOpen && (
+                  <div className="mt-2 max-h-36 space-y-1 overflow-y-auto pr-1">
+                    <div className="flex justify-end"><KitChip onClick={handleCreateSnapshot} disabled={Boolean(busyLabel)}>Save a snapshot now</KitChip></div>
+                    {snapshotsLoading ? <div className="kit-hint">Loading snapshots…</div>
+                      : snapshots.length === 0 ? <div className="kit-hint">No snapshots yet.</div>
+                      : snapshots.map(snapshot => (
+                        <div key={snapshot.id} className="flex items-center gap-2 rounded border border-white/10 bg-black/30 px-2 py-1.5">
+                          <div className="min-w-0 flex-1 text-[11px]">{new Date(snapshot.created_at).toLocaleString()} · {snapshot.object_count} objects</div>
+                          <KitChip onClick={() => handleRestoreSnapshot(snapshot.id)} disabled={Boolean(busyLabel)}>Restore</KitChip>
+                        </div>
+                      ))}
+                  </div>
+                )}
                 {newWorldOpen && (
-                  <div className="mb-2 flex gap-2">
+                  <div className="mt-2 flex gap-2">
                     <input
                       value={newWorldIcon}
                       onChange={event => setNewWorldIcon(event.target.value.slice(0, 4))}
@@ -893,24 +919,20 @@ export function WorldMenu({ actionLogControl }: { actionLogControl?: ReactNode }
                     />
                     <input
                       value={newWorldName}
+                      autoFocus
                       onChange={event => setNewWorldName(event.target.value)}
                       onKeyDown={event => { if (event.key === 'Enter') handleCreateWorld() }}
-                      className="min-w-0 flex-1 rounded border border-white/10 bg-black/40 px-2 py-2 text-[11px] text-white outline-none focus:border-cyan-300/50"
+                      className="min-w-0 flex-1 rounded border border-white/10 bg-black/40 px-2 py-2 text-[12px] text-white outline-none focus:border-cyan-300/50"
                       aria-label="New world name"
-                      placeholder="World name"
+                      placeholder="Name your world"
                     />
-                    <button
-                      onClick={handleCreateWorld}
-                      disabled={!newWorldName.trim()}
-                      className="rounded border border-cyan-300/25 bg-cyan-300/10 px-3 py-2 text-[10px] font-black uppercase tracking-[0.12em] text-cyan-100 transition hover:bg-cyan-300/20 disabled:opacity-40"
-                    >
-                      Go
-                    </button>
+                    <KitButton variant="primary" onClick={handleCreateWorld} disabled={!newWorldName.trim()}>Create</KitButton>
                   </div>
                 )}
+                <div className="kit-label mb-1 mt-3">{multiplayer ? 'Mine' : 'My worlds'} · {myWorlds.length}</div>
                 <div className="max-h-[44vh] space-y-1 overflow-y-auto pr-1">
                   {myWorlds.length === 0 ? (
-                    <div className="py-4 text-center text-[10px] text-white/40">No worlds yet. Click <span className="text-cyan-200/80">New</span> to start one.</div>
+                    <div className="py-4 text-center text-[11px] text-white/50">No worlds yet. Press New World to start one.</div>
                   ) : myWorlds.map(world => {
                     const active = world.id === activeWorldId
                     return (
@@ -926,17 +948,10 @@ export function WorldMenu({ actionLogControl }: { actionLogControl?: ReactNode }
                         >
                           <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded border border-white/10 bg-white/10 text-sm">{world.icon || 'O'}</span>
                           <span className="min-w-0 flex-1">
-                            <span className="block truncate text-[11px] font-black uppercase tracking-[0.1em] text-white/80">{world.name}</span>
-                            <span className="mt-0.5 block text-[9px] uppercase tracking-[0.1em] text-white/35">{formatVisibility(world.visibility)}</span>
+                            <span className="block truncate text-[12px] font-black uppercase tracking-[0.1em] text-white/85">{world.name}</span>
+                            {multiplayer && <span className="mt-0.5 block text-[9px] uppercase tracking-[0.1em] text-white/35">{formatVisibility(world.visibility)}</span>}
                           </span>
                           {active && <span className="text-[9px] font-black uppercase tracking-[0.12em] text-cyan-100/70">here</span>}
-                        </button>
-                        <button
-                          onClick={() => handleExportWorld(world)}
-                          className="rounded-md border border-amber-200/18 bg-amber-200/8 px-2 text-[9px] font-black uppercase tracking-[0.12em] text-amber-100/80 transition hover:bg-amber-200/16 hover:text-amber-50"
-                          title={`Export ${world.name}`}
-                        >
-                          Export
                         </button>
                       </div>
                     )
@@ -947,7 +962,7 @@ export function WorldMenu({ actionLogControl }: { actionLogControl?: ReactNode }
           })()}
 
           {/* ░▒▓ PUBLIC WORLDS TAB — other users' worlds, filtered by visibility ▓▒░ */}
-          {worldTab === 'public' && (() => {
+          {tab === 'public' && publicFilter !== 'mine' && (() => {
             const filterVis = (world: WorldMeta): boolean => {
               const v = world.visibility
               if (world.id === WELCOME_HUB_WORLD_ID) return publicFilter === 'public'
@@ -958,20 +973,17 @@ export function WorldMenu({ actionLogControl }: { actionLogControl?: ReactNode }
               return false
             }
             const publicWorlds = worldRegistry.filter(w => filterVis(w))
-            const PILL: Array<{ key: 'public' | 'sandbox' | 'unlisted'; label: string; tip: string }> = [
-              { key: 'public', label: 'Public', tip: 'Visit and look around. Owner edits.' },
-              { key: 'sandbox', label: 'Sandbox', tip: 'Anyone can build.' },
-              { key: 'unlisted', label: 'Unlisted', tip: 'Link-only. Not in browse.' },
-            ]
+            const PILL = WORLD_PILLS
             return (
               <div className="mb-3 rounded-md border border-white/10 bg-white/5 p-2">
                 <div className="mb-2 flex flex-wrap gap-1">
                   {PILL.map(p => {
+                    if (p.key === 'mine') return <KitChip key={p.key} title={p.tip} onClick={() => setPublicFilter('mine')}>{p.label}</KitChip>
                     const active = publicFilter === p.key
                     return (
                       <button
                         key={p.key}
-                        onClick={() => setPublicFilter(p.key)}
+                        onClick={() => setPublicFilter(p.key as typeof publicFilter)}
                         title={p.tip}
                         className="rounded border px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] transition"
                         style={{
@@ -1018,7 +1030,7 @@ export function WorldMenu({ actionLogControl }: { actionLogControl?: ReactNode }
             )
           })()}
 
-          {worldTab === 'this' && (
+          {tab === 'this' && (
           <>
           {/* Scene controls (Sky / Ground / Lights / Paint / 3D Text) live in
               the Spellbook now — the rail's `Spells` button or `B`. */}
@@ -1224,6 +1236,9 @@ export function WorldMenu({ actionLogControl }: { actionLogControl?: ReactNode }
             </div>
           )}
           </>
+          )}
+          {!multiplayer && actionLogControl && (
+            <div className="mt-1 rounded-md border border-amber-300/15 bg-amber-300/5 p-2">{actionLogControl}</div>
           )}
         </div>
       )}

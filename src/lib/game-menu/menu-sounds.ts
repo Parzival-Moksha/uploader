@@ -3,6 +3,7 @@
 
 import { useAudioManager } from '@/lib/audio-manager'
 import { playSoundMoment } from '@/lib/sound-moments'
+import { isTryOn } from '@/lib/ui-kit/tries'
 import type { MenuSoundId } from './menu-store'
 
 export type MenuSoundEvent = 'hover' | 'leave' | 'click' | 'open' | 'close'
@@ -68,7 +69,7 @@ function noise(ctx: AudioContext, out: AudioNode, t0: number, length: number, ga
 
 type Recipe = (ctx: AudioContext, out: AudioNode, t: number) => void
 
-const RECIPES: Record<Exclude<MenuSoundId, 'classic' | 'off'>, Record<MenuSoundEvent, Recipe>> = {
+const RECIPES: Record<Exclude<MenuSoundId, 'studio' | 'classic' | 'off'>, Record<MenuSoundEvent, Recipe>> = {
   glass: {
     hover: (c, o, t) => { tone(c, o, t, { type: 'sine', from: 1320, to: 1480, length: 0.09, gain: 0.16 }); tone(c, o, t, { type: 'sine', from: 2640, length: 0.05, gain: 0.04 }) },
     leave: (c, o, t) => tone(c, o, t, { type: 'sine', from: 1980, to: 2100, length: 0.05, gain: 0.045 }),
@@ -117,6 +118,8 @@ export function playMenuSound(style: MenuSoundId, event: MenuSoundEvent): void {
   if (style === 'off') return
   const manager = useAudioManager.getState()
   if (manager.muted || manager.volume <= 0) return
+  // Hipster's try 'Quiet hovers' (Settings > Experiments): only the click sounds.
+  if ((event === 'hover' || event === 'leave') && isTryOn('quiet-hover')) return
   if (event === 'hover') {
     // Sweeping across the grid should tick, not buzz.
     const now = typeof performance !== 'undefined' ? performance.now() : 0
@@ -128,8 +131,8 @@ export function playMenuSound(style: MenuSoundId, event: MenuSoundEvent): void {
     const now = typeof performance !== 'undefined' ? performance.now() : 0
     if (now - lastClickAt < 70) return
     lastClickAt = now
-    // A menu confirm: the shipped 'ui-confirm' pick, in every menu sound style, when one is picked.
-    if (playSoundMoment('ui-confirm', 0.6)) return
+    // Studio clicks with the shipped 'ui-confirm' pick (the recorded click); the other sets with their own.
+    if (style === 'studio' && playSoundMoment('ui-confirm', 0.6)) return
   }
   if (style === 'classic') {
     playingClassic = true
@@ -146,6 +149,7 @@ export function playMenuSound(style: MenuSoundId, event: MenuSoundEvent): void {
   const master = ctx.createGain()
   master.gain.value = Math.min(1, manager.volume) * 0.6
   master.connect(ctx.destination)
-  RECIPES[style][event](ctx, master, ctx.currentTime + 0.005)
+  // Studio: Glass's ticks around the recorded click (and Glass's click if no recording is picked).
+  RECIPES[style === 'studio' ? 'glass' : style][event](ctx, master, ctx.currentTime + 0.005)
   window.setTimeout(() => { try { master.disconnect() } catch { /* already gone */ } }, 900)
 }

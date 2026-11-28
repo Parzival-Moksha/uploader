@@ -19,6 +19,8 @@ import { VillageImageViewer } from './VillageImageViewer'
 import { MarkdownReader } from './MarkdownReader'
 import { VillageMissionReader } from './VillageMissionReader'
 import { WorkVowHud } from './WorkVowHud'
+import { showNotice } from '../forge/GlobalNotice'
+import { PERMISSION_REMIND_MS, permissionLead } from '../../lib/village/village-decisions'
 import {
   VILLAGE_SESSION_LAYER,
   discardVillageCameraPose,
@@ -194,6 +196,29 @@ export function VillageController() {
       unsubscribe()
       setAttentionTitle(0)
     }
+  }, [])
+
+  // A permission still open after ten minutes reaches him again, once: the chime and a notice with the plain reason
+  // (the owner, 26 Nov: a delete check sat 3 h 20 min while the panel said bypass). The Telegram ping already goes
+  // out after two minutes when he is away (engine telegram.js), with the same words.
+  useEffect(() => {
+    const reminded = new Set<string>()
+    const look = () => {
+      const engine = useOasisStore.getState().agentEngine
+      const now = Date.now()
+      for (const id of engine.order) {
+        const agent = engine.agents[id]
+        for (const decision of agent?.decisions || []) {
+          if (decision.requestKind !== 'permission' || reminded.has(decision.requestId)) continue
+          if (now - decision.receivedAt < PERMISSION_REMIND_MS) continue
+          reminded.add(decision.requestId)
+          playVillageChime('needs-decision')
+          showNotice(`${agent.name} has waited ${Math.round((now - decision.receivedAt) / 60_000)} min for you: ${permissionLead(decision)}`, 'warn')
+        }
+      }
+    }
+    const timer = window.setInterval(look, 30_000)
+    return () => window.clearInterval(timer)
   }, [])
 
   // The one full-screen picture viewer (it portals itself into <body>), and the mission wall's prompt and reader.

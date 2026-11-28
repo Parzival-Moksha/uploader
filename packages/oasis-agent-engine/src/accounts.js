@@ -30,6 +30,7 @@
 // state file), for /health and the builders' pace. Pure enough to unit-test with a fake clock
 // (src/lib/__tests__/agent-engine-accounts.test.ts).
 import fs from 'node:fs';
+import { browserLine } from './browsers.js';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -291,6 +292,17 @@ export class Accounts {
       .map((a) => ({ id: a.id, token: a.token, env: this.envFor(a.id) }));
   }
 
+  /** Whether a Chrome is connected to this account (browsers.js): { count, at } or { count: null, reason, at }. */
+  setBrowsers(id, state) {
+    this.browsers = this.browsers || {};
+    this.browsers[this.aliasOf(id) || id] = state;
+    this.onChange();
+  }
+
+  browsersOf(id) {
+    return (this.browsers || {})[this.aliasOf(id) || id] || null;
+  }
+
   /** When this account's figures were last read (the newest window's reading, ms), or null. */
   readAt(id) {
     const w = this.state[this.aliasOf(id) || id]?.windows || {};
@@ -350,7 +362,9 @@ export class Accounts {
    * A pin, then the village default, else auto: the account whose week resets soonest, as long as it has room (its
    * 5-hour window not nearly full, its week not used up); then the next. An agent on a later account comes back as soon
    * as the first has room again. Claude in Chrome agents follow the same order among full logins (the CLI's own, or
-   * an account with a Claude folder of its own), and go to a token account only when no full login is left.
+   * an account with a Claude folder of its own), and go to a token account only when no full login is left; among the
+   * full logins, those with a Chrome connected come first (browsers.js), ahead of the village default too (27 Nov: the
+   * village default sent every Chrome agent to the login without the extension, and his phone said so).
    * (The owner, 24 Nov: "push toward using the account that resets next... so we never leave tokens on the table".)
    */
   choose({ pin = null, current = null, chrome = false } = {}, now = this.now()) {
@@ -359,15 +373,18 @@ export class Accounts {
     const resolve = (id) => (id && id !== 'auto' ? ok.find((a) => a.id === id || (id === CLI && a.id === this.aliasOf(CLI))) : null);
     const pinned = resolve(pin);
     if (pinned) return { id: pinned.id, label: pinned.label };
-    const byDefault = resolve(this.villageDefault);
-    if (byDefault) return { id: byDefault.id, label: byDefault.label };
     const canon = (id) => (id === CLI && this.aliasOf(CLI) ? this.aliasOf(CLI) : id);
     // Chrome: full logins only while there is one. The CLI login itself, never its token, even when one quota with one.
     let pool = ok;
     if (chrome) {
       const full = [...ok.filter((a) => a.configDir), ...(!this.isExhausted(CLI, now) ? [this.get(CLI)] : [])];
       if (full.length) pool = full.filter((a, i) => full.findIndex((b) => b.id === a.id) === i);
+      // Those with a Chrome connected, when any has one: the others cannot drive a browser at all.
+      const withBrowser = pool.filter((a) => (this.browsersOf(a.id)?.count || 0) > 0);
+      if (withBrowser.length) pool = withBrowser;
     }
+    const byDefault = resolve(this.villageDefault);
+    if (byDefault && pool.some((a) => a.id === byDefault.id)) return { id: byDefault.id, label: byDefault.label };
     const order = this.spendOrder(pool, now);
     const mine = current ? canon(current) : null;
     const pick = order.find((a) => this.hasRoom(a.id, now, canon(a.id) === mine || a.id === current)) || order[0];
@@ -455,6 +472,9 @@ export class Accounts {
         pace: a.id === CLI && aliased ? null : this.pace(a.id, now),
         readAt: this.readAt(a.id),
         fullLogin: this.isFullLogin(a.id),
+        // A Chrome to drive (browsers.js): only a full login can have one.
+        browser: this.isFullLogin(a.id) ? this.browsersOf(a.id) : null,
+        browserLine: this.isFullLogin(a.id) ? browserLine(this.browsersOf(a.id)) : null,
         // Which mode its agents run in (when they have none of their own) and where that comes from: the accounts card.
         permissions: permissionsLine(a, inheritedPermissions()),
       })),

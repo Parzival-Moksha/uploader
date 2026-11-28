@@ -10,7 +10,7 @@ import { useOasisStore } from '../../store/oasisStore'
 import { isDecisionInFlight, type EngineDecisionState } from '../../store/slices/agentEngineSlice'
 import type { EngineQuestion } from '../../lib/agent-engine-types'
 import { getAgentEngineClient } from '../../lib/agent-engine-client'
-import { clippedCharacters, describeSuggestion, permissionReviewText } from '../../lib/village/village-decisions'
+import { clippedCharacters, describeSuggestion, permissionLead, permissionReviewText } from '../../lib/village/village-decisions'
 import { showNotice } from '../forge/GlobalNotice'
 import { focusVillageAgent } from './village-actions'
 import { MODE_MEANING, switchAgentMode } from './agent-mode'
@@ -231,7 +231,8 @@ function PermissionForm({ agentId, decision }: { agentId: string; decision: Engi
 function compactSummary(decision: EngineDecisionState): string {
   if (decision.requestKind === 'question') return questionsOf(decision)[0]?.question || decision.summary || 'A question for you'
   if (decision.requestKind === 'plan') return 'A plan is ready for your approval'
-  return decision.summary || decision.toolName
+  // Claude Code's own reason first (a delete it cannot name asks even in bypass), never the command's first word.
+  return permissionLead(decision)
 }
 
 export function DecisionCard({ agentId, decision, compact }: { agentId: string; decision: EngineDecisionState; compact: boolean }) {
@@ -250,7 +251,7 @@ export function DecisionCard({ agentId, decision, compact }: { agentId: string; 
         </div>
       ) : (
         <>
-          {decision.requestKind === 'permission' && <div className="mb-1.5 text-[12px] font-semibold text-white">{decision.summary || decision.toolName}</div>}
+          {decision.requestKind === 'permission' && <div data-permission-lead className="mb-1.5 whitespace-pre-wrap break-words text-[12px] font-semibold text-white">{permissionLead(decision)}</div>}
           {decision.requestKind === 'question'
             ? <QuestionForm agentId={agentId} decision={decision} />
             : decision.requestKind === 'plan'

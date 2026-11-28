@@ -27,6 +27,17 @@ function up(port: number): Promise<boolean> {
 export async function GET(request: NextRequest) {
   const denied = guardAgentRoute(request)
   if (denied) return denied
+  // ?helpers=1: what runs under each agent that an engine restart would stop (the engine's /health; 27 Nov: Tyler's
+  // final encode died with a restart). The Restart button names them before it asks.
+  if (request.nextUrl.searchParams.get('helpers') === '1') {
+    try {
+      const res = await fetch(`http://127.0.0.1:${Number(process.env.OASIS_PORT || 4530)}/health`, { signal: AbortSignal.timeout(3000), cache: 'no-store' })
+      const body = await res.json() as { helpers?: Record<string, string[]> }
+      return NextResponse.json({ helpers: body.helpers || {} })
+    } catch {
+      return NextResponse.json({ helpers: null })
+    }
+  }
   try {
     const res = await fetch(`${SUPERVISOR}/status`, { signal: AbortSignal.timeout(2000), cache: 'no-store' })
     const body = await res.json()

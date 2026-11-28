@@ -28,6 +28,7 @@ import { FACE_MAX, faceHeightFrom } from '../../lib/village/village-layout'
 import { noteCameraEvent } from '../../lib/camera-blackbox'
 import { parseFollowPrefs, wantsCome, wantsFollow, withComeChoice, withFollowChoice, type FollowPrefs, type VisitSpot } from '../../lib/village/village-follow'
 import { SPOKEN_MAX_CHARS, cleanSpoken } from '../../lib/village/village-spoken'
+import { mayMakeLines, speaksByItself, voiceModeFrom, type VoiceMode } from '../../lib/village/voice-mode'
 import { fieldMap, voiceOps, voicesFromIdentity } from '../../lib/village/village-identity'
 import { getVillageIdentity, isVillageIdentityOffline, isVillageIdentityReady, queueVillageIdentity, subscribeVillageIdentity } from '../../lib/village/village-identity-client'
 import { dealVoice, parseVoicePrefs, playbackRateFor, speechSpeedPlan, speedOf, voiceChosenBy, voiceOf, withVoicePrefs, type VoicePrefs } from '../../lib/village/village-voices'
@@ -128,6 +129,28 @@ const arrivedAgents = new Set<string>()
 export function setVillageAwaySpot(agentId: string, spot: VisitSpot | null): void {
   if (spot) awaySpots.set(agentId, spot)
   else awaySpots.delete(agentId)
+}
+
+// The line beside the owner (blocked-walk.ts): every agent that came to him, with since when it waits; its place in
+// the line is how many waited longer. VillageStation writes it; the walkers pick their spot from it.
+const visitLine = new Map<string, number>()
+const visitLineListeners = new Set<() => void>()
+
+export function setVillageVisitLine(agentId: string, since: number | null): void {
+  if (since === null ? !visitLine.has(agentId) : visitLine.get(agentId) === since) return
+  if (since === null) visitLine.delete(agentId)
+  else visitLine.set(agentId, since)
+  visitLineListeners.forEach(listener => listener())
+}
+
+export function villageVisitLine(): ReadonlyMap<string, number> {
+  return visitLine
+}
+
+/** Someone joined or left the line: the others take their new places. */
+export function subscribeVillageVisitLine(listener: () => void): () => void {
+  visitLineListeners.add(listener)
+  return () => { visitLineListeners.delete(listener) }
 }
 
 /** Everyone else's spot, for pickVisitSpot. */
@@ -309,31 +332,45 @@ export function villageLipSyncId(agentId: string): string {
 
 // ─── mute (the speaker next to the chime's bell) ────────────────────────────
 
+// Three states (lib/village/voice-mode.ts; the owner, 27 Nov): Off (nothing is made or bought, no Play buttons),
+// On click (the default: nothing plays by itself, Play makes that one line), Auto (a line plays when he opens the agent).
 const VOICE_KEY = 'oasis.village.voice'
-let voiceOn: boolean | null = null
+let voiceMode: VoiceMode | null = null
 const voiceListeners = new Set<() => void>()
 
-/** The HUD switch: off = no agent speaks on its own (and nothing is generated). Play buttons still work. */
-export function isVillageVoiceOn(): boolean {
-  if (voiceOn === null) {
-    try {
-      voiceOn = window.localStorage.getItem(VOICE_KEY) !== 'off'
-    } catch {
-      voiceOn = true
-    }
+export function getVillageVoiceMode(): VoiceMode {
+  if (voiceMode === null) {
+    let saved: string | null = null
+    try { saved = window.localStorage.getItem(VOICE_KEY) } catch { saved = null }
+    voiceMode = voiceModeFrom(saved)
   }
-  return voiceOn
+  return voiceMode
 }
 
-export function setVillageVoiceOn(on: boolean): void {
-  voiceOn = on
+export function setVillageVoiceMode(next: VoiceMode): void {
+  voiceMode = next
   try {
-    window.localStorage.setItem(VOICE_KEY, on ? 'on' : 'off')
+    window.localStorage.setItem(VOICE_KEY, next)
   } catch {
     // Storage blocked: the choice lasts for this page only.
   }
-  if (!on) stopVillageSpeech()
+  if (next === 'off') stopVillageSpeech()
   voiceListeners.forEach(listener => listener())
+}
+
+/** Lines play by themselves (Auto): when he opens an agent, when one that came to him arrives. */
+export function isVillageVoiceOn(): boolean {
+  return speaksByItself(getVillageVoiceMode())
+}
+
+/** A line may be made at all (not Off): a Play press. */
+export function canVillageVoiceMake(): boolean {
+  return mayMakeLines(getVillageVoiceMode())
+}
+
+/** Older callers: on is Auto, off is Off. */
+export function setVillageVoiceOn(on: boolean): void {
+  setVillageVoiceMode(on ? 'auto' : 'off')
 }
 
 export function subscribeVillageVoice(listener: () => void): () => void {
@@ -586,9 +623,10 @@ export interface PreparedSpeech {
  * Make the clip for a line without playing it, and say how long it will take: a scene (the Council) can be
  * timed before anyone opens their mouth, and the line then starts at once. Costs what saying it would.
  */
-export async function prepareVillageSpeech(rawText: string, settings: AgentVoiceSettings): Promise<PreparedSpeech> {
+export async function prepareVillageSpeech(rawText: string, settings: AgentVoiceSettings, fromCouncil = false): Promise<PreparedSpeech> {
   const text = cleanSpoken(rawText, SPOKEN_MAX_CHARS)
   if (!text) throw new Error('nothing to say')
+  if (!fromCouncil && !canVillageVoiceMake()) throw new Error('voices are off')
   const plan = speechSpeedPlan(settings.speed)
   // Never wait for ever on a stalled request: a scene is waiting behind this.
   const clip = await Promise.race([
@@ -751,6 +789,11 @@ export async function speakVillageAgent(agentId: string, rawText: string, settin
     lastSpeech = { agentId, text, at: Date.now(), result: 'a Council is on: only its speakers talk' }
     return false
   }
+  // Voices Off: nothing is made or bought, not even by a Play press (a Council he started still speaks).
+  if (!fromCouncil && !canVillageVoiceMake()) {
+    lastSpeech = { agentId, text, at: Date.now(), result: 'voices are off: nothing made' }
+    return false
+  }
   stopVillageSpeech()
   const token = speechToken
   const askedAt = performance.now()
@@ -772,6 +815,8 @@ export async function speakVillageAgent(agentId: string, rawText: string, settin
     if ((context.state as AudioContextState) !== 'running') return fail('audio locked until a click or key press')
   }
   if (token !== speechToken) return false
+  // Its body must be here to say it (it plays from its head): look before a clip is bought, not after.
+  if (!noServerVoice && !speechSource(agentId)) return fail('no avatar in the scene: nothing made')
   setSpeech({ agentId, text, phase: 'loading' })
   const plan = speechSpeedPlan(settings.speed)
   let clip: Clip

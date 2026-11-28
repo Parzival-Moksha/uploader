@@ -414,7 +414,7 @@ async function speak(req: CouncilRequest, play: boolean): Promise<Record<string,
   if (!text) throw new CouncilError('nothing to say: give text, or next')
   const settings = voiceOfAgent(id)
   // The clip first: its length is known before a word is said.
-  const prepared = await prepareVillageSpeech(text, settings)
+  const prepared = await prepareVillageSpeech(text, settings, true)
   if (mine !== run) return { stopped: true }
   const info = { agentId: id, text: prepared.text, seconds: prepared.seconds, voice: prepared.voice, speed: settings.speed }
   if (!play) return info

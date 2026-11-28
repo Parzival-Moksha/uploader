@@ -28,7 +28,7 @@ export function GuideInvite() {
       <div className="mt-1.5 opacity-70">{GUIDE_INVITE_LINE}</div>
       {error && <div role="alert" className="mt-1.5 text-amber-200">{error}</div>}
       <button type="button" onClick={() => openVillagePicker(true)} className="mt-2 text-left opacity-55 underline decoration-dotted underline-offset-2 hover:opacity-90">
-        Or bring in one of your own Claude Code sessions
+        Or summon one of your own agents (Claude Code or Codex)
       </button>
     </div>
   )

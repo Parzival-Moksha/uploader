@@ -4,7 +4,8 @@
 // The owner (2026-11-19): "Summon an agent should be like one of the main things in the Oasis", "more like a game",
 // "left and right: new session or continue session", "three big input fields", the working folder "not a text
 // input field", "a default … you can change if you're advanced". One menu for every kind of agent:
-//   Claude Code and Hermes run in the agent engine; Codex and phone call are shown greyed with what is missing.
+//   Claude Code, Codex and Hermes run in the agent engine, each live when this machine has it (summon-runtimes.ts:
+//   the engine's `runtimes`), else one line saying what to install; phone call is shown greyed with what is missing.
 // Drawn with the Oasis UI kit (components/ui-kit, Hipster's): Settings switches every menu between Glass, Forged, Parchment, Rune.
 // The engine lists session metadata only (title, cwd, size, live badge); transcripts are replayed only on spawn.
 
@@ -22,6 +23,9 @@ import { takeSummonRequest, type SummonKind } from './summon-request'
 import { afterSummon } from './summon-arrival'
 import { START_PACKAGED } from '../../lib/connection-watch'
 import { SummonAvatarPicker, randomSummonAvatar } from './SummonAvatarPicker'
+import { CODEX_BODY, kindStates, useEngineRuntimes, type KindState, type SummonRuntime } from './summon-runtimes'
+import { ACP_MODE_LABEL, CODEX_MODES } from './agent-mode'
+import type { RuntimeReport } from '../../lib/village/runtime-check'
 import { cwdLabel, formatAgo, formatBytes } from './village-status'
 import { FolderBrowser } from './FolderBrowser'
 import { getKeychainState, keyStates, openKeychain, refreshKeychain, subscribeKeychain } from './keychain-store'
@@ -79,6 +83,8 @@ interface Remembered {
   model?: string
   claudeMode?: string
   hermesMode?: string
+  codexMode?: string
+  codexModel?: string
   account?: string
 }
 
@@ -99,10 +105,10 @@ function readHermesForm(): HermesRemote {
   }
 }
 
-interface SummonDefaults { home: string; workspace: string; hermes: { home: string; profiles: HermesProfile[] } }
+interface SummonDefaults { home: string; workspace: string; hermes: { home: string; profiles: HermesProfile[] }; runtimes?: RuntimeReport }
 let defaultsCache: SummonDefaults | null = null
 
-function useSummonDefaults(open: boolean): SummonDefaults | null {
+function useSummonDefaults(open: boolean, nonce = 0): SummonDefaults | null {
   const [value, setValue] = useState<SummonDefaults | null>(defaultsCache)
   useEffect(() => {
     if (!open) return
@@ -112,7 +118,7 @@ function useSummonDefaults(open: boolean): SummonDefaults | null {
       .then((data: SummonDefaults | null) => { if (data && live) { defaultsCache = data; setValue(data) } })
       .catch(() => { /* the folder line falls back to sessions */ })
     return () => { live = false }
-  }, [open])
+  }, [open, nonce])
   return value
 }
 
@@ -155,8 +161,10 @@ interface SpawnChoices {
 /** Spawn, then pin the account when one was picked (a new agent is idle, so it moves at once). */
 function spawnWith(args: SpawnAgentArgs, choices: SpawnChoices): Promise<EngineAgentSnapshot> {
   const client = getAgentEngineClient()
-  return client.spawnAgent(args).then(agent => {
-    if (args.runtime !== 'hermes' && choices.account && choices.account !== 'auto') {
+  // Codex's first summon may fetch its adapter first (engine): give it time.
+  const spawned = args.runtime === 'codex' ? client.cmd('spawnAgent', args, { timeoutMs: 10 * 60_000 }) : client.spawnAgent(args)
+  return spawned.then(agent => {
+    if ((!args.runtime || args.runtime === 'claude') && choices.account && choices.account !== 'auto') {
       client.setAccount(agent.id, choices.account).catch(error => showNotice(`It started, but the account could not be set: ${describeError(error)}`, 'error'))
     }
     return agent
@@ -191,40 +199,61 @@ function SummonFrame({ onClose, tall, children }: { onClose: () => void; tall: b
   )
 }
 
-const KINDS: Array<{ id: SummonKind; name: string; line: string; icon: string; picture: string; ready: boolean }> = [
-  { id: 'claude', name: 'Claude Code', line: 'Codes in a folder, on your Claude plan', icon: '✦', picture: `${TILE}/summon-claude-code.gpt2.webp`, ready: true },
-  { id: 'hermes', name: 'Hermes', line: 'Its own model, soul and memory', icon: '☿', picture: `${TILE}/summon-hermes.gpt2.webp`, ready: true },
-  { id: 'codex', name: 'Codex', line: 'Not in the engine yet', icon: '◈', picture: `${TILE}/summon-codex.gpt2.webp`, ready: false },
-  { id: 'phone', name: 'Phone call', line: 'Live voice: not in the engine yet', icon: '☏', picture: `${TILE}/summon-djinn.gpt2.webp`, ready: false },
+const KINDS: Array<{ id: SummonKind; name: string; icon: string; picture: string }> = [
+  { id: 'claude', name: 'Claude Code', icon: '✦', picture: `${TILE}/summon-claude-code.gpt2.webp` },
+  { id: 'codex', name: 'Codex', icon: '◈', picture: `${TILE}/summon-codex.gpt2.webp` },
+  { id: 'hermes', name: 'Hermes', icon: '☿', picture: `${TILE}/summon-hermes.gpt2.webp` },
+  { id: 'phone', name: 'Phone call', icon: '☏', picture: `${TILE}/summon-djinn.gpt2.webp` },
 ]
+const PHONE: KindState = { ready: false, line: 'Live voice: not in the engine yet', missing: '', hint: '', models: [], modes: [], defaultMode: '' }
 
-function KindTabs({ kind, onPick }: { kind: SummonKind; onPick: (kind: SummonKind) => void }) {
+function KindTabs({ kind, states, onPick }: { kind: SummonKind; states: Record<SummonRuntime, KindState>; onPick: (kind: SummonKind) => void }) {
   return (
     <div className="grid shrink-0 grid-cols-4 gap-2 max-[700px]:grid-cols-2" role="tablist" aria-label="Kind of agent">
       {KINDS.map(item => {
         const on = item.id === kind
+        const state = item.id === 'phone' ? PHONE : states[item.id]
+        const usable = state.ready !== false
         return (
           <KitTileButton
             key={item.id}
             role="tab"
             aria-selected={on}
             data-summon-kind={item.id}
+            data-summon-ready={state.ready === null ? 'checking' : String(state.ready)}
             onClick={() => onPick(item.id)}
             picture={item.picture}
             icon={item.icon}
             label={item.name}
-            sub={item.line}
+            sub={state.ready === null ? 'checking…' : state.line}
             selected={on}
-            badge={item.ready ? undefined : 'not yet'}
+            badge={usable ? undefined : item.id === 'phone' ? 'not yet' : 'install'}
             accent={ACCENT}
-            title={item.ready ? `Summon a ${item.name} agent` : `${item.name}: what is missing, and the keys it would use`}
+            title={usable ? `Summon a ${item.name} agent` : item.id === 'phone' ? `${item.name}: what is missing, and the keys it would use` : `${item.name}: ${state.missing}`}
             className="!min-h-[104px]"
-            style={item.ready || on ? undefined : { opacity: 0.6 }}
+            style={usable || on ? undefined : { opacity: 0.6 }}
           />
         )
       })}
     </div>
   )
+}
+
+/** A runtime this machine does not have yet: the one line that says what to do, and a way to look again. */
+function Missing({ name, state, onRecheck }: { name: string; state: KindState; onRecheck: () => void }) {
+  return (
+    <div className="flex flex-col gap-3 px-1 py-1" data-summon-missing>
+      <div className="text-[14px] font-black uppercase tracking-[0.12em]">{name} is not on this computer yet</div>
+      <div className="text-[14px] leading-relaxed">{renderTicks(state.missing)}</div>
+      <div className="text-[12px] opacity-60">The circle notices by itself a few seconds after it is done.</div>
+      <div><KitButton onClick={onRecheck}>Look again</KitButton></div>
+    </div>
+  )
+}
+
+/** `code` spans in a one-line message, shown as code. */
+function renderTicks(text: string): ReactNode {
+  return text.split('`').map((part, i) => (i % 2 ? <code key={i} className="rounded bg-black/30 px-1.5 py-0.5 font-mono text-[13px]">{part}</code> : <span key={i}>{part}</span>))
 }
 
 function HalfTabs({ half, onPick }: { half: 'new' | 'continue'; onPick: (half: 'new' | 'continue') => void }) {
@@ -467,6 +496,66 @@ function NewHermes({ folder, folderNote, onBrowse, profiles, hermesHome, choices
   )
 }
 
+const CODEX_MODE_CHOICES: Array<[string, string]> = CODEX_MODES.map(mode => [mode, ACP_MODE_LABEL[mode] || mode])
+
+function NewCodex({ folder, folderNote, onBrowse, state, mode, model, onMode, onModel, onDone, onError, extras }: {
+  extras?: ReactNode
+  folder: { path: string; create: boolean }
+  folderNote: string
+  onBrowse: () => void
+  state: KindState
+  mode: string
+  model: string
+  onMode: (mode: string) => void
+  onModel: (model: string) => void
+  onDone: (agentId: string, cwd: string) => void
+  onError: ErrorSink
+}) {
+  const [name, setName] = useState('')
+  const [busy, setBusy] = useState(false)
+  const ready = Boolean(folder.path.trim())
+  const submit = (createCwd = folder.create) => {
+    if (!ready) return
+    const cwd = folder.path.trim()
+    const args: SpawnAgentArgs = { runtime: 'codex', name: name.trim() || 'Codex', cwd, permissionMode: mode || state.defaultMode || 'agent' }
+    if (model) args.model = model
+    if (createCwd) args.createCwd = true
+    setBusy(true)
+    onError(null)
+    spawnWith(args, { model, permissionMode: mode, account: 'auto' })
+      .then(agent => onDone(agent.id, cwd))
+      .catch(error => {
+        const message = describeError(error)
+        if (!createCwd && message.startsWith('cwd does not exist')) {
+          onError({ message: `The folder ${cwd} does not exist yet.`, action: { label: 'Create it and summon', run: () => submit(true) } })
+        } else {
+          onError({ message: `Summoning failed: ${message}` })
+        }
+      })
+      .finally(() => setBusy(false))
+  }
+  return (
+    <form className="flex flex-col gap-4" data-summon-new="codex" onSubmit={event => { event.preventDefault(); submit() }}>
+      <KitTextField size="large" label="Name" value={name} autoFocus onChange={event => setName(event.target.value)} onKeyDown={stopKeys} placeholder="e.g. Jerry" />
+      <div className="grid grid-cols-2 gap-4 max-[700px]:grid-cols-1">
+        <KitSelectField size="large" label="Model" value={model} onChange={event => onModel(event.target.value)} onKeyDown={stopKeys} title="Codex's own models, as it named them at its last start.">
+          <option value="">{"Codex's default"}</option>
+          {state.models.map(option => <option key={option.value} value={option.value}>{option.displayName || option.value}</option>)}
+        </KitSelectField>
+        <ModeSelect value={mode || state.defaultMode || 'agent'} modes={state.modes.length ? state.modes : CODEX_MODE_CHOICES} onChange={onMode} />
+      </div>
+      {extras}
+      <div className="text-[12px] opacity-55">
+        Codex runs here on your own Codex sign-in (your ChatGPT plan or an API key). It has every Oasis world tool; it asks you first before anything that spends money or makes, clears or switches a world.{state.hint ? ` ${state.hint}` : ''}
+      </div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <FolderLine folder={folder.path} note={folderNote} onChange={onBrowse} />
+        <KitButton type="submit" variant="primary" disabled={busy || !ready} className="min-w-[160px] !py-3 !text-[14px]">{busy ? 'Summoning…' : 'Summon'}</KitButton>
+      </div>
+    </form>
+  )
+}
+
 // ─── continue session ───────────────────────────────────────────────────────
 
 function SessionRow({ session, choices, onDone, onError }: { session: EngineSessionMeta; choices: SpawnChoices; onDone: (agentId: string) => void; onError: ErrorSink }) {
@@ -637,22 +726,10 @@ function KeyChip({ id, label, have, onAdd }: { id: string; label: string; have: 
   )
 }
 
-function NotYet({ kind, onAddKey }: { kind: 'codex' | 'phone'; onAddKey: (id: string) => void }) {
+function NotYet({ onAddKey }: { onAddKey: (id: string) => void }) {
   const keychain = useKeychain()
   const states = keyStates(keychain)
   const have = (id: string): boolean | null => (keychain.scannedAt ? states.get(id) === 'have' : null)
-  if (kind === 'codex') {
-    const login = keychain.sources?.codexLogin || ''
-    return (
-      <div className="flex flex-col gap-3" data-summon-not-yet="codex">
-        <div className="px-1 py-1 text-[13px] leading-relaxed opacity-85">
-          <div className="mb-1 text-[14px] font-black uppercase tracking-[0.12em]">Coming: Codex agents</div>
-          A Codex agent cannot be summoned into the village yet. What is missing: a Codex runtime in the agent engine, which today runs only Claude Code and Hermes (it would drive the Codex CLI the way it drives Claude: a session, its messages, permissions and the world tools).
-        </div>
-        <KeyChip id="chatgpt" label={`ChatGPT login for Codex${login ? ` · ${login}` : ''}`} have={keychain.scannedAt ? Boolean(login) || have('chatgpt') === true : null} onAdd={onAddKey} />
-      </div>
-    )
-  }
   return (
     <div className="flex flex-col gap-3" data-summon-not-yet="phone">
       <div className="px-1 py-1 text-[13px] leading-relaxed opacity-85">
@@ -684,7 +761,10 @@ export function SessionPicker() {
       .filter(dir => Boolean(dir) && !seen.has(dir) && Boolean(seen.add(dir)))
       .slice(0, 8)
   }, [sessions.items])
-  const summonDefaults = useSummonDefaults(open)
+  const [recheck, setRecheck] = useState(0)
+  const summonDefaults = useSummonDefaults(open, recheck)
+  const engineRuntimes = useEngineRuntimes(open, connected, recheck)
+  const states = useMemo(() => kindStates(engineRuntimes.report, summonDefaults?.runtimes, engineRuntimes.refused), [engineRuntimes, summonDefaults])
   const [kind, setKind] = useState<SummonKind>('claude')
   // Cast as a spell: the new agent comes to stand in front of the caster (summon-arrival.ts).
   const [here, setHere] = useState(false)
@@ -693,6 +773,8 @@ export function SessionPicker() {
   const [half, setHalf] = useState<'new' | 'continue'>('new')
   const [claude, setClaude] = useState<SpawnChoices>({ model: '', permissionMode: '', account: 'auto' })
   const [hermesMode, setHermesMode] = useState('')
+  const [codexMode, setCodexMode] = useState('agent')
+  const [codexModel, setCodexModel] = useState('')
   const [lastCwd, setLastCwd] = useState('')
   const [pickedCwd, setPickedCwd] = useState('')
   const [browsing, setBrowsing] = useState(false)
@@ -712,10 +794,13 @@ export function SessionPicker() {
     setHalf(saved.half === 'continue' ? 'continue' : 'new')
     setClaude({ model: saved.model || '', permissionMode: saved.claudeMode || '', account: saved.account || 'auto' })
     setHermesMode(saved.hermesMode || '')
+    setCodexMode(saved.codexMode || 'agent')
+    setCodexModel(saved.codexModel || '')
     const request = takeSummonRequest()
-    setKind(request?.kind || (saved.kind === 'hermes' ? 'hermes' : 'claude'))
+    const startKind: SummonKind = request?.kind || (saved.kind === 'hermes' || saved.kind === 'codex' ? saved.kind : 'claude')
+    setKind(startKind)
     setHere(Boolean(request?.here))
-    setAvatar(randomSummonAvatar())
+    setAvatar(startKind === 'codex' ? CODEX_BODY : randomSummonAvatar())
     setRole('')
   }, [open])
 
@@ -742,7 +827,10 @@ export function SessionPicker() {
   const pickKind = (next: SummonKind) => {
     setKind(next)
     setError(null)
-    if (next === 'claude' || next === 'hermes') remember({ kind: next })
+    if (next === 'claude' || next === 'hermes' || next === 'codex') remember({ kind: next })
+    // A Codex villager has its own look, so it reads apart from a Claude one at a glance (still changeable below).
+    if (next === 'codex') setAvatar(CODEX_BODY)
+    else if (kind === 'codex' && avatar === CODEX_BODY) setAvatar(randomSummonAvatar())
   }
   const pickHalf = (next: 'new' | 'continue') => { setHalf(next); remember({ half: next }) }
   const setChoices = (patch: Partial<SpawnChoices>) => {
@@ -795,9 +883,30 @@ export function SessionPicker() {
         </div>
       ) : (
         <>
-          <KindTabs kind={kind} onPick={pickKind} />
-          {kind === 'codex' || kind === 'phone' ? (
-            <div className="min-h-0 flex-1 overflow-y-auto [scrollbar-width:thin]"><NotYet kind={kind} onAddKey={onAddKey} /></div>
+          <KindTabs kind={kind} states={states} onPick={pickKind} />
+          {kind === 'phone' ? (
+            <div className="min-h-0 flex-1 overflow-y-auto [scrollbar-width:thin]"><NotYet onAddKey={onAddKey} /></div>
+          ) : states[kind].ready === false ? (
+            <div className="min-h-0 flex-1 overflow-y-auto [scrollbar-width:thin]"><Missing name={KINDS.find(item => item.id === kind)?.name || kind} state={states[kind]} onRecheck={() => setRecheck(n => n + 1)} /></div>
+          ) : kind === 'codex' ? (
+            <>
+              <ErrorBox error={error} onClear={() => setError(null)} />
+              <div className="flex min-h-0 flex-1 flex-col overflow-y-auto pt-1 [scrollbar-width:thin]">
+                <NewCodex
+                  folder={folder}
+                  folderNote={folderNote}
+                  onBrowse={() => setBrowsing(true)}
+                  state={states.codex}
+                  mode={codexMode}
+                  model={codexModel}
+                  onMode={mode => { setCodexMode(mode); remember({ codexMode: mode }) }}
+                  onModel={model => { setCodexModel(model); remember({ codexModel: model }) }}
+                  onDone={onDone}
+                  onError={setError}
+                  extras={extras}
+                />
+              </div>
+            </>
           ) : (
             <>
               <HalfTabs half={half} onPick={pickHalf} />

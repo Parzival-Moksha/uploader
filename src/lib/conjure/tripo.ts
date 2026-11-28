@@ -105,10 +105,20 @@ function mapTripoStatus(status: TripoStatusResponse['data']['status']): ConjureS
 // Each tier maps to a Tripo model version. Higher tier = more polygons.
 // ═══════════════════════════════════════════════════════════════════════════
 
+// Tripo models come back huge without a limit (Animator, 27 Nov: a photo character at 1.43 million triangles, 44 MB,
+// 59 MB rigged, unwearable). face_limit caps them at the source: a character light enough to rig and wear, an object
+// light enough for a world. (Meshy already defaults to 30,000.)
+export const TRIPO_FACE_LIMIT = { character: 60_000, object: 100_000 }
+export function tripoFaceLimit(options?: { poseMode?: string }): number {
+  return options?.poseMode ? TRIPO_FACE_LIMIT.character : TRIPO_FACE_LIMIT.object
+}
+
 function tierToModelVersion(tier: string): string {
   switch (tier) {
-    case 'turbo':    return 'Turbo-v1.0-20250506'    // blazing fast, lower quality — time-sensitive apps
-    case 'draft':    return 'v2.0-20240919'          // fast, solid geometry + PBR
+    // Tripo's model list, 27 Nov 2026: v3.1 newest, v3.0 previous, v2.5 legacy; Turbo v1.0 and v2.0 are gone from it,
+    // so their old tier ids (kept on earlier models) now ask for v3.0.
+    case 'turbo':    return 'v3.0-20250812'
+    case 'draft':    return 'v3.0-20250812'
     case 'standard': return 'v2.5-20250123'          // balanced speed/quality
     case 'premium':  return 'v3.1-20260211'          // latest gen, sculpture-level precision
     default:         return 'v2.5-20250123'
@@ -207,6 +217,7 @@ export class TripoClient implements ConjureProviderClient {
       type: 'text_to_model',
       prompt: reinforcedPrompt,
       model_version: tierToModelVersion(tier),
+      face_limit: tripoFaceLimit(options),
       texture: true,
       pbr: true,
       out_format: 'glb',  // ░▒▓ EXPLICIT — never trust defaults after the FBX shapeshifter incident ▓▒░
@@ -381,12 +392,13 @@ export class TripoClient implements ConjureProviderClient {
    * imageToThreeD — Upload image + create image_to_model task
    * Supports base64 data URIs (from drag-and-drop) and public URLs.
    */
-  async imageToThreeD(imageUrl: string, tier: string, _options?: CharacterGenerationOptions): Promise<{ taskId: string }> {
+  async imageToThreeD(imageUrl: string, tier: string, options?: CharacterGenerationOptions): Promise<{ taskId: string }> {
     console.log(`[Forge:Tripo] Starting image-to-3D: ${imageUrl.slice(0, 60)}...`)
 
     const body: Record<string, unknown> = {
       type: 'image_to_model',
       model_version: tierToModelVersion(tier),
+      face_limit: tripoFaceLimit(options),
       texture: true,
       pbr: true,
       out_format: 'glb',  // ░▒▓ EXPLICIT — same shapeshifter defense as text_to_model ▓▒░

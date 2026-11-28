@@ -204,6 +204,21 @@ export function AcademySheet({ skill, content, trainee, trainees }: { skill: Aca
         <Label>What it is</Label>
         <div className="mb-3 text-[13.5px] text-white">{skill.what}</div>
 
+        {skill.menu && skill.menu.length > 0 && (
+          <>
+            {/* What the skill unlocks: the choices the agent now offers and asks you about. */}
+            <Label>It asks you</Label>
+            <div data-academy-menu className="mb-3 flex flex-col gap-1">
+              {skill.menu.map(item => (
+                <div key={item.label} className="rounded-md border border-white/10 bg-white/5 px-2 py-1">
+                  <span className="font-bold" style={{ color }}>{item.label}</span>
+                  <span className="text-white/85"> · {item.options}</span>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
         <div className="mb-1 flex items-center justify-between gap-2">
           <Label>Say this to your agent</Label>
           <button

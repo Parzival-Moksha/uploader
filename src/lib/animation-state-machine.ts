@@ -50,6 +50,9 @@ const DEFAULT_CONFIG: Required<AnimationControllerConfig> = {
 // ANIMATION CONTROLLER — one per character
 // ═══════════════════════════════════════════════════════════════════════════
 
+/** The jog's lean clips (UAL1 Pro), by the side it leans to. */
+const LEAN_CLIPS = { left: 'ualpro-1-Jog_Fwd_LeanL_Loop', right: 'ualpro-1-Jog_Fwd_LeanR_Loop' } as const
+
 export class AnimationController {
   private mixer: THREE.AnimationMixer
   private vrm: VRM
@@ -83,6 +86,13 @@ export class AnimationController {
 
   // Ready flag — true when at least idle clip is loaded
   public ready = false
+
+  /**
+   * Jogging into a turn (the owner, 26 Nov: "we have jog forward lean right and lean left... maybe those could be
+   * implemented"): while a side is set, the run state plays that side's lean clip (UAL1 Pro, CC0), paced like the run.
+   */
+  private lean: 'left' | 'right' | null = null
+  private playingRunClip: string | null = null
 
   constructor(vrm: VRM, config?: AnimationControllerConfig) {
     this.vrm = vrm
@@ -191,6 +201,8 @@ export class AnimationController {
     let clipId: string
     if (state === 'custom' && customAnimId) {
       clipId = customAnimId
+    } else if (state === 'run' && this.lean && this.clips.has(LEAN_CLIPS[this.lean])) {
+      clipId = LEAN_CLIPS[this.lean]
     } else {
       clipId = state
     }
@@ -217,8 +229,8 @@ export class AnimationController {
       return
     }
 
-    // Already playing this state? Skip.
-    if (this.currentAction && this.currentState === state && (state !== 'custom' || this.customAnimId === customAnimId)) {
+    // Already playing this state? Skip. (A run that changes its lean is not the same clip.)
+    if (this.currentAction && this.currentState === state && (state !== 'custom' || this.customAnimId === customAnimId) && (state !== 'run' || this.playingRunClip === clipId)) {
       return
     }
 
@@ -249,6 +261,17 @@ export class AnimationController {
 
     this.currentAction = newAction
     this.currentState = state
+    this.playingRunClip = state === 'run' ? clipId : null
+  }
+
+  /** Lean into a turn while running (null: straight). Loads the lean clip the first time; a run playing now follows. */
+  setLean(side: 'left' | 'right' | null): void {
+    if (side === this.lean || this.disposed) return
+    this.lean = side
+    if (side && !this.clips.has(LEAN_CLIPS[side])) {
+      void this.loadClip(LEAN_CLIPS[side]).then(() => { if (this.lean === side && this.currentState === 'run') this.transitionTo('run') })
+    }
+    if (this.currentState === 'run') this.transitionTo('run')
   }
 
   // ── ROOT MOTION ──────────────────────────────────────────────────────

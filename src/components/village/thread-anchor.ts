@@ -60,7 +60,11 @@ export function anchorOf(scroller: HTMLElement, now = Date.now()): ThreadAnchor 
 
 /** Scroll so the anchored item sits where it was. False when it is not in the thread (yet). */
 export function scrollToAnchor(scroller: HTMLElement, anchor: ThreadAnchor): boolean {
+  // A folded tool run ("run:<its first call>") gets another key when older calls join it: its first call is still in
+  // whichever group holds it now (data-thread-entries, AgentSessionView).
+  const entry = anchor.key.startsWith('run:') ? anchor.key.slice(4) : anchor.key
   const el = scroller.querySelector<HTMLElement>(`[data-thread-key="${CSS.escape(anchor.key)}"]`)
+    ?? scroller.querySelector<HTMLElement>(`[data-thread-entries~="${CSS.escape(entry)}"]`)
   if (!el) return false
   const top = scroller.getBoundingClientRect().top
   scroller.scrollTop += el.getBoundingClientRect().top - top - anchor.offset

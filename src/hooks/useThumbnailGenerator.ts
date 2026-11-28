@@ -18,6 +18,7 @@ import * as THREE from 'three'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 import { ASSET_CATALOG } from '../components/scene-lib/constants'
 import type { CraftedScene, CraftedPrimitive, PrimitiveType } from '../lib/conjure/types'
+import { hasLocalCraftedThumb, rememberLocalCraftedThumb } from '../lib/forge/crafted-thumb-local'
 
 const OASIS_BASE = process.env.NEXT_PUBLIC_BASE_PATH || ''
 const THUMB_SIZE = 256                              // px — square thumbnail
@@ -416,6 +417,9 @@ export async function generateSingleCraftedThumbnail(scene: CraftedScene): Promi
       // Also persist to global scene library so it survives world switches
       persistThumbnailToLibrary(scene.id, data.thumbnailUrl)
       console.log(`[Forge:CraftedThumb] Generated thumbnail for "${scene.name}"`)
+    } else {
+      // The server would not keep it (the deployed Oasis): this page keeps the picture instead.
+      rememberLocalCraftedThumb(scene.id, blob)
     }
   } catch (err) {
     console.warn(`[Forge:CraftedThumb] Failed for ${scene.id}:`, err)
@@ -462,7 +466,7 @@ function collectCraftedScenesNeedingThumbs(): CraftedScene[] {
   }
 
   return [...merged.values()].filter(scene =>
-    !scene.thumbnailUrl && (scene.objects?.length || 0) > 0
+    !scene.thumbnailUrl && !hasLocalCraftedThumb(scene.id) && (scene.objects?.length || 0) > 0
   )
 }
 
@@ -533,6 +537,9 @@ async function generateCraftedThumbnails() {
         })
         // Persist to global library
         persistThumbnailToLibrary(scene.id, data.thumbnailUrl)
+        generated++
+      } else {
+        rememberLocalCraftedThumb(scene.id, blob)
         generated++
       }
     } catch (err) {

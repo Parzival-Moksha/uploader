@@ -9,11 +9,12 @@ import { getAgentEngineClient } from '../../lib/agent-engine-client'
 import { effortLevelsFor } from '../../lib/village/village-effort'
 import { showNotice } from '../forge/GlobalNotice'
 import { KitSelectField } from '@/components/ui-kit'
+import { isAcpRuntime } from '../../lib/agent-engine-types'
 
 export function EffortSelect({ agent }: { agent: EngineAgentState }) {
   const [busy, setBusy] = useState(false)
   // A Hermes agent has no effort setting (engine hermes.js refuses setEffort).
-  if (!agent.owned || agent.runtime === 'hermes') return null
+  if (!agent.owned || isAcpRuntime(agent.runtime)) return null
   const levels = effortLevelsFor(agent)
   if (!levels.length && !agent.effort) return null // this model has no effort setting
   const current = agent.effort || ''

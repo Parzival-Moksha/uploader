@@ -77,6 +77,9 @@ const VOICE_TRACKS = [
 // worlds; before 25 Nov every clip went through Mixamo's, and the free packs' clips left the body in its T-pose.
 // The pivot is the body's middle; a right drag moves it up and down (the face, the feet), the wheel zooms to it.
 
+/** A dance waiting for the owner's rating (/api/dance-review): 1 to 5, 0 = no, null = not rated yet. */
+interface ReviewClip { id: string; filename: string; label: string; rating: number | null }
+
 /** Where the camera looks from: in front, a little to the right and above (the thumbnails use the same). */
 const VIEW_DIRECTION = new THREE.Vector3(0.42, 0.32, 1).normalize()
 
@@ -494,6 +497,30 @@ export function AvatarGallery({ currentAvatarUrl, onSelect, onClose }: AvatarGal
 
   const [animationId, setAnimationId] = useState<string | null>(null)
   const [animCategory, setAnimCategory] = useState<AnimCategory>('dance')
+  // Dances waiting for the owner's verdict (/api/dance-review): a Review tab, a rating for each.
+  const [reviewClips, setReviewClips] = useState<ReviewClip[]>([])
+  useEffect(() => {
+    let live = true
+    fetch('/api/dance-review').then(r => (r.ok ? r.json() : { clips: [] })).then((data: { clips?: ReviewClip[] }) => {
+      if (!live || !Array.isArray(data.clips)) return
+      for (const clip of data.clips) {
+        if (!ANIMATION_LIBRARY.some(a => a.id === clip.id)) ANIMATION_LIBRARY.push({ id: clip.id, filename: clip.filename, label: clip.label, category: 'review' })
+      }
+      setReviewClips(data.clips)
+    }).catch(() => {})
+    return () => { live = false }
+  }, [])
+  const rateClip = useCallback((id: string, rating: number) => {
+    setReviewClips(clips => {
+      const next = clips.map(clip => (clip.id === id ? { ...clip, rating } : clip))
+      // On to the next one not rated yet (after this one, then from the top).
+      const at = next.findIndex(clip => clip.id === id)
+      const following = [...next.slice(at + 1), ...next.slice(0, at)].find(clip => clip.rating === null)
+      if (following) setAnimationId(following.id)
+      return next
+    })
+    void fetch('/api/dance-review', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, rating }) }).catch(() => {})
+  }, [])
 
   const [voicePlaying, setVoicePlaying] = useState(false)
   const [voiceError, setVoiceError] = useState<string | null>(null)
@@ -664,6 +691,8 @@ export function AvatarGallery({ currentAvatarUrl, onSelect, onClose }: AvatarGal
   if (typeof document === 'undefined') return null
 
   const filteredAnims = ANIMATION_LIBRARY.filter(a => a.category === animCategory)
+  const reviewing = reviewClips.find(clip => clip.id === animationId) ?? null
+  const ratedCount = reviewClips.filter(clip => clip.rating !== null).length
   const previewSizeBytes = allAvatars.find(avatar => avatar.file === previewAvatar?.file)?.sizeBytes ?? previewAvatar?.sizeBytes
 
   return createPortal(
@@ -1048,7 +1077,7 @@ export function AvatarGallery({ currentAvatarUrl, onSelect, onClose }: AvatarGal
                       )}
                     </div>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 8 }}>
-                      {ANIM_CATEGORIES.map(cat => (
+                      {[...ANIM_CATEGORIES, ...(reviewClips.length ? [{ id: 'review' as AnimCategory, label: `Review ${ratedCount}/${reviewClips.length}`, icon: '⭐' }] : [])].map(cat => (
                         <button
                           key={cat.id}
                           onClick={() => setAnimCategory(cat.id)}
@@ -1091,10 +1120,40 @@ export function AvatarGallery({ currentAvatarUrl, onSelect, onClose }: AvatarGal
                             title={anim.label}
                           >
                             {isActive ? '▶ ' : ''}{anim.label}
+                            {anim.category === 'review' && (() => {
+                              const rating = reviewClips.find(clip => clip.id === anim.id)?.rating
+                              return rating === null || rating === undefined ? null : <span style={{ color: rating ? '#fbbf24' : '#f87171' }}>{rating ? ` ${'★'}${rating}` : ' ✕'}</span>
+                            })()}
                           </button>
                         )
                       })}
                     </div>
+                    {animCategory === 'review' && (
+                      <div style={{ marginTop: 10, fontSize: 10, color: '#94a3b8', fontFamily: 'monospace' }}>
+                        {reviewing ? (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
+                            <span style={{ color: '#e2e8f0', marginRight: 4 }}>Rate {reviewing.label}:</span>
+                            {[0, 1, 2, 3, 4, 5].map(value => (
+                              <button
+                                key={value}
+                                onClick={() => rateClip(reviewing.id, value)}
+                                title={value === 0 ? 'No: leave it out' : `${value} of 5`}
+                                style={{
+                                  fontSize: 11, padding: '3px 8px', borderRadius: 6, cursor: 'pointer', fontFamily: 'monospace',
+                                  background: reviewing.rating === value ? 'rgba(251,191,36,0.25)' : 'rgba(255,255,255,0.03)',
+                                  color: value === 0 ? '#f87171' : '#fbbf24',
+                                  border: `1px solid ${reviewing.rating === value ? 'rgba(251,191,36,0.6)' : 'rgba(148,163,184,0.15)'}`,
+                                }}
+                              >
+                                {value === 0 ? 'No' : '★'.repeat(value)}
+                              </button>
+                            ))}
+                          </div>
+                        ) : (
+                          <span>Dances from the CMU motion-capture pack (free to ship, never sold). Pick one, rate it 1 to 5 or No; the next one starts. {ratedCount}/{reviewClips.length} rated.</span>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {/* ═══ Voice + lipsync play button ═══ */}

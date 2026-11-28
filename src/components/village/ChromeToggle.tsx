@@ -11,6 +11,7 @@ import type { EngineAgentState } from '../../store/slices/agentEngineSlice'
 import { getAgentEngineClient } from '../../lib/agent-engine-client'
 import { showNotice } from '../forge/GlobalNotice'
 import { KitToggle } from '@/components/ui-kit'
+import { isAcpRuntime } from '../../lib/agent-engine-types'
 
 const APPLIED: Record<string, string> = {
   now: 'it restarts now (same session)',
@@ -21,7 +22,7 @@ const APPLIED: Record<string, string> = {
 export function ChromeToggle({ agent }: { agent: EngineAgentState }) {
   const [busy, setBusy] = useState(false)
   // Claude in Chrome is a Claude Code feature: a Hermes agent has none.
-  if (!agent.owned || agent.runtime === 'hermes') return null
+  if (!agent.owned || isAcpRuntime(agent.runtime)) return null
   const on = agent.chrome === true
   const label = on
     ? 'Chrome on: this agent can use your Chrome through the Claude in Chrome extension, under its permission mode like your other sessions. Click to turn off (restarts it).'

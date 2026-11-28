@@ -6,6 +6,7 @@
 // Ported from Tyler (C:/7f_Tyler/Tyler/public/js/ears.js).
 
 import { withLocalToken } from '../local-token'
+import { openMicrophone } from './mic-device'
 import { resolveAgentEngineUrl } from '../agent-engine-client'
 import { getVoiceTypingEngine, type VoiceTypingEngine } from './voice-typing-engine'
 
@@ -111,7 +112,8 @@ export async function startLiveDictation(handlers: LiveDictationHandlers): Promi
 
   const idle: LiveDictation = { stop() {}, cancel() {} }
   try {
-    stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true } })
+    // The input chosen in Settings > Sound > Microphone (mic-device.ts), else the system default.
+    stream = await openMicrophone({ channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true })
   } catch {
     finish()
     throw new Error("No microphone here, or the browser isn't allowed to use it (click the icon left of the address)")

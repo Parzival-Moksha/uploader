@@ -279,8 +279,10 @@ export class Normalizer {
     if (c.started) return;
     const description = input.description || c.description || '';
     const subagentType = input.subagent_type || c.subagentType || 'general-purpose';
-    this.agentCalls.set(toolUseId, { ...c, started: true, taskId: taskId || c.taskId, background: c.background ?? input.run_in_background !== false, description, subagentType });
-    this.emit('subagent.start', { toolUseId, taskId: taskId || c.taskId || null, description, subagentType, prompt: clip(input.prompt || '', 600), model: input.model || null });
+    const background = c.background ?? input.run_in_background !== false;
+    this.agentCalls.set(toolUseId, { ...c, started: true, startedAt: c.startedAt || Date.now(), taskId: taskId || c.taskId, background, description, subagentType });
+    // background: the parent goes on working beside it (agent-hours.js does not cut it from the parent's turn).
+    this.emit('subagent.start', { toolUseId, taskId: taskId || c.taskId || null, description, subagentType, prompt: clip(input.prompt || '', 600), model: input.model || null, background });
   }
 
   endSubagent(toolUseId, { status, summary, usage }) {
@@ -293,6 +295,21 @@ export class Normalizer {
     this.agentCalls.delete(toolUseId);
     if (c.taskId) this.taskToTool.delete(c.taskId);
     for (const [alias, target] of this.runAliases) if (target === toolUseId) this.runAliases.delete(alias);
+  }
+
+  /**
+   * Its subagents still running, for the snapshot (Companion, 27 Nov: a page that reloads ignores replayed
+   * subagent.start on purpose, so a helper started before the reload stayed invisible until it ended).
+   */
+  runningSubagents() {
+    return [...this.agentCalls].filter(([, c]) => c.started && !c.ended).map(([toolUseId, c]) => ({
+      toolUseId, taskId: c.taskId || null, description: c.description || null, subagentType: c.subagentType || 'general-purpose', startedAt: c.startedAt || null, background: Boolean(c.background),
+    }));
+  }
+
+  /** What its subagents still running are doing (their descriptions): a restart or a move would end them. */
+  openSubagents() {
+    return [...this.agentCalls.values()].filter((c) => c.started && !c.ended).map((c) => c.description || c.subagentType || 'a helper');
   }
 
   /** The process is gone (stopped, restarted, moved away): its subagents went with it. */
@@ -334,11 +351,11 @@ export class Normalizer {
       this.runAliases.set(b.id, run.toolUseId);
       while (this.runAliases.size > MAX_AGENT_RUNS) this.runAliases.delete(this.runAliases.keys().next().value);
       if (this.agentCalls.get(run.toolUseId)?.started) continue; // still running
-      this.agentCalls.set(run.toolUseId, { started: true, taskId: run.taskId, background: true, description: run.description, subagentType: run.subagentType });
+      this.agentCalls.set(run.toolUseId, { started: true, startedAt: Date.now(), taskId: run.taskId, background: true, description: run.description, subagentType: run.subagentType });
       if (run.taskId) this.taskToTool.set(run.taskId, run.toolUseId);
       this.emit('subagent.start', {
         toolUseId: run.toolUseId, taskId: run.taskId || null, description: run.description, subagentType: run.subagentType || 'general-purpose',
-        prompt: clip(typeof b.input?.message === 'string' ? b.input.message : '', 600), resumed: true,
+        prompt: clip(typeof b.input?.message === 'string' ? b.input.message : '', 600), resumed: true, background: true,
       });
     }
   }

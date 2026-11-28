@@ -20,6 +20,7 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { join } from 'node:path'
+import { CRAFT_TEXTURE_PRESETS as CRAFT_TEXTURE_LIBRARY } from '../forge/craft-textures'
 
 import { prisma } from '../db'
 import { ASSET_CATALOG, resolveCatalogAssetDefinition } from '@/components/scene-lib/constants'
@@ -31,7 +32,9 @@ import { googleFormSpecToJourneyGroundTiles, googleFormSpecToSpatialWebObjects, 
 import {
   PORTAL_GATE_VARIANTS,
   WELCOME_HUB_WORLD_ID,
+  isPortalPartnerOf,
   layoutPortalAreaGates,
+  portalPartnerWorldId,
   portalRotationTowardCenter,
   type PortalAction,
   type PortalGate,
@@ -2201,10 +2204,9 @@ function normalizeCraftModel(value: unknown): string {
 const CRAFT_GEOMETRY_TYPES = ['box', 'sphere', 'cylinder', 'cone', 'torus', 'plane', 'capsule', 'text'] as const
 const CRAFT_SHADER_TYPES = ['flame', 'flag', 'crystal', 'water', 'particle_emitter', 'glow_orb', 'aurora'] as const
 const CRAFT_ANIMATION_TYPES = ['rotate', 'bob', 'pulse', 'swing', 'orbit'] as const
-const CRAFT_TEXTURE_PRESETS = [
-  'stone', 'cobblestone', 'marble', 'concrete', 'rock', 'grass', 'sand', 'dirt', 'snow', 'metal', 'gravel', 'forest-floor',
-  'kn-planks', 'kn-cobblestone', 'kn-roof', 'kn-wall', 'kn-asphalt', 'kn-concrete', 'kn-metal', 'kn-rock',
-] as const
+// Every texture the craft library has (src/lib/forge/craft-textures.ts), with what it shows and suits.
+const CRAFT_TEXTURE_PRESETS = CRAFT_TEXTURE_LIBRARY.map(p => p.id)
+const CRAFT_TEXTURE_GUIDE = Object.fromEntries(CRAFT_TEXTURE_LIBRARY.map(p => [p.id, p.use || p.name]))
 
 const SELF_CRAFT_GUIDE = {
   strategyDefault: 'agent',
@@ -2212,6 +2214,7 @@ const SELF_CRAFT_GUIDE = {
   shaderTypes: CRAFT_SHADER_TYPES,
   animationTypes: CRAFT_ANIMATION_TYPES,
   texturePresets: CRAFT_TEXTURE_PRESETS,
+  textureUses: CRAFT_TEXTURE_GUIDE,
   requiredFields: ['type', 'position', 'scale', 'color'],
   optionalFields: [
     'rotation', 'metalness', 'roughness', 'opacity', 'emissive', 'emissiveIntensity',
@@ -2721,6 +2724,8 @@ tools.remove_object = async (args) => {
   const beforeAvatars = state.agentAvatars?.length || 0
   const beforeSpatial = state.spatialWebObjects?.length || 0
   const beforeAgentWindows = state.agentWindows?.length || 0
+  // Portal gates too (27 Nov: query_objects listed them, remove_object said "not found in world"), with their partner.
+  const removedGate = (state.portalGates || []).find(gate => gate.id === objectId)
   const linkedAvatarIds = new Set(
     (state.agentAvatars || [])
       .filter(avatar => avatar.linkedWindowId === objectId)
@@ -2733,12 +2738,17 @@ tools.remove_object = async (args) => {
     || validPos((state.spatialWebObjects || []).find(object => object.id === objectId)?.position)
     || validPos((state.agentAvatars || []).find(a => a.id === objectId)?.position)
     || validPos((state.agentWindows || []).find(window => window.id === objectId)?.position)
+    || validPos(removedGate?.position)
 
   state.catalogPlacements = (state.catalogPlacements || []).filter(p => p.id !== objectId)
   state.craftedScenes = (state.craftedScenes || []).filter(s => s.id !== objectId)
   state.agentAvatars = (state.agentAvatars || []).filter(a => a.id !== objectId && a.linkedWindowId !== objectId)
   state.spatialWebObjects = (state.spatialWebObjects || []).filter(object => object.id !== objectId)
   state.agentWindows = (state.agentWindows || []).filter(window => window.id !== objectId)
+  // A gate's partner may stand in this same world (a gate between two places here): it goes too.
+  const partnersHere = removedGate ? (state.portalGates || []).filter(gate => isPortalPartnerOf(gate, removedGate)).map(gate => gate.id) : []
+  if (removedGate) state.portalGates = (state.portalGates || []).filter(gate => gate.id !== objectId && !partnersHere.includes(gate.id))
+  for (const id of partnersHere) delete state.transforms[id]
   delete state.transforms[objectId]
   for (const avatarId of linkedAvatarIds) delete state.transforms[avatarId]
   if (state.behaviors) delete state.behaviors[objectId]
@@ -2748,7 +2758,8 @@ tools.remove_object = async (args) => {
     (beforeCrafted - (state.craftedScenes?.length || 0)) +
     (beforeAvatars - (state.agentAvatars?.length || 0)) +
     (beforeSpatial - (state.spatialWebObjects?.length || 0)) +
-    (beforeAgentWindows - (state.agentWindows?.length || 0))
+    (beforeAgentWindows - (state.agentWindows?.length || 0)) +
+    (removedGate ? 1 : 0)
   if (removed === 0) return { ok: false, message: `Object ${objectId} not found in world.` }
 
   await saveWorldState(worldId, state)
@@ -2758,7 +2769,37 @@ tools.remove_object = async (args) => {
     ...(removedPosition ? { position: removedPosition } : {}),
     ...mutationActorData(args),
   })
-  return { ok: true, message: `Removed ${objectId}.` }
+  for (const id of partnersHere) emitWorldEvent('object_removed', worldId, { objectId: id, ...mutationActorData(args) })
+  const partnersThere = removedGate ? await removePortalPartnerElsewhere(removedGate, worldId, args) : null
+  const gone = [...partnersHere, ...(partnersThere?.ids || [])]
+  return {
+    ok: true,
+    message: gone.length
+      ? `Removed ${objectId} and its partner ${gone.join(', ')}${partnersThere?.ids.length ? ` in ${partnersThere.worldId}` : ''}.`
+      : `Removed ${objectId}.`,
+    ...(removedGate ? { data: { portal: objectId, partners: gone, ...(partnersThere?.ids.length ? { partnerWorldId: partnersThere.worldId } : {}) } } : {}),
+  }
+}
+
+/** The way back of a removed gate, in the world it led to (its partner by id or link only). The world itself stays. */
+async function removePortalPartnerElsewhere(gate: PortalGate, fromWorldId: string, args: Record<string, unknown>): Promise<{ worldId: string; ids: string[] } | null> {
+  const targetWorldId = portalPartnerWorldId(gate)
+  if (!targetWorldId || targetWorldId === fromWorldId) return null
+  try {
+    return await withWorldLock(targetWorldId, async () => {
+      const target = await loadWorldById(targetWorldId)
+      const ids = (target.portalGates || []).filter(candidate => isPortalPartnerOf(candidate, gate)).map(candidate => candidate.id)
+      if (!ids.length) return { worldId: targetWorldId, ids }
+      target.portalGates = (target.portalGates || []).filter(candidate => !ids.includes(candidate.id))
+      for (const id of ids) delete target.transforms?.[id]
+      await saveWorldState(targetWorldId, target)
+      for (const id of ids) emitWorldEvent('object_removed', targetWorldId, { objectId: id, ...mutationActorData(args) })
+      return { worldId: targetWorldId, ids }
+    })
+  } catch {
+    // The world it led to is gone or not ours to write: the gate here is removed all the same.
+    return null
+  }
 }
 
 tools.set_sky = async (args) => {
@@ -3426,10 +3467,10 @@ tools.load_world = async (args) => {
   return { ok: true, message: `Loaded world ${worldId}. Browser should switch momentarily.`, data: { worldId, objectCount: (state.catalogPlacements?.length || 0) + (state.craftedScenes?.length || 0) } }
 }
 
-tools.create_world = async (args) => {
+// A new empty world for the tool caller. Moving the owner's page into it is a separate, explicit step (create_world's
+// load, or load_world): an agent making a world never pulls him along by itself (Anorak, 27 Nov).
+async function createToolWorld(name: string, icon: string): Promise<{ worldId: string; shortCode: string | null; name: string }> {
   const context = currentToolContext()
-  const name = validStr(args.name, 'New World')
-  const icon = validStr(args.icon, '🌍')
   const id = `world-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
   const now = new Date()
 
@@ -3455,11 +3496,73 @@ tools.create_world = async (args) => {
     }
   }
   if (!created) throw new Error('Could not create world with a unique short code.')
-
-  emitWorldEvent('world_switch', id, { targetWorldId: id, ...mutationActorData(args) })
-  return { ok: true, message: `Created world "${name}" (${id}). Browser switching now.`, data: { worldId: id, shortCode, name } }
+  return { worldId: id, shortCode, name }
 }
-tools.create_and_load_world = tools.create_world
+
+// create_world: makes the world and stays where the owner is, unless load: true asks to switch his page into it.
+// create_and_load_world says the switch in its name, so it switches unless load: false.
+function createWorldTool(loadByDefault: boolean): (args: Record<string, unknown>) => Promise<ToolResult> {
+  return async (args) => {
+    const name = validStr(args.name, 'New World')
+    const icon = validStr(args.icon, '🌍')
+    const load = validBool(args.load ?? args.switchTo ?? args.switch_to ?? args.loadWorld, loadByDefault)
+    const world = await createToolWorld(name, icon)
+    if (load) emitWorldEvent('world_switch', world.worldId, { targetWorldId: world.worldId, ...mutationActorData(args) })
+    return {
+      ok: true,
+      message: load
+        ? `Created world "${name}" (${world.worldId}). Browser switching now.`
+        : `Created world "${name}" (${world.worldId}). The owner's page stays where it is (load: true, or load_world, switches it).`,
+      data: { ...world, loaded: load },
+    }
+  }
+}
+tools.create_world = createWorldTool(false)
+tools.create_and_load_world = createWorldTool(true)
+
+// craft_portal: what the Portal Craft window does, for agents (the owner, 27 Nov: "a portal here that leads to a
+// completely empty world... I want to build a world with you from scratch"). A style, a place, and either a new world
+// (made now, by name) or an existing world's id. Always two-way, the same style standing in the other world and leading
+// back (create_portal_gate's partner). It never moves the owner's page.
+tools.craft_portal = async (args) => {
+  const style = validStr(args.style || args.variant, '')
+  if (style && !PORTAL_GATE_VARIANTS.includes(style as PortalGateVariant)) {
+    return { ok: false, message: `Unknown portal style "${style}". Styles: ${PORTAL_GATE_VARIANTS.join(', ')}.` }
+  }
+  const newWorldName = validStr(args.newWorldName ?? args.newWorld, '')
+  const targetWorldId = validStr(args.targetWorldId, '')
+  if (Boolean(newWorldName) === Boolean(targetWorldId)) {
+    return { ok: false, message: 'Give exactly one of newWorldName (a new world, made now) or targetWorldId (an existing world; list_worlds has the ids).' }
+  }
+  const { worldId: sourceWorldId } = await loadRequestedWorld(args.worldId)
+  if (targetWorldId && targetWorldId === sourceWorldId) return { ok: false, message: 'A portal cannot lead to the world it stands in.' }
+
+  const created = newWorldName ? await createToolWorld(newWorldName, validStr(args.icon, '🌀')) : null
+  // Only what create_portal_gate should see: no name lookups, no external or demo routes, always two-way.
+  const gateArgs: Record<string, unknown> = {
+    ...args,
+    worldId: sourceWorldId,
+    variant: style || undefined,
+    targetWorldId: created?.worldId || targetWorldId,
+    direction: 'two-way',
+  }
+  for (const key of ['style', 'newWorldName', 'newWorld', 'icon', 'worldName', 'targetWorldName', 'targetName', 'targetRoute', 'route', 'destination', 'destinationName', 'destinationWorldId', 'externalUrl', 'targetUrl', 'url', 'demoRouter', 'demo_router', 'twoWay', 'two_way', 'load']) {
+    delete gateArgs[key]
+  }
+  const result = await tools.create_portal_gate(gateArgs)
+  if (!result.ok) {
+    return created
+      ? { ...result, message: `${result.message} (The new world "${created.name}" (${created.worldId}) was made and stays, empty.)`, data: { ...(result.data as object || {}), newWorld: created } }
+      : result
+  }
+  const data = (result.data || {}) as { portalGate?: PortalGate; returnGate?: PortalGate; warning?: string }
+  const where = created ? `the new world "${created.name}"` : `"${data.portalGate?.targetWorldName || targetWorldId}"`
+  return {
+    ok: true,
+    message: `Placed a two-way ${data.portalGate?.variant || style || 'portal'} to ${where}${data.returnGate ? ', with the same gate there leading back' : ''}. The owner's page did not move.${data.warning ? ` Return portal: ${data.warning}` : ''}`,
+    data: { ...data, ...(created ? { newWorld: created } : {}) },
+  }
+}
 
 // ─═̷─═̷─ SCREENSHOT (signal-based) ─═̷─═̷─
 
@@ -4677,7 +4780,7 @@ const MUTATING_TOOLS = new Set([
   'place_object', 'place_agent_window', 'place_browser_window', 'create_spatial_web_object', 'craft_scene', 'self_craft_scene', 'modify_object', 'remove_object',
   'set_sky', 'set_ground_preset', 'paint_ground_tiles', 'add_light',
   'modify_light', 'set_behavior', 'set_avatar', 'walk_avatar_to',
-  'play_avatar_animation', 'create_portal_gate', 'clear_world',
+  'play_avatar_animation', 'create_portal_gate', 'craft_portal', 'clear_world',
   'create_world', 'create_and_load_world', 'create_world_from_google_form', 'create_test_world_from_google_form', 'share_world_link',
   'conjure_asset', 'process_conjured_asset', 'place_conjured_asset', 'delete_conjured_asset',
   'conjure_framed_picture', 'text_to_pic', 'text_to_pic_building', 'place_media',

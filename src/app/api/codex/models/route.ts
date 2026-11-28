@@ -3,11 +3,14 @@ import { NextResponse } from 'next/server'
 import { resolveCodexModelSettings } from '@/lib/codex-models'
 import type { NextRequest } from 'next/server'
 import { guardAgentRoute } from '@/lib/local-request-guard'
+import { codexPanelOff } from '@/lib/codex-panel-switch'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
 export async function GET(request: NextRequest) {
+  const off = codexPanelOff()
+  if (off) return off
   const denied = guardAgentRoute(request)
   if (denied) return denied
 

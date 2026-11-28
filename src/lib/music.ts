@@ -2,6 +2,8 @@
 // Settings > Sound > Music (settings.musicVolume) and Master (settings.masterVolume) set the level; the player is
 // src/components/BackgroundMusic.tsx. Licences and sources: public/audio/music/manifest.json (CC0 1.0).
 
+import { packagedView } from './only-what-ships'
+
 export interface MusicTrack {
   url: string
   title: string
@@ -23,7 +25,8 @@ export function musicTracks(edition: string | undefined = process.env.NEXT_PUBLI
   return edition === 'slim' ? [] : OWN_TRACKS
 }
 
-export const MUSIC_TRACKS: readonly MusicTrack[] = musicTracks()
+// In the owner's Oasis with "only what ships" on, the same as the package (src/lib/only-what-ships.ts).
+export const MUSIC_TRACKS: readonly MusicTrack[] = musicTracks(packagedView() ? 'slim' : process.env.NEXT_PUBLIC_OASIS_EDITION)
 
 export const hasMusic = (): boolean => MUSIC_TRACKS.length > 0
 

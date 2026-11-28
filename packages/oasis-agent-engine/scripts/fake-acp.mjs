@@ -15,6 +15,13 @@ import { randomUUID } from 'node:crypto';
 
 const dir = process.argv[2];
 const failOpen = process.argv.includes('--fail-open');
+// --needs-auth: like Grok, session/new and session/load answer "Authentication required" until authenticate is called.
+// --kinds-only: permission options and modes with other names than Hermes's (only the ACP kinds are standard).
+const needsAuth = process.argv.includes('--needs-auth');
+const kindsOnly = process.argv.includes('--kinds-only');
+// --mcp-http: it takes MCP servers over HTTP (as Codex and Grok do), so the engine gives it the asking gate.
+const mcpHttp = process.argv.includes('--mcp-http');
+let authed = false;
 const SESSIONS = path.join(dir, 'sessions.json');
 const PROMPTS = path.join(dir, 'prompts.jsonl');
 const load = () => { try { return JSON.parse(fs.readFileSync(SESSIONS, 'utf8')); } catch { return {}; } };
@@ -45,6 +52,7 @@ const waiting = new Map(); // our request id -> resolve
 let n = 0;
 const ask = (method, params) => new Promise((resolve) => { const id = `fake-${++n}`; waiting.set(id, resolve); send({ id, method, params }); });
 const state = { models: { availableModels: [{ modelId: 'fake:1', name: 'fake one' }, { modelId: 'fake:2', name: 'fake two' }], currentModelId: 'fake:1' }, modes: { currentModeId: 'default', availableModes: [{ id: 'default', name: 'Default' }, { id: 'accept_edits', name: 'Accept Edits' }] } };
+if (kindsOnly) state.modes = { currentModeId: 'ask', availableModes: [{ id: 'ask', name: 'Ask' }, { id: 'auto-edit', name: 'Auto edit' }, { id: 'yolo', name: 'YOLO' }] };
 
 async function prompt(id, { sessionId, prompt: blocks }) {
   const text = (blocks || []).filter((b) => b.type === 'text').map((b) => b.text).join('\n');
@@ -65,7 +73,9 @@ async function prompt(id, { sessionId, prompt: blocks }) {
     const r = await ask('session/request_permission', {
       sessionId,
       toolCall: { toolCallId: 'perm-check-1', title: 'recursive delete: rm -rf x', kind: 'execute', status: 'pending', rawInput: { command: 'rm -rf x', description: 'recursive delete' } },
-      options: [{ optionId: 'allow_once', kind: 'allow_once', name: 'Allow once' }, { optionId: 'allow_session', kind: 'allow_always', name: 'Allow for session' }, { optionId: 'deny', kind: 'reject_once', name: 'Deny' }],
+      options: kindsOnly
+        ? [{ optionId: 'proceed-once', kind: 'allow_once', name: 'Yes' }, { optionId: 'proceed-always', kind: 'allow_always', name: 'Always' }, { optionId: 'cancel', kind: 'reject_once', name: 'No' }]
+        : [{ optionId: 'allow_once', kind: 'allow_once', name: 'Allow once' }, { optionId: 'allow_session', kind: 'allow_always', name: 'Allow for session' }, { optionId: 'deny', kind: 'reject_once', name: 'Deny' }],
     });
     say(`permission: ${r?.outcome?.optionId || r?.outcome?.outcome || 'none'}`);
   } else if (/WORLD/.test(text)) {
@@ -103,11 +113,14 @@ function onMessage(m) {
   if (m.id != null && !m.method) { waiting.get(m.id)?.(m.result); waiting.delete(m.id); return; }
   const { id, method, params = {} } = m;
   switch (method) {
-    case 'initialize': return send({ id, result: { protocolVersion: 1, agentInfo: { name: 'fake-acp', version: '0.0.1' }, agentCapabilities: { loadSession: true, promptCapabilities: { image: true } } } });
+    case 'initialize': return send({ id, result: { protocolVersion: 1, agentInfo: { name: 'fake-acp', version: '0.0.1' }, agentCapabilities: { loadSession: true, promptCapabilities: { image: true }, ...(mcpHttp ? { mcpCapabilities: { http: true } } : {}) }, ...(needsAuth ? { authMethods: [{ id: 'fake.login', name: 'Fake login' }], _meta: { defaultAuthMethodId: 'fake.login' } } : {}) } });
+    case 'authenticate': authed = params.methodId === 'fake.login'; fs.appendFileSync(path.join(dir, 'auth.jsonl'), JSON.stringify({ methodId: params.methodId }) + String.fromCharCode(10)); return send({ id, result: {} });
     case 'session/new':
+      if (needsAuth && !authed) return send({ id, error: { code: -32000, message: 'Authentication required', data: 'no auth method id provided' } });
       if (failOpen) return send({ id, error: { code: -32603, message: 'Internal error', data: { details: 'Model fake has a context window of 32,768 tokens, which is below the minimum 64,000.' } } });
       { const sessionId = randomUUID(); const s = load(); s[sessionId] = []; save(s); mcpOf.set(sessionId, params.mcpServers || []); fs.appendFileSync(path.join(dir, 'opened.jsonl'), JSON.stringify({ how: 'new', sessionId, cwd: params.cwd, mcpServers: params.mcpServers }) + String.fromCharCode(10)); return send({ id, result: { sessionId, ...state } }); }
     case 'session/load': {
+      if (needsAuth && !authed) return send({ id, error: { code: -32000, message: 'Authentication required' } });
       const s = load();
       if (!s[params.sessionId]) return send({ id, error: { code: -32002, message: 'Resource not found', data: { details: `no session ${params.sessionId}` } } });
       mcpOf.set(params.sessionId, params.mcpServers || []);

@@ -1,0 +1,10 @@
+{
+  "_": "The everyday clips of ual/UAL1_Standard.glb, kept in the small ual/UAL1_Core.glb (scripts/build-ual-core.mjs). animation-library.ts loads these from the core; every other clip of the pack still loads the full 8 MB file.",
+  "UAL1": [
+    "Idle_Loop", "Idle_Talking_Loop",
+    "Walk_Loop", "Jog_Fwd_Loop", "Sprint_Loop", "Roll",
+    "Spell_Simple_Enter", "Spell_Simple_Idle_Loop", "Spell_Simple_Shoot", "Spell_Simple_Exit",
+    "Dance_Loop", "Death01",
+    "Swim_Idle_Loop", "Swim_Fwd_Loop"
+  ]
+}

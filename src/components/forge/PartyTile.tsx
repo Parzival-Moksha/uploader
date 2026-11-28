@@ -15,6 +15,16 @@ interface HostState { running: boolean; url?: string; host?: string; canHost: bo
 const TEXT = 'text-[11px] leading-snug opacity-80'
 const SAFETY = 'A party is another person’s computer: join only parties of people you know.'
 
+/**
+ * "Host a party on this Wi-Fi" left the World menu (the owner, 26 Nov: "delete it straight away; the World menu needs
+ * an overhaul"). Joining a party found on the Wi-Fi stays. To host from the browser again, in its console:
+ *   localStorage.setItem('oasis-party-host', '1')   (and reopen World; removeItem to hide it again)
+ * or without the menu: POST /api/party/host {"action":"start","hostName":"…","paidSpells":false}.
+ */
+function hostingShown(): boolean {
+  try { return typeof window !== 'undefined' && window.localStorage.getItem('oasis-party-host') === '1' } catch { return false }
+}
+
 function partyHostFromCookie(): string | null {
   if (typeof document === 'undefined') return null
   const m = /(?:^|;\s*)oasis_party=([^;]*)/.exec(document.cookie)
@@ -33,6 +43,7 @@ export function PartyTile() {
   const [busy, setBusy] = useState(false)
   const [showFirewall, setShowFirewall] = useState(false)
   const [closeFailed, setCloseFailed] = useState(false)
+  const [canOfferHosting] = useState(hostingShown)
 
   const refresh = useCallback(async () => {
     try {
@@ -111,6 +122,9 @@ export function PartyTile() {
     void refresh()
   }
 
+  // Nothing to join, no party of ours and hosting not offered: the World menu shows nothing of parties.
+  if (others.length === 0 && !host?.running && !canOfferHosting) return null
+
   return (
     <div className="mb-3 space-y-2" data-party-tile>
       {others.map(party => (
@@ -146,7 +160,7 @@ export function PartyTile() {
             </div>
           )}
         </KitCard>
-      ) : others.length === 0 && host?.hostingAvailable === true && (
+      ) : canOfferHosting && others.length === 0 && host?.hostingAvailable === true && (
         hosting ? (
           <KitCard title="Host a party on this Wi-Fi">
             <div className="space-y-2">

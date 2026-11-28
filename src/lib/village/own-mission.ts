@@ -19,6 +19,10 @@ export interface RunState {
   counted: number
   /** Started as a committed mission inside its window: its id and the bonus it earns if kept. */
   commit?: { id: string; bonusPct: number }
+  /** Started now on a timer (not from a commitment): the bonus it earns if kept, +30%. */
+  nowBonusPct?: number
+  /** A task an agent gave him, done as this timed mission: kept, that task is marked done and its asker told. */
+  forFile?: string
 }
 
 export interface RunResult {
@@ -37,6 +41,8 @@ export interface RunResult {
   endedAt: number
   /** Who his notes were sent to; '' if nobody. */
   told: string
+  /** He ended it and said it is done (before its time or after): kept, whatever the minutes. */
+  done?: boolean
   /** A committed mission kept: the bonus XP it earned (its percentage of its XP). */
   bonusXp?: number
   bonusPct?: number
@@ -96,13 +102,16 @@ export interface Commitment {
 }
 
 /**
- * The bonus for committing ahead (the owner, 2026-11-25: "if I commit 24 hours in the future, it should be two X"): it grows
- * evenly from nothing, +100% for a day ahead (x2), at most +200% (x3) from two days ahead. Two hours ahead +8%.
+ * Two flat bonuses, nothing else (the owner, 2026-11-26: "30% is fine... significant, but not crazy... in the future, we're
+ * not going to make any difference between tomorrow or in a year or in five minutes: let's give it a 60% bonus"; Anorak's
+ * ruling): a mission started now on a timer and kept, +30%; a mission committed ahead (any distance) and kept, +60%. A miss
+ * costs only the bonus. Rating a mission's reward and long-range commitments: parked by him for later.
  */
+export const START_NOW_BONUS_PCT = 30
+export const COMMIT_AHEAD_BONUS_PCT = 60
+
 export function commitBonusPct(madeAt: number, at: number): number {
-  const ahead = at - madeAt
-  if (!(ahead > 0)) return 0
-  return Math.min(200, Math.round(100 * ahead / 86_400_000))
+  return at - madeAt > 0 ? COMMIT_AHEAD_BONUS_PCT : 0
 }
 
 /** What it is now: a pending one whose window has passed unstarted is missed. */
@@ -142,7 +151,9 @@ export function runElapsed(startedAt: number, run: Pick<RunState, 'pausedAt' | '
 export function runClock(startedAt: number, run: Pick<RunState, 'plannedSeconds' | 'pausedAt' | 'pausedMs'>, now: number): { seconds: number; share: number | null; over: boolean } {
   const elapsed = runElapsed(startedAt, run, now)
   if (run.plannedSeconds === null) return { seconds: elapsed, share: null, over: false }
-  return { seconds: Math.max(0, run.plannedSeconds - elapsed), share: Math.min(1, elapsed / run.plannedSeconds), over: elapsed >= run.plannedSeconds }
+  // Over its time it shows the time worked, counting up (the owner, 26 Nov: running over is kept; nothing below zero).
+  if (elapsed >= run.plannedSeconds) return { seconds: elapsed, share: 1, over: true }
+  return { seconds: run.plannedSeconds - elapsed, share: elapsed / run.plannedSeconds, over: false }
 }
 
 export function pauseRun(run: RunState, now: number): RunState {
@@ -174,20 +185,23 @@ export function minutesLabel(seconds: number): string {
  * A timed mission is kept when its timer ran out (ended at its length); ended early, it is not. An open-ended
  * one has no promise: it is kept. XP is time, 1 a minute (the Oasis already booked what it counted).
  */
-export function endRun(active: { file: string; title: string; startedAt: number; run: RunState }, now: number): Omit<RunResult, 'told' | 'line'> {
+export function endRun(active: { file: string; title: string; startedAt: number; run: RunState }, now: number, done?: boolean): Omit<RunResult, 'told' | 'line'> {
   const { run } = active
   const elapsed = runElapsed(active.startedAt, run, now)
-  const kept = run.plannedSeconds === null ? true : elapsed >= run.plannedSeconds - 5
-  // A timed run that ran out ended when it ran out, not when a page noticed (a page opened the next morning).
-  const endedAt = run.plannedSeconds !== null && elapsed >= run.plannedSeconds
+  // He ended it himself (done or not): it ends now, and all its time counts, over its minutes too ("going over is not
+  // a failure"). Done is kept, whatever the minutes (the owner, 26 Nov, three times: "done before the time is the best
+  // outcome there is"). Nobody answered (the bell, then ten minutes): it ended when it ran out, kept.
+  const byHim = done !== undefined
+  const kept = run.plannedSeconds === null || done === true || elapsed >= run.plannedSeconds - 5
+  const endedAt = !byHim && run.plannedSeconds !== null && elapsed >= run.plannedSeconds
     ? Math.min(now, active.startedAt + run.pausedMs + run.plannedSeconds * 1000)
     : now
   const counted = Math.round(run.counted)
-  // Timed: its length bounds it. Open-ended: a forgotten timer books no more than the cap beyond what the Oasis saw.
-  const wall = run.plannedSeconds === null ? Math.min(elapsed, counted + RUN_AWAY_CAP_SECONDS) : Math.min(elapsed, run.plannedSeconds)
+  // A forgotten timer books no more than the cap beyond what the Oasis saw; one that ran out unanswered, its length.
+  const wall = byHim || run.plannedSeconds === null ? Math.min(elapsed, counted + RUN_AWAY_CAP_SECONDS) : Math.min(elapsed, run.plannedSeconds)
   const seconds = Math.round(Math.max(wall, counted))
   const away = Math.max(0, seconds - counted)
-  return { file: active.file, title: active.title, plannedSeconds: run.plannedSeconds, seconds, counted, away, kept, xp: Math.round(seconds / 60), startedAt: active.startedAt, endedAt }
+  return { file: active.file, title: active.title, plannedSeconds: run.plannedSeconds, seconds, counted, away, kept, xp: Math.round(seconds / 60), startedAt: active.startedAt, endedAt, ...(done ? { done: true } : {}) }
 }
 
 /** A timed run whose time is up by the book's own clock (the server decides; a page's snapshot may be old). */
@@ -196,10 +210,12 @@ export function runIsDue(startedAt: number, run: RunState, now: number): boolean
 }
 
 /** "kept · 1 h · 60 XP", "not kept: 40 min of 1 h · 40 XP", "done · 1 h 12 min · 72 XP". */
-export function runLine(result: Pick<RunResult, 'plannedSeconds' | 'seconds' | 'kept' | 'xp'> & Partial<Pick<RunResult, 'bonusXp' | 'bonusPct'>>): string {
+export function runLine(result: Pick<RunResult, 'plannedSeconds' | 'seconds' | 'kept' | 'xp'> & Partial<Pick<RunResult, 'bonusXp' | 'bonusPct' | 'done'>>): string {
+  const bonus = result.bonusXp ? ` + ${result.bonusXp} XP bonus (+${result.bonusPct}%)` : ''
   if (result.plannedSeconds === null) return `done · ${minutesLabel(result.seconds)} · ${result.xp} XP`
+  if (result.done) return `done · ${minutesLabel(result.seconds)} (planned ${minutesLabel(result.plannedSeconds)}) · ${result.xp} XP${bonus}`
   return result.kept
-    ? `kept · ${minutesLabel(result.seconds)} · ${result.xp} XP${result.bonusXp ? ` + ${result.bonusXp} XP committed (+${result.bonusPct}%)` : ''}`
+    ? `kept · ${minutesLabel(result.seconds)} · ${result.xp} XP${result.bonusXp ? ` + ${result.bonusXp} XP bonus (+${result.bonusPct}%)` : ''}`
     : `not kept: ${minutesLabel(result.seconds)} of ${minutesLabel(result.plannedSeconds)} · ${result.xp} XP`
 }
 
@@ -352,6 +368,12 @@ export function finishOwnMissionText(text: string, result: Omit<RunResult, 'told
   const day = new Date(result.startedAt).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
   const next = setHeader(text, { state: 'answered', answered: dateOf(result.endedAt), answer: line, took: String(Math.max(1, Math.round(result.seconds / 60))), hit: result.kept ? 'yes' : 'no' })
   return appendUnder(next, 'Runs', `- ${day} ${clockOf(result.startedAt)} to ${clockOf(result.endedAt)}: ${line}${outside}${told ? `; notes sent to ${told}` : ''}`)
+}
+
+/** A run, under "## Runs" in a task's own file (a task of his list he did on the timer; its header is answered apart). */
+export function appendRunLine(text: string, result: Omit<RunResult, 'told' | 'line'>): string {
+  const day = new Date(result.startedAt).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
+  return appendUnder(text, 'Runs', `- ${day} ${clockOf(result.startedAt)} to ${clockOf(result.endedAt)}: ${runLine(result)}`)
 }
 
 /** What the agent gets when it ends (his notes, in full). */

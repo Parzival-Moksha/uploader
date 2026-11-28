@@ -135,7 +135,7 @@ export function KitTileButton({ picture, icon, label, sub, badge, accent, select
 export function KitPickTile({ picture, label, selected, accent, className, style, ...rest }: { picture: string; label?: ReactNode; selected?: boolean; accent?: string } & React.ButtonHTMLAttributes<HTMLButtonElement>) {
   const kit = useKitStyle()
   return (
-    <button type="button" {...rest} aria-pressed={selected} data-selected={selected ? '1' : '0'} data-kit-style={kit} className={cx('kit-pick', className)} style={{ ...(accent ? { ['--kit-accent' as string]: accent } : {}), ...style }}>
+    <button type="button" title={typeof label === 'string' ? label : undefined} {...rest} aria-pressed={selected} data-selected={selected ? '1' : '0'} data-kit-style={kit} className={cx('kit-pick', className)} style={{ ...(accent ? { ['--kit-accent' as string]: accent } : {}), ...style }}>
       <span className="kit-pick-pic" style={{ backgroundImage: `url(${picture})` }} />
       {label && <span className="kit-pick-label">{label}</span>}
     </button>
@@ -158,7 +158,7 @@ export function KitProgress({ label, value, max, format, accent }: { label?: Rea
   const kit = useKitStyle()
   const share = max > 0 ? Math.max(0, Math.min(1, value / max)) : 0
   return (
-    <div data-kit-style={kit} className="kit-progress" style={accent ? { ['--kit-accent' as string]: accent } : undefined} role="progressbar" aria-valuemin={0} aria-valuemax={max} aria-valuenow={value}>
+    <div data-kit-style={kit} data-accent={accent ? '1' : undefined} className="kit-progress" style={accent ? { ['--kit-accent' as string]: accent } : undefined} role="progressbar" aria-valuemin={0} aria-valuemax={max} aria-valuenow={value}>
       {(label || format) && <span className="kit-progress-row"><span>{label}</span><span className="tabular-nums opacity-80">{format ? format(value, max) : `${Math.round(share * 100)}%`}</span></span>}
       <span className="kit-progress-track block"><span className="kit-progress-fill block" style={{ width: `${share * 100}%` }} /></span>
     </div>

@@ -8,13 +8,14 @@ export const PLAYER_BASE_STATS = {
   conjureManaCost: 20,
 } as const
 
+// The owner, 26 Nov: stat points are Vitality, Focus and Speed. Fire, ice and lightning are basic spells
+// every character has from the start (learning more spells is a later design, not stat points); conjuration
+// as a stat ("conjures cost less mana") was the same as more mana, so it went. Points anyone had in those four
+// come back to spend on their own: unspent = earned - allocated, and they no longer count as allocated.
+// Their Profile columns (skillFire, skillIce, skillLightning, skillConjuration) stay in the database, unread.
 export const PLAYER_SKILL_KEYS = [
-  'fire',
-  'ice',
-  'lightning',
   'vitality',
   'focus',
-  'conjuration',
   'mobility',
 ] as const
 
@@ -43,12 +44,8 @@ export interface PlayerProgression {
 }
 
 export const DEFAULT_PLAYER_SKILLS: PlayerSkillSet = {
-  fire: 0,
-  ice: 0,
-  lightning: 0,
   vitality: 0,
   focus: 0,
-  conjuration: 0,
   mobility: 0,
 }
 
@@ -59,13 +56,9 @@ export const PLAYER_SKILL_DEFS: Array<{
   tone: string
   description: string
 }> = [
-  { id: 'fire', label: 'Fire', shortLabel: 'FIR', tone: '#f97316', description: 'Firebolt power and future burn effects.' },
-  { id: 'ice', label: 'Ice', shortLabel: 'ICE', tone: '#38bdf8', description: 'Ice bolt control and future chill/freeze effects.' },
-  { id: 'lightning', label: 'Lightning', shortLabel: 'LIT', tone: '#a78bfa', description: 'Lightning bolt speed and future chain effects.' },
   { id: 'vitality', label: 'Vitality', shortLabel: 'VIT', tone: '#22c55e', description: 'Maximum HP for dangerous quest and PvP worlds.' },
-  { id: 'focus', label: 'Focus', shortLabel: 'FOC', tone: '#06b6d4', description: 'Maximum mana and mana regeneration multiplier.' },
-  { id: 'conjuration', label: 'Conjuration', shortLabel: 'CON', tone: '#f59e0b', description: 'Cheaper creation magic and later stronger conjures.' },
-  { id: 'mobility', label: 'Mobility', shortLabel: 'MOV', tone: '#84cc16', description: 'Movement speed in gameplay-enabled worlds.' },
+  { id: 'focus', label: 'Focus', shortLabel: 'FOC', tone: '#06b6d4', description: 'More mana, and it refills faster.' },
+  { id: 'mobility', label: 'Speed', shortLabel: 'SPD', tone: '#84cc16', description: 'How fast you move in the Oasis: 7% a point.' },
 ]
 
 export function clampSkillRank(value: unknown): number {
@@ -73,14 +66,10 @@ export function clampSkillRank(value: unknown): number {
   return Math.max(0, Math.min(PLAYER_SKILL_CAP, rank))
 }
 
-export function normalizePlayerSkills(raw: Partial<Record<PlayerSkillKey, unknown>> = {}): PlayerSkillSet {
+export function normalizePlayerSkills(raw: Partial<Record<string, unknown>> = {}): PlayerSkillSet {
   return {
-    fire: clampSkillRank(raw.fire),
-    ice: clampSkillRank(raw.ice),
-    lightning: clampSkillRank(raw.lightning),
     vitality: clampSkillRank(raw.vitality),
     focus: clampSkillRank(raw.focus),
-    conjuration: clampSkillRank(raw.conjuration),
     mobility: clampSkillRank(raw.mobility),
   }
 }
@@ -97,11 +86,11 @@ export function computePlayerStats(skills: PlayerSkillSet): PlayerComputedStats 
   return {
     maxHp: PLAYER_BASE_STATS.hp + skills.vitality * 25,
     maxMana: PLAYER_BASE_STATS.mana + skills.focus * 10,
-    fireboltDamage: 14 + skills.fire * 5,
+    fireboltDamage: 14,
     fireboltManaCost: PLAYER_BASE_STATS.fireboltManaCost,
     fireboltSpeedMetersPerSecond: PLAYER_BASE_STATS.fireboltSpeedMetersPerSecond,
     manaRegenMultiplier: 1 + skills.focus * 0.35,
-    conjureManaCost: Math.max(10, PLAYER_BASE_STATS.conjureManaCost - skills.conjuration * 2),
+    conjureManaCost: PLAYER_BASE_STATS.conjureManaCost,
     moveSpeedMultiplier: 1 + skills.mobility * 0.07,
   }
 }
@@ -139,20 +128,12 @@ export function passiveManaRegen(mana: number, maxMana: number, elapsedMs: numbe
 export function summarizeSkill(skill: PlayerSkillKey, skills: PlayerSkillSet): string {
   const stats = computePlayerStats(skills)
   switch (skill) {
-    case 'fire':
-      return `${stats.fireboltDamage} firebolt damage`
-    case 'ice':
-      return skills.ice > 0 ? `chill rank ${skills.ice}` : 'ice bolt locked'
-    case 'lightning':
-      return skills.lightning > 0 ? `spark rank ${skills.lightning}` : 'lightning locked'
     case 'vitality':
       return `${stats.maxHp} max HP`
     case 'focus':
       return `${stats.maxMana} mana, x${stats.manaRegenMultiplier.toFixed(2)} regen`
-    case 'conjuration':
-      return `${stats.conjureManaCost} mana conjures`
     case 'mobility':
-      return `x${stats.moveSpeedMultiplier.toFixed(2)} move`
+      return `x${stats.moveSpeedMultiplier.toFixed(2)} speed`
   }
 }
 
@@ -166,12 +147,8 @@ export function profileToPlayerSkills(profile: {
   skillMobility?: number | null
 }): PlayerSkillSet {
   return normalizePlayerSkills({
-    fire: profile.skillFire ?? 0,
-    ice: profile.skillIce ?? 0,
-    lightning: profile.skillLightning ?? 0,
     vitality: profile.skillVitality ?? 0,
     focus: profile.skillFocus ?? 0,
-    conjuration: profile.skillConjuration ?? 0,
     mobility: profile.skillMobility ?? 0,
   })
 }
@@ -205,14 +182,10 @@ export function buildPlayerProgression(profile: {
   }
 }
 
-export function profileSkillField(skill: PlayerSkillKey): 'skillFire' | 'skillIce' | 'skillLightning' | 'skillVitality' | 'skillFocus' | 'skillConjuration' | 'skillMobility' {
+export function profileSkillField(skill: PlayerSkillKey): 'skillVitality' | 'skillFocus' | 'skillMobility' {
   switch (skill) {
-    case 'fire': return 'skillFire'
-    case 'ice': return 'skillIce'
-    case 'lightning': return 'skillLightning'
     case 'vitality': return 'skillVitality'
     case 'focus': return 'skillFocus'
-    case 'conjuration': return 'skillConjuration'
     case 'mobility': return 'skillMobility'
   }
 }

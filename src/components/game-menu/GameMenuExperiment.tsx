@@ -74,8 +74,8 @@ export function MenuSoundSettings() {
   const setPrefs = useGameMenu(s => s.setPrefs)
   return (
     <section data-settings-section="menu-sounds">
-      <div className={HEADING}>Menu and button sounds</div>
-      <div className="mb-1 text-[10px] text-white/50">One set for every menu, panel and button: a sound on hover, a softer one when you leave, one on click.</div>
+      <div className={HEADING}>Clicks</div>
+      <div className="mb-1 text-[10px] text-white/50">The click of every button and menu in the Oasis, with its hover tick. Pick one to hear it.</div>
       <div className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-2">
         {MENU_SOUNDS.map(sound => (
           <Choice

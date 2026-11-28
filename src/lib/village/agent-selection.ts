@@ -105,11 +105,33 @@ export function selectVillageAgent(agentId: string | null): void {
   emit()
 }
 
+let lastAgentClickAt = 0
+
+/** The window after a click in which it counts as having landed on an agent (its handler runs a tick later). */
+export const AGENT_CLICK_WINDOW_MS = 250
+/** px: a press that moved further than this was a drag (turning the camera), not a click. */
+export const CLICK_SLOP_PX = 6
+
+/**
+ * A left click in the world that landed on no agent lets the selected agent go (the owner, 27 Nov: "if I have an agent
+ * selected and I click somewhere random, on the ground or on a star, could we deselect that selected agent? ... more
+ * like a real game"). A drag (turning the camera) or a right click (sending it somewhere) keeps it. Pure.
+ */
+export function clickLetsAgentGo(c: { button: number; movedPx: number; clickAt: number; lastAgentClickAt: number }): boolean {
+  if (c.button !== 0 || c.movedPx > CLICK_SLOP_PX) return false
+  return c.clickAt - c.lastAgentClickAt > AGENT_CLICK_WINDOW_MS
+}
+
+export function getLastAgentClickAt(): number {
+  return lastAgentClickAt
+}
+
 /**
  * A click on an agent's body or desk. Returns true when the agent was already selected: the caller
  * then opens it, as a click always did. The first click only selects.
  */
 export function clickVillageAgent(agentId: string): boolean {
+  lastAgentClickAt = Date.now()
   if (selectedAgentId === agentId) return true
   selectVillageAgent(agentId)
   return false

@@ -7,6 +7,9 @@ import { NextResponse } from 'next/server'
 import fs from 'fs'
 import path from 'path'
 
+// Read on every request: Next 14 prerenders a GET that reads no request at build time (the Innkeeper, 28 Nov: thumbnails made after the build were never listed).
+export const dynamic = 'force-dynamic'
+
 const THUMBS_DIR = path.join(process.cwd(), 'public', 'avatars', 'gallery', 'thumbs')
 
 export async function GET() {

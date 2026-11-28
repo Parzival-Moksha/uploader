@@ -202,6 +202,8 @@ const RESPAWN_DELAY_MS = 5000
  */
 const PARTY_COMBAT = process.env.OASIS_ROOM_PARTY_COMBAT === '1'
 const PARTY_DOWN_MS = 6000
+/** The soonest a knocked-down player may get up on their own key (party rules). */
+const STAND_UP_AFTER_MS = 1000
 const SHOT_DAMAGE = 8
 const SHOT_TOKENS_PER_SEC = 14
 const SHOT_BURST = 8
@@ -465,6 +467,65 @@ interface MutationBucket {
 interface CastBucket {
   tokens: number
   lastRefillAt: number
+}
+
+const ROOM_NO_AGENTS = process.env.OASIS_ROOM_NO_AGENTS === '1'
+
+/** On the deployed Oasis, an address a visitor's browser would fetch must point at this site (or be a data: image,
+ *  which fetches nothing). Merge Goat, 28 Nov: no outside body, model or picture loaded into everyone's browser. */
+function staysOnThisSite(raw: string): boolean {
+  const s = raw.trim()
+  if (!s) return true
+  if (/^data:image\//i.test(s)) return true
+  // A value that starts with a scheme is never this site: "http:evil.example/x" resolves as a relative path here,
+  // but a browser on https reads it as another host (Merge Goat, 28 Nov).
+  if (/^[a-z][a-z0-9+.-]*:/i.test(s)) return false
+  try {
+    return new URL(s, 'http://oasis.invalid/').origin === 'http://oasis.invalid'
+  } catch {
+    return false
+  }
+}
+const ADDRESS_KEY = /(Url|Path|url)$|^(model|avatar)$/
+/** An avatar address from a visitor: kept when it stays on this site; otherwise empty (the default body). */
+function siteAddress(raw: string): string {
+  const s = raw.trim().slice(0, 500)
+  return !ROOM_NO_AGENTS || staysOnThisSite(s) ? s : ''
+}
+/** In a deployment with no agents: a world change that carries a page address, a script, or an object action that
+ *  runs on F (HTML overlay, API call) never enters a world through the room (Merge Goat, 28 Nov). */
+function carriesUnsafeWorldContent(payload: unknown): boolean {
+  let text = ''
+  try { text = JSON.stringify(payload) } catch { return true }
+  if (/"surfaceUrl"\s*:|javascript\s*:|"type"\s*:\s*"(html_overlay|api_call|external_url)"/i.test(text)) return true
+  // Nothing may send a visitor or what they type somewhere else: no outside portal, no webhook or Google Form, and a
+  // form posts only to /api/spatial-web/ (Anorak, 28 Nov).
+  if (/"(webhookUrl|responseUrl|formUrl|returnUrl)"\s*:\s*"[^"]/.test(text)) return true
+  if (/"destination"\s*:\s*\{[^}]*"type"\s*:\s*"(?!local")/.test(text)) return true
+  return endpointLeaves(payload, 0)
+}
+
+/** A form endpoint is judged where it really points (./, ../ and %2e worked out): only /api/spatial-web/ here. */
+function endpointLeaves(value: unknown, depth: number): boolean {
+  if (depth > 64) return true
+  if (Array.isArray(value)) return value.some((v) => endpointLeaves(v, depth + 1))
+  if (!value || typeof value !== 'object') return false
+  // Every address a browser would fetch comes from this site only (Merge Goat, 28 Nov): pictures, videos, sounds,
+  // models (glbPath), thumbnails, bodies, QR codes; any key ending in Url, Path or url, or named model or avatar.
+  for (const [key, field] of Object.entries(value as Record<string, unknown>)) {
+    if (typeof field === 'string' && ADDRESS_KEY.test(key) && !staysOnThisSite(field)) return true
+  }
+  const endpoint = (value as { endpoint?: unknown }).endpoint
+  if (typeof endpoint === 'string' && endpoint.trim()) {
+    if (/^[a-z][a-z0-9+.-]*:/i.test(endpoint.trim())) return true // a scheme is never this site
+    try {
+      const url = new URL(endpoint.trim(), 'http://oasis.invalid/')
+      if (url.origin !== 'http://oasis.invalid' || /%2e|%2f|%5c/i.test(url.pathname) || !url.pathname.startsWith('/api/spatial-web/')) return true
+    } catch {
+      return true
+    }
+  }
+  return Object.values(value as Record<string, unknown>).some((v) => endpointLeaves(v, depth + 1))
 }
 
 interface WorldCommandMessage {
@@ -938,10 +999,10 @@ export class WorldRoom extends Room<WorldRoomState> {
       if (typeof payload.avatarUrl === 'string') {
         // Don't run sanitizeText on URLs — its whitespace-collapse corrupts
         // valid encoded URLs. Just length-cap and trim leading/trailing space.
-        player.avatarUrl = payload.avatarUrl.trim().slice(0, 500)
+        player.avatarUrl = siteAddress(payload.avatarUrl)
       }
       if (typeof payload.profileAvatarUrl === 'string') {
-        player.profileAvatarUrl = payload.profileAvatarUrl.trim().slice(0, 500)
+        player.profileAvatarUrl = siteAddress(payload.profileAvatarUrl)
       }
       if (typeof payload.displayName === 'string') {
         player.displayName = sanitizeText(payload.displayName, player.displayName)
@@ -1135,6 +1196,18 @@ export class WorldRoom extends Room<WorldRoomState> {
       this.applyPlayerHit(client, victimSessionId, victim, bolt.damage, bolt.spell, payload)
     })
 
+    // Party rules: a knocked-down player may get up before the six seconds are over (a key, or the phone's
+    // button), once a second has passed: the respawn pass below stands them up where they fell, full HP.
+    this.onMessage('standUp', (client) => {
+      if (!PARTY_COMBAT) return
+      const player = this.state.players.get(client.sessionId)
+      if (!player || player.alive || player.respawnAt <= 0) return
+      const now = Date.now()
+      const downSince = player.respawnAt - PARTY_DOWN_MS
+      if (now - downSince < STAND_UP_AFTER_MS) return
+      player.respawnAt = now
+    })
+
     this.onMessage('shot', (client, payload: ShotMessage) => {
       if (!PARTY_COMBAT || !this.state.pvpEnabled) return
       if (!payload || typeof payload !== 'object') return
@@ -1161,6 +1234,9 @@ export class WorldRoom extends Room<WorldRoomState> {
       const env = payload as { kind?: unknown; payload?: unknown }
       if (typeof env.kind !== 'string' || env.kind.length > 64) return
       if (!WORLD_MUTATION_KINDS.has(env.kind)) return
+      // A deployment with no agents (the deployed Oasis): no agent window or avatar ever enters a world through
+      // the room (a window can carry a page address; Merge Goat, 28 Nov).
+      if (ROOM_NO_AGENTS && (env.kind.startsWith('agent.') || carriesUnsafeWorldContent(env.payload))) return
 
       // Serialized-size cap. JSON.stringify is the cheapest realistic proxy
       // for the wire size of an arbitrary unknown payload here; perfectly
@@ -1213,6 +1289,14 @@ export class WorldRoom extends Room<WorldRoomState> {
 
       if (typeof payload.kind !== 'string' || !WORLD_COMMAND_KINDS.has(payload.kind)) {
         rejected(commandId, 'unsupported command kind')
+        return
+      }
+      if (ROOM_NO_AGENTS && payload.kind.startsWith('agent.')) {
+        rejected(commandId, 'agents are not available in this Oasis')
+        return
+      }
+      if (ROOM_NO_AGENTS && carriesUnsafeWorldContent(payload.payload)) {
+        rejected(commandId, 'this change is not allowed in this Oasis')
         return
       }
       if (typeof payload.worldId !== 'string' || sanitizeWorldId(payload.worldId) !== this.state.worldId) {
@@ -1310,8 +1394,8 @@ export class WorldRoom extends Room<WorldRoomState> {
     player.userId = access.userId
     player.playerId = sanitizePlayerId(options.playerId, client.sessionId)
     player.displayName = sanitizeText(options.displayName, `Player ${player.playerId.slice(0, 4)}`)
-    player.avatarUrl = (typeof options.avatarUrl === 'string' ? options.avatarUrl.trim() : '').slice(0, 500)
-    player.profileAvatarUrl = (typeof options.profileAvatarUrl === 'string' ? options.profileAvatarUrl.trim() : '').slice(0, 500)
+    player.avatarUrl = siteAddress(typeof options.avatarUrl === 'string' ? options.avatarUrl : '')
+    player.profileAvatarUrl = siteAddress(typeof options.profileAvatarUrl === 'string' ? options.profileAvatarUrl : '')
     player.color = sanitizeText(options.color, '#38bdf8', 7)
     player.updatedAt = Date.now()
     // PvP stats — client passes its own max values (computed from skills).

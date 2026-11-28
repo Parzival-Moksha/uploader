@@ -103,6 +103,8 @@ export const QUESTIONS_DIR = setting('questionsDir') || path.join(OASIS_ROOT, 'd
 ensureQuestionsFolder(QUESTIONS_DIR);
 export const DECISION_LINE = 'If you need a decision from the owner, write a mission file; a finished report needs no question at its end.';
 export const ASK_LATER = askLaterLine({ questionsDir: QUESTIONS_DIR, grillFile: GRILL_FILE });
+// Claude Code's own delete checks ask the owner even in bypass and cannot be remembered; one sat 3 h 20 min on 26 Nov.
+export const DELETE_LINE = 'Delete by named path: no rm with wildcards, on a path built by a command, or on your working folder (those ask the owner even in bypass)';
 export const ROLE_MAX = 240;
 export const WHO_MAX = 1200;
 
@@ -147,6 +149,7 @@ export function characterNote(card, { file = '', tools = '', showFiles = true } 
   }
   // Not for a session in another window: it may not have the tool, so the mod says it there only when it does.
   if (showFiles) parts.push(SHOW_FILES);
+  parts.push(DELETE_LINE);
   if (ASK_LATER) parts.push(ASK_LATER);
   // The village tells "needs you" from "finished" by this (2026-11-21): a mission file walks the agent up to the owner,
   // a reply ending with a question no longer does.

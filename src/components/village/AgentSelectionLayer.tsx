@@ -17,8 +17,11 @@ import { getLiveObjectTransform } from '@/lib/live-object-transforms'
 import { villageAgentKey } from '@/lib/village/village-layout'
 import { getVillageStation } from './village-actions'
 import {
+  AGENT_CLICK_WINDOW_MS,
   clearAllSentGoals,
   clearSentGoal,
+  clickLetsAgentGo,
+  getLastAgentClickAt,
   getAgentSelectionFx,
   getAgentSelectionVersion,
   getSelectedVillageAgent,
@@ -318,6 +321,30 @@ export function AgentSelectionLayer() {
       if (data.selectionBob) child.position.y = 2.62 + Math.sin(t * 2.2) * data.selectionBob
     })
   })
+
+  // A left click that lands on no agent (the ground, the sky, a star) lets the selected one go; checked a little after
+  // the click, once an agent's own click handler (which runs a tick later) would have said it was hit.
+  useEffect(() => {
+    const el = gl.domElement
+    let down: { x: number; y: number } | null = null
+    const onDown = (event: PointerEvent) => { if (event.button === 0) down = { x: event.clientX, y: event.clientY } }
+    const onUp = (event: PointerEvent) => {
+      if (event.button !== 0 || !down) return
+      const movedPx = document.pointerLockElement ? 0 : Math.hypot(event.clientX - down.x, event.clientY - down.y)
+      down = null
+      const clickAt = Date.now()
+      window.setTimeout(() => {
+        if (!getSelectedVillageAgent()) return
+        if (clickLetsAgentGo({ button: 0, movedPx, clickAt, lastAgentClickAt: getLastAgentClickAt() })) selectVillageAgent(null)
+      }, AGENT_CLICK_WINDOW_MS)
+    }
+    el.addEventListener('pointerdown', onDown)
+    el.addEventListener('pointerup', onUp)
+    return () => {
+      el.removeEventListener('pointerdown', onDown)
+      el.removeEventListener('pointerup', onUp)
+    }
+  }, [gl])
 
   // Right-click on the ground: the selected village agent walks there.
   useEffect(() => {

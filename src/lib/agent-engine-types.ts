@@ -52,12 +52,48 @@ export interface EnginePermissionRequest {
   suggestions?: unknown[]
   blockedPath?: string | null
   decisionReason?: unknown
+  /** Claude Code's kind of reason: "safetyCheck" for its own checks that ask even in bypass (a delete it cannot name). */
+  decisionReasonType?: string | null
+  /** The engine's plain first line for such a check (permission-reason.js); the page computes the same when absent. */
+  headline?: string | null
+  /** When the CLI asked, on the engine's clock (ms); the page's waiting time counts from it, across reloads. */
+  askedAt?: number | null
   readOnly?: boolean
 }
 
 /** Agent snapshot as broadcast in `hello` and `agents` messages (Agent / Observer / HookObserver.snapshot()). */
-/** What runs an owned agent: a Claude Code session (agent.js) or a Hermes agent over ACP (hermes.js). */
-export type EngineRuntime = 'claude' | 'hermes'
+/**
+ * What runs an owned agent: a Claude Code session (agent.js), or an agent the engine drives over ACP (hermes.js
+ * ACP_RUNTIMES): Hermes, Codex (through the codex-acp adapter), Grok, Gemini.
+ */
+export type EngineRuntime = 'claude' | 'hermes' | 'codex' | 'grok' | 'gemini'
+export const ENGINE_RUNTIMES: readonly EngineRuntime[] = ['claude', 'hermes', 'codex', 'grok', 'gemini']
+/** Driven over ACP, not a Claude Code session: no effort, no Chrome, no Claude account, its own modes. */
+export function isAcpRuntime(runtime: EngineRuntime | null | undefined): boolean {
+  return Boolean(runtime) && runtime !== 'claude'
+}
+export const RUNTIME_LABEL: Record<EngineRuntime, string> = { claude: 'Claude Code', hermes: 'Hermes', codex: 'Codex', grok: 'Grok', gemini: 'Gemini' }
+/** One runtime as the engine's `runtimes` command reports it (Hermes builder, 28 Nov). */
+export interface EngineRuntimeState {
+  found: boolean
+  version?: string | null
+  /** true / false, or null when it cannot tell (Claude on a Mac keychain). */
+  loggedIn?: boolean | null
+  /** Codex: logged in and the Oasis's Codex adapter present. */
+  ready?: boolean
+  adapter?: { found: boolean; version?: string | null; installing?: boolean }
+  /** The one line to tell the person when it is missing. */
+  install?: string
+  login?: string
+  /** Codex: the hint while its adapter is missing (the first summon downloads it). */
+  setup?: string
+  home?: string
+  /** Codex: null until a Codex villager has started once in this engine. */
+  models?: { current?: string | null; list?: Array<{ id: string; name?: string }> } | null
+  /** Codex's own permission modes. */
+  modes?: Array<{ id: string; name?: string; default?: boolean }> | null
+}
+export type EngineRuntimeReport = Partial<Record<EngineRuntime, EngineRuntimeState>>
 
 export interface EngineAgentSnapshot {
   id: string
@@ -68,6 +104,8 @@ export interface EngineAgentSnapshot {
   remote?: { host: string } | null
   /** The Hermes Agent version (hermes agents). */
   hermesVersion?: string | null
+  /** An ACP agent's own permission modes (Codex: read-only, workspace-write, agent, agent-full-access). */
+  modes?: string[] | null
   name: string
   title?: string | null
   cwd?: string | null
@@ -114,6 +152,8 @@ export interface EngineAgentSnapshot {
   pid?: number | null
   pendingUser?: number
   permissions?: EnginePermissionRequest[]
+  /** Its subagents still running (normalize.js runningSubagents): a page that reloads sees helpers started before it. */
+  runningSubagents?: Array<{ toolUseId: string; taskId: string | null; description: string | null; subagentType: string; startedAt: number | null; background: boolean }>
   context?: EngineContextUsage | null
   models?: EngineModelInfo[] | null
   readOnly?: boolean
@@ -170,6 +210,8 @@ export type EngineMetaEvent = EngineEventEnvelope<'meta'> & {
   permissionMode?: string
   title?: string
   resolvedEffort?: string | null
+  /** An ACP agent's own permission modes. */
+  modes?: string[] | null
 }
 export type EngineStatusEvent = EngineEventEnvelope<'status'> & { status: EngineAgentStatus; reason?: string | null }
 /** A voice message's recording: the engine serves it at GET /file/<fileId>; the message text is its Scribe transcript. */
@@ -454,6 +496,9 @@ export interface EngineAccount {
   fullLogin?: boolean
   /** Which permission mode its agents run in when they have none of their own, and where that comes from. */
   permissions?: string
+  /** Whether a Chrome is connected to it (a full login only): { count } or { count: null, reason }, and the card's line. */
+  browser?: { count: number | null; reason?: string; at: number } | null
+  browserLine?: string | null
 }
 export interface EngineAccountsView {
   /** "auto" (the account whose week ends first) or an account id. */
@@ -560,6 +605,10 @@ export interface RespondArgs {
 
 export interface EngineCommandMap {
   listAgents: { args: Record<string, never>; result: EngineAgentSnapshot[] }
+  /** Which runtimes this machine can summon, and the one line to tell the person for each one missing. */
+  runtimes: { args: Record<string, never>; result: EngineRuntimeReport }
+  /** A runtime's one-time setup (Codex: the Oasis's codex-acp adapter, about 540 MB). */
+  setupRuntime: { args: { runtime: EngineRuntime }; result: unknown }
   listSessions: { args: { limit?: number }; result: EngineSessionMeta[] }
   /** Load the dictation model ahead of the first mic press (never installs or downloads). */
   warmEars: { args: { engine?: 'elevenlabs' | 'local' }; result: { warming: boolean; ready?: boolean; model?: string } }
@@ -589,7 +638,8 @@ export interface EngineCommandMap {
   rename: { args: { agentId: string; name: string }; result: EngineAgentSnapshot }
   readFile: { args: { fileId: string }; result: { name: string; text: string; mtimeMs: number; size: number } }
   writeFile: { args: { fileId: string; text: string; expectedMtimeMs: number | null; force?: boolean }; result: { name: string; mtimeMs: number; size: number } }
-  voiceMessage: { args: { agentId: string; audio: string; mime: string; durationMs?: number; priority?: 'now' | 'later' }; result: { ok: boolean; data?: { transcript: string; fileId: string; uuid?: string }; error?: string } }
+  voiceMessage: { args: { agentId: string; audio: string; mime: string; durationMs?: number; priority?: 'now' | 'later'; transcriber?: 'elevenlabs' | 'local' }; result: { ok: boolean; data?: { transcript: string; fileId: string; uuid?: string }; error?: string } }
+  keepVoiceTyping: { args: { agentId: string; audio: string; mime: string; text: string; durationMs?: number }; result: { file: string } }
   /** This page can take eyes pictures (once per connection). */
   canSee: { args: { on: boolean }; result: { ok: boolean } }
   /** The answer to a view.request: the pictures, or none when this page has no view of that agent. */

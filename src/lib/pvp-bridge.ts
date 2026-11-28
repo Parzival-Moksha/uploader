@@ -117,6 +117,7 @@ interface PvpSender {
   sendReportHit(payload: PvpReportHitPayload): void
   sendVitals(payload: PvpVitalsPayload): void
   sendShot?(payload: PvpShotPayload): void
+  sendStandUp?(): void
   /** Current room's local sessionId — the local player's id in the room. */
   readonly localSessionId: string
   /** Current room's pvpEnabled flag. */
@@ -177,6 +178,11 @@ export function sendPvpVitals(payload: PvpVitalsPayload): void {
 
 export function sendPvpShot(payload: PvpShotPayload): void {
   activeSender?.sendShot?.(payload)
+}
+
+/** Party rules: a knocked-down player gets up now (the room accepts it a second after the fall). */
+export function sendPvpStandUp(): void {
+  activeSender?.sendStandUp?.()
 }
 
 // ─═̷─ Incoming events (called by the room client) ─═̷─

@@ -28,6 +28,9 @@ const nextConfig = {
   // Expose empty basePath to client code — root-served, no /oasis prefix
   env: {
     NEXT_PUBLIC_BASE_PATH: '',
+    // The mode at build time, for the few defaults the browser needs before /api/session/init answers
+    // (a hosted visitor's first body: src/lib/profile-defaults.ts). Empty for the local Oasis.
+    NEXT_PUBLIC_OASIS_MODE: process.env.OASIS_MODE || '',
   },
 
   // Disable HMR in dev mode (use DISABLE_HMR=1 pnpm dev)
@@ -47,6 +50,16 @@ const nextConfig = {
         {
           source: '/presentation',
           destination: '/presentation/index.html',
+        },
+      ],
+      // A built copy (next start) serves only the public/ files that were there when it started: a picture, video,
+      // song, voice, model or screenshot made while he plays answered 404 (27 Nov 19:23, the first evening on the
+      // built copy). When no page and no startup file matches a path that ends in a file extension, read it from
+      // disk on this request (src/app/api/public-file/[...path]/route.ts: the same files, content type, ranges).
+      fallback: [
+        {
+          source: '/:path((?!api/|_next/).*\\.[A-Za-z0-9]{1,8})',
+          destination: '/api/public-file/:path',
         },
       ],
     }

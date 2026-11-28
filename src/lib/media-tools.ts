@@ -188,7 +188,7 @@ export const mediaToolsOpenAI = [
         type: 'object',
         properties: {
           prompt: { type: 'string', description: 'Text prompt describing the image to generate' },
-          model: { type: 'string', enum: IMAGE_MODELS, description: 'Image model to use (default: gemini-flash)' },
+          model: { type: 'string', enum: IMAGE_MODELS, description: 'Image model to use (default: gemini-flash = the default of this Oasis: the ChatGPT plan of the machine it runs on, when called from that machine, else Nano Banana 2; riverflow, seedream, flux-klein are paid on OpenRouter)' },
         },
         required: ['prompt'],
       },

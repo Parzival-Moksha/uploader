@@ -10,7 +10,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { commitBonusPct, commitInWindow, commitStateAt, commitWhen, easeFromMinutes, minutesLabel, OWN_MISSION_AGENT, runClock, stepMinutes, COMMIT_GRACE_MS, type Commitment } from '../../lib/village/own-mission'
 import { formatClock, type WorkSnapshot } from '../../lib/village/work-vow'
 import { useOasisStore } from '../../store/oasisStore'
-import { commitOwnRun, uncommitOwnRun, endOwnRun, extendOwnRun, noteOwnRun, notifyOwnRun, pauseOwnRun, readOwnRunNotes, RUN_ANSWER_GRACE_MS, saveOwnRun, setRunDraft, startOwnRun } from './work-vow-client'
+import { openNextNow } from './NowMissions'
+import { commitOwnRun, uncommitOwnRun, endOwnRun, extendOwnRun, noteOwnRun, notifyOwnRun, pauseOwnRun, readOwnRunNotes, saveOwnRun, setRunDraft, startOwnRun } from './work-vow-client'
 import { kitConfirm } from '@/components/ui-kit'
 
 const GREEN = '#34d399'
@@ -61,6 +62,7 @@ export function RunningMission({ snapshot }: { snapshot: WorkSnapshot }) {
   const run = active?.run
   const [notes, setNotes] = useState<string[]>([])
   const [busy, setBusy] = useState(false)
+  const [asking, setAsking] = useState(false)
   const [error, setError] = useState('')
   // One mic: the one inside the box (voice typing on any text field); a second one beside it did the same (2026-11-23).
   const [draft, setDraft] = useState('')
@@ -85,6 +87,13 @@ export function RunningMission({ snapshot }: { snapshot: WorkSnapshot }) {
   }, [busy, draft])
   if (!active || !run) return null
   const clock = runClock(active.startedAt, run, Date.now())
+  // End: done or not. A task of his list done: the next Now opens with its "What to do".
+  const finish = async (done: boolean) => {
+    const forTask = Boolean(run.forFile)
+    await act(() => endOwnRun(active.startedAt, done))
+    setAsking(false)
+    if (done && forTask) void openNextNow()
+  }
   const paused = run.pausedAt !== null
   const act = async (job: () => Promise<{ error?: string }>) => {
     if (busy) return
@@ -129,10 +138,20 @@ export function RunningMission({ snapshot }: { snapshot: WorkSnapshot }) {
       <div className="mt-1.5">
         <NotifySwitch on={run.notify !== null} agent={run.notify || defaultAgent(names)} onChange={(on, agent) => { void notifyOwnRun(on ? agent : null) }} />
       </div>
-      {clock.over && <TimeUpButtons startedAt={active.startedAt} />}
+      {clock.over && <TimeUpButtons startedAt={active.startedAt} forTask={Boolean(run.forFile)} />}
       <div className="mt-2 flex flex-wrap gap-1.5">
         <button type="button" disabled={busy} onClick={() => { void act(() => pauseOwnRun(!paused)) }} className="mc-btn" style={INLINE_BTN}>{paused ? '▶ go on' : '❙❙ pause'}</button>
-        <button type="button" data-own-mission="end" disabled={busy} onClick={() => { void act(() => endOwnRun(active.startedAt)) }} className="mc-btn" style={INLINE_BTN} data-tone="stop" title={run.plannedSeconds !== null && !clock.over ? 'Ending before the time is up: not kept' : 'End it'}>■ end{run.plannedSeconds !== null && !clock.over ? ' now' : ''}</button>
+        {!asking ? (
+          <button type="button" data-own-mission="end" disabled={busy} onClick={() => setAsking(true)} className="mc-btn" style={INLINE_BTN} data-tone="stop" title="End it: you say whether it is done">■ end</button>
+        ) : (
+          <span data-own-mission="done-ask" className="flex flex-wrap items-center gap-1.5">
+            <span className="text-[13px] font-bold text-white">Done?</span>
+            {/* Done is kept, whatever the minutes (the owner, 26 Nov: "done before the time is the best outcome"). */}
+            <button type="button" autoFocus data-own-mission="done-yes" disabled={busy} onClick={() => { void finish(true) }} className="mc-btn" style={INLINE_BTN} data-tone="go">✓ done</button>
+            <button type="button" data-own-mission="done-no" disabled={busy} onClick={() => { void finish(false) }} className="mc-btn" style={INLINE_BTN}>not done, stop</button>
+            <button type="button" disabled={busy} onClick={() => setAsking(false)} className="text-[12px] text-white/50 underline">go on</button>
+          </span>
+        )}
       </div>
       {error && <div className="mt-1 text-[12px] text-rose-300">{error}</div>}
     </div>
@@ -140,7 +159,7 @@ export function RunningMission({ snapshot }: { snapshot: WorkSnapshot }) {
 }
 
 /** Time is up: more time, or done, right there (the old Mindcraft's "+5, +15"). */
-export function TimeUpButtons({ startedAt, compact = false }: { startedAt: number; compact?: boolean }) {
+export function TimeUpButtons({ startedAt, compact = false, forTask = false }: { startedAt: number; compact?: boolean; forTask?: boolean }) {
   const [busy, setBusy] = useState(false)
   const go = async (job: () => Promise<unknown>) => {
     if (busy) return
@@ -153,7 +172,7 @@ export function TimeUpButtons({ startedAt, compact = false }: { startedAt: numbe
     <div data-own-mission="time-up" className={`flex flex-wrap items-center gap-1.5 ${compact ? '' : 'mt-2'}`}>
       <button type="button" disabled={busy} onClick={() => { void go(() => extendOwnRun(5)) }} className="mc-btn" style={style}>+5 min</button>
       <button type="button" disabled={busy} onClick={() => { void go(() => extendOwnRun(15)) }} className="mc-btn" style={style}>+15 min</button>
-      <button type="button" disabled={busy} onClick={() => { void go(() => endOwnRun(startedAt)) }} className="mc-btn" style={style} data-tone="go">✓ done</button>
+      <button type="button" disabled={busy} onClick={() => { void go(async () => { const answer = await endOwnRun(startedAt, true); if (forTask) void openNextNow(); return answer }) }} className="mc-btn" style={style} data-tone="go">✓ done</button>
     </div>
   )
 }
@@ -165,8 +184,6 @@ export function TimeUpBar({ snapshot, bottom }: { snapshot: WorkSnapshot; bottom
   if (!active || !run || run.plannedSeconds === null || run.pausedAt !== null) return null
   const now = Date.now()
   if (!runClock(active.startedAt, run, now).over) return null
-  const ranOutAt = active.startedAt + run.pausedMs + run.plannedSeconds * 1000
-  const left = Math.max(0, Math.ceil((ranOutAt + RUN_ANSWER_GRACE_MS - now) / 60_000))
   return (
     <div
       data-own-mission="time-up-bar"
@@ -176,8 +193,8 @@ export function TimeUpBar({ snapshot, bottom }: { snapshot: WorkSnapshot; bottom
       <style>{'@keyframes oasis-time-up { 0%, 100% { box-shadow: 0 0 10px rgba(52,211,153,0.35) } 50% { box-shadow: 0 0 34px rgba(52,211,153,0.95) } }'}</style>
       <span className="text-[15px] font-bold" style={{ color: GREEN }}>⏰ Time&rsquo;s up</span>
       <span className="max-w-[260px] truncate text-[14px] font-bold">{active.title}</span>
-      <TimeUpButtons startedAt={active.startedAt} compact />
-      <span className="text-[11px] text-white/55">ends by itself, kept, in {left} min</span>
+      <TimeUpButtons startedAt={active.startedAt} compact forTask={Boolean(run.forFile)} />
+      <span className="text-[11px] text-white/55">going over is fine: the minutes count, say done when you are</span>
     </div>
   )
 }
@@ -351,7 +368,7 @@ export function NewMission({ onStarted }: { onStarted?: () => void }) {
           </select>
           <span>at</span>
           <input type="time" value={clock} onChange={event => setClock(event.target.value || clock)} className="mc-field px-1 py-0.5 text-[13px] text-white outline-none" />
-          <span className="basis-full text-[11px] text-white/55">Kept if you start it within 15 minutes of its time and run it to its length. The further ahead, the bigger the bonus: +100% for a day ahead, growing evenly from now, at most +200% from two days ahead.</span>
+          <span className="basis-full text-[11px] text-white/55">Start it within 15 minutes of its time and say done when it is: kept, +60% XP, however far ahead you commit. A miss costs only the bonus.</span>
         </div>
       )}
       <div className="mt-2 flex flex-wrap gap-1.5">
@@ -360,7 +377,7 @@ export function NewMission({ onStarted }: { onStarted?: () => void }) {
             Commit · {commitWhen(commitAt)} · {commitAt < Date.now() + 60_000 ? 'pick a later time' : commitBonus ? `+${commitBonus}% if kept` : 'no bonus'}
           </button>
         )}
-        {!later && !committing && <button type="button" data-own-mission="start" disabled={busy || !title.trim()} onClick={() => { void start() }} className="mc-btn" style={INLINE_BTN} data-tone="go">▶ Start</button>}
+        {!later && !committing && <button type="button" data-own-mission="start" disabled={busy || !title.trim()} onClick={() => { void start() }} className="mc-btn" style={INLINE_BTN} data-tone="go" title="Started now and kept: +30% XP">▶ Start{!openEnded ? <span className="ml-1 text-[11px] opacity-80">+30%</span> : null}</button>}
         {!later && !committing && <button type="button" data-own-mission="commit-open" disabled={busy} onClick={() => { setCommitting(true); setOpenEnded(false) }} className="mc-btn" style={INLINE_BTN} title="For a day and a time: worth more the further ahead">Commit…</button>}
         {!committing && <button type="button" data-own-mission="later" disabled={busy || (later && !title.trim())} onClick={() => { if (later) void save(); else setLater(true) }} className="mc-btn" style={INLINE_BTN}>{later ? 'Save to my list' : 'Save for later'}</button>}
         <button type="button" disabled={busy} onClick={() => (committing ? setCommitting(false) : later ? setLater(false) : reset())} className="mc-btn" style={INLINE_BTN}>{later || committing ? 'back' : 'cancel'}</button>

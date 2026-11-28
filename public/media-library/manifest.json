@@ -1,0 +1,4 @@
+{
+  "// what this is": "Media the Oasis ships with: shown in Spells > Media (MP3, MP4, JPEG) after your own uploads, with credit and licence, never deletable from the page. Each item: file (relative to this folder), type (audio | video | image), title, credit, licence. OASIS_MEDIA_MANIFEST=<name>.json makes an Oasis read another manifest in this folder instead (the deployed Oasis's own set). See src/lib/media-library.ts.",
+  "items": []
+}

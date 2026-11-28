@@ -49,12 +49,13 @@ export function ActionLogPanel({ isOpen, onClose }: { isOpen: boolean; onClose: 
   const redo = useOasisStore(s => s.redo)
   const scrollRef = useRef<HTMLDivElement>(null)
 
-  // Auto-scroll to current position
+  // Auto-scroll to current position. On the stack itself, not its length: it keeps the last 20 actions, so once full a
+  // new action leaves the length at 20 and the log stopped scrolling to it.
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight
     }
-  }, [undoStack.length])
+  }, [undoStack])
 
   if (!isOpen) return null
 

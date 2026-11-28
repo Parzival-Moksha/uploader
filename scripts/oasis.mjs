@@ -357,7 +357,7 @@ async function setup() {
     fs.writeFileSync(`${databaseFile(readEnvFile())}.schema.sha1`, fileSha1(path.join(HOME, 'prisma', 'schema.prisma')))
     done.push('database')
   }
-  // The party's room server (World menu > Host a party) has packages of its own, from its own lockfile. A failure
+  // The party's room server (an experiment: hosted only when the page's local storage has oasis-party-host=1) has packages of its own, from its own lockfile. A failure
   // here leaves everything else working; hosting then says it cannot start.
   if (plan.includes('party')) {
     const [command, ...lead] = pnpm()
@@ -502,13 +502,22 @@ export function villageUrl({ session = '', firstRun = false, port = WEB_PORT, ke
  * The last lines of a start: for the person, or for the agent that ran this for them to pass on word for word
  * (a newcomer's agent otherwise guesses: other ports, its own browser, "I can't confirm it's open").
  */
-export function handoverLines({ url, opened, seconds, folder, first = false, updatedTo = '' }) {
+/** Claude Code sessions on this machine (the village brings the newest in on a first run)? A machine with only Codex has none. */
+export function hasClaudeSessions(dir = process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), '.claude')) {
+  try { return fs.readdirSync(path.join(dir, 'projects'), { withFileTypes: true }).some((d) => d.isDirectory()) } catch { return false }
+}
+
+export function handoverLines({ url, opened, seconds, folder, first = false, updatedTo = '', claudeSessions = hasClaudeSessions() }) {
   return [
     '',
     '---- For the user (pass this on word for word) ----',
     opened ? `The Oasis is open in your browser: ${url}` : `The Oasis is running: ${url} (to open it with its key: node scripts/oasis.mjs open)`,
     updatedTo ? `Updated to ${updatedTo} in ${minSec(seconds)}.` : first ? `The first start took ${minSec(seconds)}; later starts take seconds.` : `Started in ${minSec(seconds)}.`,
-    'First thing to do: in the village, walk up to one of your own Claude Code sessions standing in front of you and press E to read it (Talk to it here carries it on); or click Agents (top left), then Summon a guide.',
+    // A machine with only Codex has no Claude Code sessions to walk up to (Hermes builder's Codex door run, 28 Nov:
+    // Codex passed the Claude line on to a Codex-only person word for word).
+    claudeSessions
+      ? 'First thing to do: in the village, walk up to one of your own Claude Code sessions standing in front of you and press E to read it (Talk to it here carries it on); or click Agents (top left), then Summon a guide.'
+      : 'First thing to do: in the village, click Agents (top left), then Summon a guide: it greets you and shows you around, on your own Codex or Claude Code. Agents, then Summon an agent, starts one in any folder.',
     `To open it again: node scripts/oasis.mjs open (in ${folder}).`,
     '----------------------------------------------------',
   ]

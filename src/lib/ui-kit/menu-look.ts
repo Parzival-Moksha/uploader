@@ -7,6 +7,7 @@
 
 import { useSyncExternalStore } from 'react'
 import { CURSOR_SETS, DEFAULT_CURSOR_SET, applyCursorSet, type CursorSetId } from './cursors'
+import { applyTries } from './tries'
 
 export type MenuStyleId = 'glass' | 'forged' | 'parchment' | 'rune'
 
@@ -95,6 +96,7 @@ function publish(look: MenuLook) {
   root.style.setProperty('--kit-glass-bg', glass.backgroundColor)
   root.style.setProperty('--kit-glass-blur', glass.backdropFilter)
   applyCursorSet(look.cursor)
+  applyTries()
 }
 
 function notify() { store.listeners.forEach(fn => fn()) }

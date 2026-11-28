@@ -37,6 +37,7 @@ import { subscribeVillageSend, subscribeVillageVoiceStop, subscribeVillageVoiceT
 import { VoiceSetupLine } from './VoiceSetupLine'
 import { ComeWhenDoneToggle } from './ComeWhenDone'
 import { micErrorLine, micStatusLine } from '../../lib/voice/mic-wait'
+import { isAcpRuntime } from '../../lib/agent-engine-types'
 
 function describeError(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
@@ -85,7 +86,7 @@ export function VillageComposer({ agentId, large = false, containerHeight }: {
   const pendingUser = useOasisStore(s => s.agentEngine.agents[agentId]?.pendingUser || 0)
   // A desktop-app session reached through the Oasis plugin: the app owns interrupt and priorities.
   const owned = useOasisStore(s => Boolean(s.agentEngine.agents[agentId]?.owned))
-  const hermes = useOasisStore(s => s.agentEngine.agents[agentId]?.runtime === 'hermes')
+  const hermes = useOasisStore(s => isAcpRuntime(s.agentEngine.agents[agentId]?.runtime))
   // Only while a turn runs (village-interrupt.ts): not for a finished agent with a leftover status.
   const interruptible = useOasisStore(s => canInterrupt(s.agentEngine.agents[agentId]))
   const dictation = useVillageDictation(agentId)

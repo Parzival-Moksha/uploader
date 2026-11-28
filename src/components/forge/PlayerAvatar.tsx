@@ -14,7 +14,8 @@
 // ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
 
 import { useRef, useEffect, useState, useContext, useSyncExternalStore } from 'react'
-import { groundUnder, guardStep } from '../../lib/forge/ground-guard'
+import { geometryVersion, groundHeightAt, groundUnder, guardStep } from '../../lib/forge/ground-guard'
+import { groundingStep, lowestSole, measureSoleRest, type SoleRest } from '../../lib/forge/feet-on-ground'
 import { isDragLookOn } from '../../lib/drag-look'
 import { useFrame, useLoader } from '@react-three/fiber'
 import { useKeyboardControls } from '@react-three/drei'
@@ -27,6 +28,7 @@ import { playerBaseSpeed } from '../../lib/forge/locomotion-set'
 import { useAudioManager } from '../../lib/audio-manager'
 import { localToWorldXZ } from '../../lib/forge/hips-motion'
 import { startDanceMusic, stopDanceMusic, currentDanceMusic } from '../../lib/dance-music'
+import { freeUalClips } from '../../lib/forge/ual-catalog'
 import { getMobileInputSnapshot } from '../../lib/mobile-controls'
 import { getLipSync } from '../../lib/lip-sync'
 import { sprintRef } from '../CameraController'
@@ -53,6 +55,8 @@ import { PORTAL_REVEAL_ROLL_EVENT } from '../../lib/portal-transition-settings'
 import { QUEST_ZERO_WORLD_ID, ROOKIE_WIZARD_WORLD_ID } from '../../lib/portal-gates'
 import { sampleTerrainHeightAt } from '../../lib/forge/terrain-brush'
 import { useOasisStore } from '../../store/oasisStore'
+import { getCachedJson, loadCachedJson, subscribeCachedJson } from '../../lib/cached-json'
+import { GUN_AIM_CLIP, armedWeapon, castGestureFor, createHeldGun, measureAvatarHeight, playerHeightScale, setPlayerAvatarHeight } from './combat-stance'
 import { getLocalSessionId } from '../../lib/pvp-bridge'
 import { getVillageCombatVersion, getVillageVitals, isFlinching, subscribeVillageCombat } from '../../lib/village/village-combat'
 import { VillageCorpseDrop } from '../village/VillageCombatHud'
@@ -74,6 +78,7 @@ interface PlayerAvatarProps {
 
 const MAX_DELTA = 0.05
 const CAMERA_DISTANCE = 4.2
+const PROFILE_JSON_URL = '/api/profile'
 const TPS_MIN_CAMERA_DISTANCE = 1.2
 const TPS_MAX_CAMERA_DISTANCE = 100
 const TPS_ZOOM_CURVE = 1.35
@@ -154,8 +159,13 @@ function distanceToTpsZoom(distance: number): number {
 
 const DEFAULT_TPS_CAMERA_ZOOM = distanceToTpsZoom(CAMERA_DISTANCE)
 
-// Random dance clips for X key
-const DANCE_CLIPS = ['breakdance', 'hip-hop', 'capoeira', 'moonwalk', 'shuffling', 'thriller', 'twist', 'twirl']
+// Random dance clips for X key: the Mixamo ones (on his machine only: they can't ship) and the shipped CC0 ones, so X
+// always does something (the owner, 26 Nov: "Backflip goes among the things my avatar does if I hit X", "I like
+// Celebration"). A one-shot (the flip) plays once, without music, then back to standing.
+const ONE_SHOT_MOVES = new Set(['ualpro-1-BackFlip'])
+const DANCE_CLIPS = ['breakdance', 'hip-hop', 'capoeira', 'moonwalk', 'shuffling', 'thriller', 'twist', 'twirl', 'ual-dance', 'ualpro-1-Celebration', ...ONE_SHOT_MOVES]
+// The UAL packs' clips the library doesn't name (ualpro-1-BackFlip...), listed once so they load by id.
+freeUalClips()
 
 // ═══════════════════════════════════════════════════════════════════════════
 // THE COMPONENT
@@ -181,6 +191,9 @@ export function PlayerAvatar({
     || ((inputState === 'placement' || inputState === 'paint') && previousCameraState === 'third-person')
   const groupRef = useRef<THREE.Group>(null)
   const vrmRef = useRef<VRM | null>(null)
+  // Feet on the ground (feet-on-ground.ts): how high its foot bones sit above its soles, and the shift it has now.
+  const soleRestRef = useRef<SoleRest | null>(null)
+  const groundShiftRef = useRef(0)
   const [vrm, setVrm] = useState<VRM | null>(null)
   const [avatarPoseReady, setAvatarPoseReady] = useState(false)
 
@@ -223,6 +236,8 @@ export function PlayerAvatar({
   // The camera follows a dance's hand-over of position softly instead of in the same instant.
   const cameraLagRef = useRef(new THREE.Vector3())
   const danceKeyDownRef = useRef(false)
+  // Leaning into a turn while jogging: how fast the body turns (rad/s, smoothed), and the side it leans to now.
+  const turnRef = useRef({ last: null as number | null, rate: 0, side: null as 'left' | 'right' | null })
   /** A dance started with X is playing (not the same clip used for the mana recharge or a spell). */
   const danceByKeyRef = useRef(false)
   const rootFacingRef = useRef<number | null>(null)
@@ -248,6 +263,28 @@ export function PlayerAvatar({
     }
   }, [])
   const spellAnimationActiveRef = useRef(false)
+  // The Speed stat (Character menu: 7% a point), read from the profile and kept fresh when a point is spent.
+  const moveSpeedMulRef = useRef(1)
+  useEffect(() => {
+    const read = () => {
+      const m = getCachedJson<{ playerStats?: { moveSpeedMultiplier?: number } }>(PROFILE_JSON_URL)?.playerStats?.moveSpeedMultiplier
+      moveSpeedMulRef.current = typeof m === 'number' && Number.isFinite(m) && m > 0 ? Math.min(2, m) : 1
+    }
+    read()
+    void loadCachedJson(PROFILE_JSON_URL).then(read)
+    return subscribeCachedJson(PROFILE_JSON_URL, read)
+  }, [])
+  // Armed with a weapon (combat-stance.ts): the shoulder camera blends in, the gun shows in the right hand.
+  const aimBlendRef = useRef(0)
+  const heldGunRef = useRef<ReturnType<typeof createHeldGun> | null>(null)
+  const lastArmedRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!vrm) return
+    const gun = createHeldGun(vrm)
+    heldGunRef.current = gun
+    lastArmedRef.current = null
+    return () => { gun.dispose(); if (heldGunRef.current === gun) heldGunRef.current = null }
+  }, [vrm])
   const combatClipRef = useRef<string | null>(null)
   const manaRechargeAnimationActiveRef = useRef(false)
   const portalRollTimeoutRef = useRef<number | null>(null)
@@ -396,6 +433,10 @@ export function PlayerAvatar({
 
     loadedVrm.scene.userData.oasisAvatar = true // casts in "Shadows: Avatars only" (SunShadows)
     vrmRef.current = loadedVrm
+    soleRestRef.current = measureSoleRest(loadedVrm)
+    groundShiftRef.current = 0
+    // Its height scales the third-person camera and the cast origin (combat-stance.ts).
+    setPlayerAvatarHeight(measureAvatarHeight(loadedVrm))
     setAvatarPoseReady(false)
     setVrm(loadedVrm)
     appliedEnvRef.current = null
@@ -602,6 +643,19 @@ export function PlayerAvatar({
     cameraLagRef.current.z += ((aim ? aim.z : 0) - cameraLagRef.current.z) * ease
     if (!aim && cameraLagRef.current.lengthSq() < 1e-8) cameraLagRef.current.set(0, 0, 0)
     v.update(delta)
+    // Its soles on the ground that is really under it: the terrain, or a crafted floor (the plaza, a step) within a
+    // step of the feet; the body eased up or down so its lowest sole stands there (feet-on-ground.ts).
+    const soleRest = soleRestRef.current
+    if (soleRest) {
+      const worldState = useOasisStore.getState()
+      const geometryKey = `${worldState.activeWorldId}|${geometryVersion(worldState.craftedScenes, worldState.transforms)}`
+      const floor = groundHeightAt(state.scene, geometryKey, positionRef.current.x, positionRef.current.z, positionRef.current.y)
+      const sole = lowestSole(soleRest)
+      if (sole !== null) {
+        groundShiftRef.current = groundingStep(groundShiftRef.current, Math.max(positionRef.current.y, floor ?? -Infinity) - sole, delta)
+        v.scene.position.y = groundShiftRef.current
+      }
+    }
 
     if (isThirdPersonActive && !wasThirdPersonActiveRef.current) {
       // The village rig restores the exact pre-focus pose: trust the stored azimuth like a menu close.
@@ -742,7 +796,7 @@ export function PlayerAvatar({
 
       // Speed modifier: shift=sprint (4x), space=walk (0.25x), default=run
       const speedMult = sprint || mobileSprint ? TPS_SPRINT_MULT : slow ? TPS_WALK_MULT : 1
-      const currentSpeed = cinematic ? cinematic.speed : playerBaseSpeed() * speedMult
+      const currentSpeed = cinematic ? cinematic.speed : playerBaseSpeed() * speedMult * moveSpeedMulRef.current
 
       // Sprint VFX — same speed lines + chromatic aberration as noclip
       const targetIntensity = sprint || mobileSprint ? (TPS_SPRINT_MULT - 1) / 3 : 0
@@ -788,6 +842,14 @@ export function PlayerAvatar({
         if (velocityRef.current.lengthSq() < 0.001) velocityRef.current.set(0, 0, 0)
         isMovingRef.current = velocityRef.current.lengthSq() > 0.01
       }
+      // Armed: the body turns to where the camera looks, walking or not (a shooter's stance).
+      if (armedWeapon()) {
+        const aimAngle = Math.atan2(camForward.x, camForward.z)
+        let aimDiff = aimAngle - facingAngle.current
+        while (aimDiff > Math.PI) aimDiff -= Math.PI * 2
+        while (aimDiff < -Math.PI) aimDiff += Math.PI * 2
+        facingAngle.current += aimDiff * Math.min(12 * delta, 1)
+      }
 
       // Apply velocity to position
       const stepFromX = positionRef.current.x
@@ -832,11 +894,20 @@ export function PlayerAvatar({
       cameraZoom.current += (cameraZoomTarget.current - cameraZoom.current) * (1 - Math.exp(-TPS_ZOOM_SMOOTHING * delta))
       const zoomFraming = smoothstep01(cameraZoom.current / DEFAULT_TPS_CAMERA_ZOOM)
       const el = cameraElevation.current
-      const dist = tpsZoomToDistance(cameraZoom.current)
-      const heightOffset = THREE.MathUtils.lerp(TPS_CLOSE_CAMERA_HEIGHT_OFFSET, CAMERA_HEIGHT_OFFSET, zoomFraming)
-      const shoulderOffset = THREE.MathUtils.lerp(TPS_CLOSE_SHOULDER_OFFSET, CAMERA_SHOULDER_OFFSET, zoomFraming)
+      // Heights follow the avatar's own height; armed, the camera slides over the right shoulder, a little closer,
+      // so the crosshair sits beside the head, not on it (combat-stance.ts). Zoomed all the way in: centred.
+      const k = playerHeightScale()
+      aimBlendRef.current += ((armedWeapon() ? 1 : 0) - aimBlendRef.current) * (1 - Math.exp(-6 * delta))
+      const aim = aimBlendRef.current
+      const dist = tpsZoomToDistance(cameraZoom.current) * THREE.MathUtils.lerp(1, 0.82, aim * zoomFraming)
+      const heightOffset = THREE.MathUtils.lerp(TPS_CLOSE_CAMERA_HEIGHT_OFFSET, CAMERA_HEIGHT_OFFSET, zoomFraming) * k
+      const shoulderOffset = THREE.MathUtils.lerp(TPS_CLOSE_SHOULDER_OFFSET, CAMERA_SHOULDER_OFFSET, zoomFraming) + 0.95 * k * aim * zoomFraming
       const lookAhead = THREE.MathUtils.lerp(TPS_CLOSE_LOOK_AHEAD, CAMERA_LOOK_AHEAD, zoomFraming)
-      const lookTargetHeight = THREE.MathUtils.lerp(TPS_CLOSE_LOOK_TARGET_HEIGHT, CAMERA_LOOK_TARGET_HEIGHT, zoomFraming)
+      const lookTargetHeight = THREE.MathUtils.lerp(
+        THREE.MathUtils.lerp(TPS_CLOSE_LOOK_TARGET_HEIGHT, CAMERA_LOOK_TARGET_HEIGHT, zoomFraming) * k,
+        1.6 * k,
+        aim,
+      )
       const offset = _cameraOffset.current.set(
         Math.sin(az) * Math.cos(el) * dist,
         Math.sin(el) * dist + heightOffset,
@@ -906,6 +977,17 @@ export function PlayerAvatar({
     if (animControllerRef.current) {
       const speed = velocityRef.current.length()
       animControllerRef.current.updateFromVelocity(speed)
+      // Jogging into a turn, it leans into it (the owner, 26 Nov: the jog's lean left and right). Its facing angle
+      // growing turns it to its left (checked headless: the curve's middle is then on its left). A margin either way
+      // so it doesn't flicker on a straight run.
+      const turn = turnRef.current
+      if (turn.last !== null && delta > 0) {
+        const rate = normalizeAngle(facingAngle.current - turn.last) / delta
+        turn.rate += (rate - turn.rate) * Math.min(1, delta * 8)
+      }
+      turn.last = facingAngle.current
+      const side = Math.abs(turn.rate) > (turn.side ? 0.6 : 1.2) ? (turn.rate > 0 ? 'left' : 'right') : null
+      if (side !== turn.side) { turn.side = side; animControllerRef.current.setLean(side) }
 
       // Party combat: a hit from another player flinches you, a lethal one knocks you down (once, held).
       const combatPose = localCombatPose()
@@ -921,14 +1003,23 @@ export function PlayerAvatar({
           controller.transitionTo('idle')
         }
       }
+      // Never left lying: no knock-down and no flinch, yet the body still plays one of them (a clip that finished
+      // loading late, a pose set elsewhere): stand up. (The owner, 28 Nov: lay there until his next cast.)
+      if (!combatClip && animControllerRef.current.state === 'custom') {
+        const playing = animControllerRef.current.customAnimationId
+        if (playing === COMBAT_DOWN_CLIP || playing === COMBAT_FLINCH_CLIP) animControllerRef.current.transitionTo('idle')
+      }
 
       if (playerSpellCasting) {
         if (!spellAnimationActiveRef.current) {
           spellAnimationActiveRef.current = true
           manaRechargeAnimationActiveRef.current = false
-          animControllerRef.current.preloadClip(SPELL_CAST_ANIMATION_ID).then(ok => {
+          // Each spell its own gesture (combat-stance.ts): a hurled fireball, an ice punch, the gun's recoil.
+          const gesture = castGestureFor(useOasisStore.getState().selectedSpellId)
+          const gestureClip = gesture.clip || SPELL_CAST_ANIMATION_ID
+          animControllerRef.current.preloadClip(gestureClip).then(ok => {
             if (ok && getPlayerSpellCasting()) {
-              animControllerRef.current?.transitionTo('custom', SPELL_CAST_ANIMATION_ID)
+              animControllerRef.current?.transitionTo('custom', gestureClip, { loop: gesture.loop })
             }
           })
         }
@@ -956,6 +1047,25 @@ export function PlayerAvatar({
         }
       }
 
+      // ── Armed with the machine gun: the rifle in the hand, the aim pose while standing ──
+      const armedNow = armedWeapon()
+      if (armedNow !== lastArmedRef.current) {
+        heldGunRef.current?.set(armedNow === 'gun')
+        if (lastArmedRef.current === 'gun' && animControllerRef.current.state === 'custom' && animControllerRef.current.customAnimationId === GUN_AIM_CLIP) {
+          animControllerRef.current.transitionTo('idle')
+        }
+        lastArmedRef.current = armedNow
+      }
+      if (armedNow === 'gun' && !playerSpellCasting && speed < 0.05 && !combatClipRef.current) {
+        const controller = animControllerRef.current
+        if (controller.state !== 'custom' || controller.customAnimationId !== GUN_AIM_CLIP) {
+          void controller.preloadClip(GUN_AIM_CLIP).then(ok => {
+            const c = animControllerRef.current
+            if (ok && c && armedWeapon() === 'gun' && !getPlayerSpellCasting() && (c.state !== 'custom' || c.customAnimationId !== GUN_AIM_CLIP)) c.transitionTo('custom', GUN_AIM_CLIP)
+          })
+        }
+      }
+
       // ── X key = random dance ──
       if (isThirdPersonActive) {
         const { dance } = getKeys() as Record<string, boolean>
@@ -965,15 +1075,32 @@ export function PlayerAvatar({
         const current = animControllerRef.current.state === 'custom' ? animControllerRef.current.customAnimationId : null
         const dancing = current !== null && DANCE_CLIPS.includes(current)
         if (pressed && !playerSpellCasting && !playerManaRecharging && (current === null || dancing)) {
-          const choices = DANCE_CLIPS.filter(id => id !== current)
-          const randomDance = choices[Math.floor(Math.random() * choices.length)]
-          animControllerRef.current.preloadClip(randomDance).then(ok => {
-            if (!ok || !animControllerRef.current) return
-            // Enabled before the switch, so a dance already playing hands its place over.
-            animControllerRef.current.rootMotionEnabled = true
-            animControllerRef.current.transitionTo('custom', randomDance)
-            danceByKeyRef.current = true
-          })
+          // In a random order; one that cannot load (a Mixamo file not on this machine) gives its turn to the next.
+          const choices = DANCE_CLIPS.filter(id => id !== current).sort(() => Math.random() - 0.5)
+          const tryDance = (index: number): void => {
+            const controller = animControllerRef.current
+            const move = choices[index]
+            if (!controller || !move) return
+            void controller.preloadClip(move).then(ok => {
+              if (!ok) { tryDance(index + 1); return }
+              const now = animControllerRef.current
+              if (!now) return
+              // Enabled before the switch, so a dance already playing hands its place over.
+              now.rootMotionEnabled = true
+              const once = ONE_SHOT_MOVES.has(move)
+              now.transitionTo('custom', move, once ? { loop: false } : undefined)
+              danceByKeyRef.current = true
+              // The flip lands, then it stands again (unless something else has taken over meanwhile).
+              if (once) {
+                const ms = (now.getClipDuration(move) ?? 1.9) * 1000
+                window.setTimeout(() => {
+                  const c = animControllerRef.current
+                  if (c && c.state === 'custom' && c.customAnimationId === move) c.transitionTo('idle')
+                }, ms)
+              }
+            })
+          }
+          tryDance(0)
         }
       }
 
@@ -982,7 +1109,7 @@ export function PlayerAvatar({
       // The mana recharge plays a dance clip too: no music and no travel for that, nor for a spell cast.
       if (!dancingNow || !DANCE_CLIPS.includes(dancingNow) || manaRechargeAnimationActiveRef.current || playerSpellCasting) danceByKeyRef.current = false
       animControllerRef.current.rootMotionEnabled = danceByKeyRef.current
-      const musicFor = danceByKeyRef.current ? dancingNow : null
+      const musicFor = danceByKeyRef.current && dancingNow && !ONE_SHOT_MOVES.has(dancingNow) ? dancingNow : null
       if (musicFor !== currentDanceMusic()) {
         if (musicFor) startDanceMusic(musicFor)
         else stopDanceMusic()

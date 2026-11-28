@@ -20,7 +20,6 @@ export const DEFAULT_SPELL_SOUNDS: NonNullable<OasisSettings['spellSounds']> = {
   'text-to-3d': 'mixkit-explosion-hit',
   'text-3d': 'mixkit-explosion-hit',
   'text-to-pic': 'mixkit-magic-sparkle-whoosh',
-  'text-to-pic-building': 'mixkit-magic-sparkle-whoosh',
   'text-to-music': 'mixkit-choir-magic-shine',
 }
 
@@ -44,6 +43,7 @@ export const defaultSettings: OasisSettings = {
   // FPS COUNTER
   fpsCounterEnabled: false,
   fpsCounterFontSize: 14,
+  loadingDebugger: false,
   // CAMERA MODES
   controlMode: 'third-person',
   mouseSensitivity: 1.0,
@@ -706,6 +706,10 @@ const _BASE_ASSET_CATALOG: AssetDefinition[] = [
   { id: 'av_vipe_2770', name: 'VIPE Hero 2770', path: '/avatars/gallery/VIPE_Hero__2770.vrm', category: 'avatar', defaultScale: 1 },
   { id: 'av_vipe_2902', name: 'VIPE Hero 2902', path: '/avatars/gallery/VIPE_Hero__2902.vrm', category: 'avatar', defaultScale: 1 },
   { id: 'av_witch', name: 'Witch', path: '/avatars/gallery/Witch.vrm', category: 'avatar', defaultScale: 1 },
+  // The founder's own body (his Meshy model made a VRM, 26 Nov): ours, not CC0; never dealt to an agent (village-layout NOT_DEALT).
+  { id: 'av_vibedev', name: 'Vibedev', path: '/avatars/gallery/Vibedev.vrm', category: 'avatar', defaultScale: 1 },
+  // The founder again, from his 27 Nov photo (Tripo v3.1 image-to-3D + Tripo rig, cut to 80k triangles, scripts/glb-to-vrm.mjs).
+  { id: 'av_vibedev_hendrix', name: 'Vibedev Hendrix', path: '/avatars/gallery/VibedevHendrix.vrm', category: 'avatar', defaultScale: 1 },
 ]
 
 // ═══════════════════════════════════════════════════════════════════════════════

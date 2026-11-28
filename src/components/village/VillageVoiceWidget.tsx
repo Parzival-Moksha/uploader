@@ -22,7 +22,7 @@ import {
   takeDraftForSend,
 } from '../../lib/voice/village-dictation'
 import { clearComposerPictures, getComposerPictures } from './ComposerPictures'
-import { discardUnsent, formatClip, resendRecording, stopRecording, subscribeVoiceMessages, voiceMessageList, voiceMessagesVersion } from './VoiceMessage'
+import { discardUnsent, formatClip, listenRecording, listeningTo, resendRecording, stopRecording, subscribeVoiceMessages, voiceMessageList, voiceMessagesVersion } from './VoiceMessage'
 import { showNotice } from '../forge/GlobalNotice'
 
 const TITLE_FONT = '"Arial Black", Impact, "Segoe UI Black", "Trebuchet MS", system-ui, "Apple Color Emoji", "Oasis Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif'
@@ -65,7 +65,9 @@ export function VillageVoiceWidget() {
   const agents = useOasisStore(s => s.agentEngine.agents)
   // The md reader's mic (key md:<file>) shows in the reader itself and stops when it closes.
   const dictations = runningDictations().filter(d => d.agentId !== focusedId && !d.agentId.startsWith('md:'))
-  const messages = voiceMessageList().filter(m => m.agentId !== focusedId)
+  // One cut off by a reload shows here even while its agent's panel is open (the reload brings the panel back too):
+  // a card that says so, with Send, Listen and Discard, not only the small button in the panel.
+  const messages = voiceMessageList().filter(m => m.agentId !== focusedId || (m.interrupted && m.phase === 'unsent'))
   const now = useNow(dictations.length + messages.length > 0)
   if (!dictations.length && !messages.length) return null
   const nameOf = (id: string) => agents[id]?.name || 'an agent'
@@ -108,7 +110,7 @@ export function VillageVoiceWidget() {
             <div className="flex items-center gap-1.5">
               <span className={`h-2 w-2 shrink-0 rounded-full ${recording ? 'animate-pulse bg-rose-400' : unsent ? 'bg-amber-300' : 'bg-sky-300'}`} />
               <span data-part="title" className="min-w-0 flex-1 truncate text-[10px] uppercase tracking-[0.12em]" style={{ fontFamily: TITLE_FONT }}>
-                {recording ? 'recording' : unsent ? 'not sent' : 'sending'} <span className="text-white/60">· {name}</span>
+                {recording ? 'recording' : unsent ? (m.interrupted ? `interrupted ${new Date(m.startedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'not sent') : 'sending'} <span className="text-white/60">· {name}</span>
               </span>
               <span data-part="timer" className="font-mono text-[11px] tabular-nums text-white/80">{formatClip(recording ? now - m.startedAt : m.durationMs)}</span>
             </div>
@@ -122,6 +124,7 @@ export function VillageVoiceWidget() {
               {unsent && (
                 <>
                   <button type="button" data-part="send" onClick={() => resendRecording(m.agentId)} className={`${button} border-emerald-300/50 bg-emerald-400/20 text-emerald-50 hover:bg-emerald-400/35`}>Send</button>
+                  <button type="button" data-part="listen" onClick={() => listenRecording(m.agentId)} className={`${button} border-sky-300/40 bg-sky-400/15 text-sky-50 hover:bg-sky-400/30`} title="Listen to it before sending">{listeningTo() === m.agentId ? 'Stop' : 'Listen'}</button>
                   <button type="button" data-part="discard" onClick={() => discardUnsent(m.agentId)} className={`${button} border-white/20 bg-white/5 text-white/70 hover:bg-white/15`} title="Throw this voice message away">Discard</button>
                 </>
               )}

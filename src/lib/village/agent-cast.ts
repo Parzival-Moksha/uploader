@@ -16,12 +16,17 @@
 // The "conjure duration" slider is replaced here by the incantation's own length; walk speed does not apply (an agent
 // casts where it stands; where it should stand when it also needs the owner is his open question).
 
-export type CastPhase = 'enter' | 'charge' | 'shoot' | 'exit'
+// A long spell (the owner, 26 Nov: "spell double, enter, exit and sustain... for spells that take a long time", an
+// agent building him a pirate ship): when the words are said and the change still hasn't come, it goes two-handed
+// (Spell Double's sustain loop, UAL1 Pro, CC0) and shoots and ends two-handed. A quick spell stays one-handed.
+export type CastPhase = 'enter' | 'charge' | 'sustain' | 'shoot' | 'exit' | 'shoot-double' | 'exit-double'
 
 export const CAST = {
   enterMs: 530,
   /** Shoot starts here at the earliest: its release then lands on the incantation's last word. */
   shootStartMs: 4450,
+  /** Still charging this long after the start (the words are over, the change hasn't come): two-handed from here. */
+  sustainAfterMs: 5000,
   releaseAfterShootMs: 200,
   shootMs: 500,
   exitMs: 430,
@@ -33,6 +38,14 @@ export const CAST_CLIPS: Record<CastPhase, string> = {
   charge: 'ual-spell-idle',
   shoot: 'ual-spell-shoot',
   exit: 'ual-spell-exit',
+  sustain: 'ualpro-1-Spell_Double_Idle_Loop',
+  'shoot-double': 'ualpro-1-Spell_Double_Shoot_Loop',
+  'exit-double': 'ualpro-1-Spell_Double_Exit',
+}
+
+/** The phases that loop (the rest play once and hold). */
+export function castLoops(phase: CastPhase): boolean {
+  return phase === 'charge' || phase === 'sustain'
 }
 
 export const INCANTATION_URL = '/audio/spells/conjuration-incantation.mp3'
@@ -146,9 +159,11 @@ export class CastBoard {
   phase(agentId: string, now: number): CastPhase | null {
     const cast = this.casts.get(agentId)
     if (!cast) return null
-    if (cast.shootAt === null) return now < cast.startedAt + CAST.enterMs ? 'enter' : 'charge'
-    if (now < cast.shootAt + CAST.shootMs) return 'shoot'
-    if (now < cast.shootAt + CAST.shootMs + CAST.exitMs) return 'exit'
+    // Two-handed once it has charged past the words (the moment it shoots decides, for a cast that already shot).
+    const long = (cast.shootAt ?? now) >= cast.startedAt + CAST.sustainAfterMs
+    if (cast.shootAt === null) return now < cast.startedAt + CAST.enterMs ? 'enter' : long ? 'sustain' : 'charge'
+    if (now < cast.shootAt + CAST.shootMs) return long ? 'shoot-double' : 'shoot'
+    if (now < cast.shootAt + CAST.shootMs + CAST.exitMs) return long ? 'exit-double' : 'exit'
     return null
   }
 

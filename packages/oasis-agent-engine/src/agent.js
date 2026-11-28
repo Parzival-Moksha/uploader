@@ -20,6 +20,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnClaude, onLines } from './claude.js';
 import { Normalizer, STATUS, clipDeep, summarizeTool } from './normalize.js';
+import { permissionHeadline } from './permission-reason.js';
 import { findSessionFile } from './sessions.js';
 import { readHistoryTail } from './history.js';
 import { droppedAfterInterrupt, expiredAtResult, interruptApplies, matchReplay } from './pending.js';
@@ -36,6 +37,27 @@ import { networkFailureFrom } from './network.js';
 export const LIMIT_RESUME_TEXT = 'Your last turn was cut off: the Claude account it ran on reached its usage limit. You now run on another account. Carry on from where you stopped.';
 /** After the internet came back (network.js). */
 export const NET_RESUME_TEXT = 'Your last turn was cut off: this PC lost its internet connection, and it is back now. Carry on from where you stopped.';
+
+/** A process that ran at least this long and ended on its own while idle was not failing to start. */
+export const RESTING_AFTER_MS = 60_000;
+/** How long an account move waits for an agent's helpers when its account is out (then it moves and names what it stopped). */
+export const MOVE_WAIT_MS = Number(process.env.OASIS_MOVE_WAIT_MS || 20 * 60_000);
+
+/**
+ * What an agent shows when its claude process ends. 27 Nov 00:27:58: all 27 idle processes on the second account ended
+ * in the same second with code 1 and no word (their login's access token ran out in their memory; see the ledger), and
+ * every agent turned red "claude exited (code 1)" and pinged Telegram, though nothing was lost: the next message starts
+ * the process again. So: an idle process that had been running ends on its own = resting, not an error. Mid-turn, with a
+ * message waiting, or right after starting (a bad start) = an error, as before.
+ */
+export function exitStatus({ killing = false, code = null, signal = null, idle = true, queued = 0, livedMs = 0 } = {}) {
+  if (killing || code === 0) return { status: STATUS.IDLE, reason: killing ? 'stopped' : 'exited' };
+  const what = `code ${code}${signal ? ', ' + signal : ''}`;
+  if (idle && !queued && livedMs >= RESTING_AFTER_MS) {
+    return { status: STATUS.IDLE, reason: `resting: its process ended on its own while idle (${what}); the next message starts it again`, resting: true };
+  }
+  return { status: STATUS.ERROR, reason: `claude exited (${what})` };
+}
 import { registerAttachment } from './files.js';
 
 const SANDBOX_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'sandbox');
@@ -169,6 +191,7 @@ export class Agent {
       resolvedEffort: this.resolvedEffort, eyes: this.eyes, chrome: this.chrome, speak: this.speak, voiceChoice: this.voiceChoice, status: this.status, statusReason: this.statusReason, alive: !!this.proc,
       pid: this.proc?.pid || null, pendingUser: this.pendingUser.size,
       permissions: [...this.permissions.values()].map((r) => this.describePermission(r)),
+      runningSubagents: this.norm.runningSubagents?.() || [],
       context: this.lastContext, models: this.meta.models || null,
       lastOutcome: this.lastOutcome ? outcomeForRoster(this.lastOutcome) : null,
       resumedAt: this.resumedAt,
@@ -258,6 +281,7 @@ export class Agent {
     this.hub.log(`[${this.name}] spawn claude ${args.join(' ')} (cwd ${this.cwd})`);
     const proc = spawnClaude(args, { cwd: this.cwd, env });
     this.proc = proc;
+    this.procStartedAt = Date.now();
     this.killing = false;
     this.sentSinceStart = false;
     this.youDue = true; // a new process: its first message from the owner carries who it is (character.js)
@@ -326,6 +350,9 @@ export class Agent {
 
   onExit(code, signal) {
     const wasKilling = this.killing;
+    const wasIdle = !this.turnRunning;
+    const queued = this.pendingUser.size;
+    const livedMs = Date.now() - (this.procStartedAt || Date.now());
     this.proc = null;
     for (const [, c] of this.control) { clearTimeout(c.timer); c.resolve({ ok: false, error: 'process exited' }); }
     this.control.clear();
@@ -339,8 +366,9 @@ export class Agent {
     this.norm.endOpenSubagents('stopped', 'the agent process stopped');
     this.emit('exit', { code, signal, stderr: wasKilling ? undefined : this.stderrTail.slice(-5), ...(this.switching ? { switching: true } : {}) });
     for (const done of this.exitWaiters.splice(0)) done();
-    if (wasKilling || code === 0) this.setStatus(STATUS.IDLE, wasKilling ? 'stopped' : 'exited');
-    else this.setStatus(STATUS.ERROR, `claude exited (code ${code}${signal ? ', ' + signal : ''})`);
+    const after = exitStatus({ killing: wasKilling, code, signal, idle: wasIdle, queued, livedMs });
+    if (after.resting) this.hub.log(`[${this.name}] its process ended on its own while idle (code ${code}, ran ${Math.round(livedMs / 60_000)} min): resting until the next message`);
+    this.setStatus(after.status, after.reason);
     // A switch that changes the start arguments (Chrome): come back with them, same session.
     if (this.restartPending) {
       this.restartPending = false;
@@ -435,9 +463,13 @@ export class Agent {
     const requestKind = r.tool_name === 'AskUserQuestion' ? 'question' : r.tool_name === 'ExitPlanMode' ? 'plan' : 'permission';
     return {
       requestId: r.requestId, requestKind, toolName: r.tool_name, toolUseId: r.tool_use_id,
+      // When the CLI asked (the engine's clock): a page reload must not restart "waiting for a minute" (Companion, 26 Nov).
+      askedAt: r.receivedAt || null,
       input: reviewInput(r.input), summary: summarizeTool(r.tool_name, r.input), description: r.description || null,
       suggestions: r.permission_suggestions || [], blockedPath: r.blocked_path || null,
-      decisionReason: r.decision_reason || null,
+      decisionReason: r.decision_reason || null, decisionReasonType: r.decision_reason_type || null,
+      // Claude Code's own checks (a delete it cannot name) ask even in bypass: their reason first, in plain words.
+      headline: permissionHeadline(r.tool_name, r.input, r.decision_reason, r.decision_reason_type),
     };
   }
 
@@ -584,9 +616,37 @@ export class Agent {
       return { uuid: opts.uuid, parked: true };
     }
     // Its process runs on an account it should no longer use (out, or the village went back to the first): switch first.
+    // A move restarts its process, and its helpers (subagents, a render, an encode) die with it (27 Nov: Tyler's final
+    // encode was cut off by an account move). While its account still has room it stays until they are done; when the
+    // account is out, the move waits for them up to MOVE_WAIT_MS, says so, and names what it had to stop.
     if (this.proc && this.hub.chooseAccount) {
       const want = this.hub.chooseAccount(this);
-      if (want && want.id !== this.accountId) await this.switchAccount(want.why ? `moving to ${want.label}: ${want.why}` : `moving to ${want.label}`);
+      if (want && want.id !== this.accountId) {
+        let busy = await this.helpers();
+        if (busy.length && this.hub.accountUsable?.(this.accountId)) {
+          if (this.helpersHeldFor !== want.id) {
+            this.helpersHeldFor = want.id;
+            this.hub.log(`[${this.name}] stays on ${this.hub.accountLabel?.(this.accountId) || this.accountId} while its helpers finish (${busy.join(', ')}); it moves to ${want.label} after them`);
+            this.emit('notice', { subtype: 'account-held', text: `Stays on its account while its helpers finish (${busy.join(', ')}); it moves to ${want.label} after them.` });
+          }
+        } else {
+          if (busy.length) {
+            const minutes = Math.round(MOVE_WAIT_MS / 60_000);
+            this.emit('notice', { subtype: 'account-wait', text: `Its account is out. Moving to ${want.label} waits up to ${minutes} min for its helpers to finish: ${busy.join(', ')}.` });
+            this.hub.log(`[${this.name}] account out: waiting up to ${minutes} min for ${busy.join(', ')} before moving to ${want.label}`);
+            const until = Date.now() + MOVE_WAIT_MS;
+            while (busy.length && Date.now() < until && this.proc) { await new Promise((r) => setTimeout(r, 20_000)); busy = await this.helpers(); }
+            if (busy.length) {
+              const lost = `${this.name} moved to ${want.label} after ${minutes} min; these were still running and stopped: ${busy.join(', ')}`;
+              this.emit('notice', { subtype: 'account-lost', text: lost });
+              this.hub.log(`[${this.name}] ${lost}`);
+              this.hub.tellOwner?.(`⚠️ ${lost}`);
+            }
+          }
+          this.helpersHeldFor = null;
+          await this.switchAccount(want.why ? `moving to ${want.label}: ${want.why}` : `moving to ${want.label}`);
+        }
+      }
     }
     if (!this.proc) {
       this.start();
@@ -595,6 +655,14 @@ export class Agent {
       await this.flushLeftovers();
     }
     return this.deliver(text, opts);
+  }
+
+  /** What still runs under it that a restart would end: its open subagents and the work processes under its claude. */
+  async helpers() {
+    if (!this.proc) return [];
+    const subs = (this.norm.openSubagents?.() || []).map((d) => `subagent "${String(d).slice(0, 60)}"`);
+    const procs = this.proc.pid && this.hub.helpersOf ? await this.hub.helpersOf(this.proc.pid).catch(() => []) : [];
+    return [...subs, ...procs];
   }
 
   /**

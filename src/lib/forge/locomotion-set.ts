@@ -1,4 +1,5 @@
 import { freeUalClips } from './ual-catalog'
+import { packagedView } from '../only-what-ships'
 
 // Which clips walk, run and sprint use: the free Quaternius loops (CC0, may be shipped; the default since
 // 2026-11-20, so what the owner sees is what a stranger gets) or the Mixamo ones (stay on this PC). Picked in
@@ -14,6 +15,8 @@ const QUATERNIUS: Record<string, string> = { walk: 'Walk_Loop', run: 'Jog_Fwd_Lo
 
 export function getLocomotionSet(): LocomotionSet {
   if (typeof window === 'undefined') return DEFAULT_LOCOMOTION_SET
+  // The Mixamo clips are not in the package: with "only what ships" on, the free set whatever was picked.
+  if (packagedView()) return 'quaternius'
   try {
     const stored = window.localStorage.getItem(KEY)
     return stored === 'quaternius' || stored === 'mixamo' ? stored : DEFAULT_LOCOMOTION_SET
@@ -65,7 +68,8 @@ function readGaitPicks(): Partial<Record<GaitState, string>> {
 /** The clip picked for a gait (its library id), or null when none was picked. */
 export function getGaitPick(state: GaitState): string | null {
   const id = readGaitPicks()[state]
-  return id && GAIT_CHOICES[state].some(choice => choice.id === id) ? id : null
+  const choice = id ? GAIT_CHOICES[state].find(c => c.id === id) : undefined
+  return choice && !(choice.mixamo && packagedView()) ? choice.id : null
 }
 
 /** Pick a gait's clip; the player's avatar loads it at once (PlayerAvatar listens for GAIT_CHANGED_EVENT). */

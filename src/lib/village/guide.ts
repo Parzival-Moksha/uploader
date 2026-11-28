@@ -13,7 +13,13 @@ export const GUIDE_MODEL = 'sonnet'
 export const GUIDE_PERMISSION_MODE = 'default'
 
 /** The one honest line under "Summon a guide". */
-export const GUIDE_INVITE_LINE = "Starts a Claude Code session on your own plan, in a new folder 'Oasis' in your home."
+export const GUIDE_INVITE_LINE = "Starts an agent on your own plan (Claude Code, or Codex when that is what this computer has), in a new folder 'Oasis' in your home."
+
+/** What the guide runs on: Claude Code, or Codex on a machine with only Codex (Anorak, 28 Nov). */
+export type GuideRuntime = 'claude' | 'codex'
+/** Codex's mode for the guide: its own default, asking for anything that looks unsafe. */
+export const GUIDE_CODEX_MODE = 'agent'
+
 
 /** The keys a newcomer needs first, as the guide says them. Each is real (village-keys.ts, GameMenu MENU_KEY). */
 export const GUIDE_KEYS: Array<[string, string]> = [
@@ -25,8 +31,19 @@ export const GUIDE_KEYS: Array<[string, string]> = [
 ]
 
 /** The first message the guide gets: it says all this in its own words, briefly, then stops. */
-export function guideFirstMessage(folder: string): string {
+export function guideFirstMessage(folder: string, runtime: GuideRuntime = 'claude'): string {
   const keys = GUIDE_KEYS.map(([key, what]) => `${key} ${what}`).join(', ')
+  if (runtime === 'codex') {
+    return [
+      '(Sent by the Oasis when you clicked "Summon a guide".)',
+      'Someone just opened the Oasis for the first time and summoned you. They use Codex; the Oasis is new to them. Do exactly this, briefly and in your own words, then stop:',
+      '1. Greet them.',
+      `2. Say in three short lines what this place is: the Oasis is a village where their coding agents stand as people they can walk up to and talk with; you are one of them, a Codex agent working in ${folder}, and you can see and build in this world with the Oasis tools.`,
+      `3. Give the keys that matter: ${keys}.`,
+      '4. Ask what they are working on, and say how to bring in more agents: the Agents button on the left, then Summon an agent, then Codex.',
+      'No tour, no feature list, no tools or commands for this reply. Your spoken line carries all four points in under 80 words: it is the first voice they hear here. The text may show the keys as one short line.',
+    ].join('\n')
+  }
   return [
     '(Sent by the Oasis when you clicked "Summon a guide".)',
     'Someone just opened the Oasis for the first time and summoned you. They already use Claude Code; the Oasis is new to them. Do exactly this, briefly and in your own words, then stop:',
@@ -41,10 +58,10 @@ export function guideFirstMessage(folder: string): string {
 export const GUIDE_ROLE = 'Guide for someone new to the Oasis'
 
 /** The guide's who-you-are on its card: what it is, who it talks to, its limits, where to read. */
-export function guideWho(folder: string, readme: string): string {
+export function guideWho(folder: string, readme: string, runtime: GuideRuntime = 'claude'): string {
   return [
     'You are the Guide: the first agent a newcomer meets in the Oasis.',
-    'The person you talk to is new to the Oasis but already knows Claude Code: answer short and plain, one thing at a time, no tours.',
+    `The person you talk to is new to the Oasis but already knows ${runtime === 'codex' ? 'Codex' : 'Claude Code'}: answer short and plain, one thing at a time, no tours.`,
     `You work in ${folder}. Never run commands or change files outside that folder without asking first.`,
     readme ? `How the Oasis works is in its README, ${readme}: read it before answering a question about the Oasis.` : '',
   ].filter(Boolean).join(' ')

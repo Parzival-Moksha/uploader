@@ -78,5 +78,5 @@ export function greetingLine(state: FirstRunState): string {
   if (!state.at || state.greeted) return ''
   return state.brought > 0
     ? `Your Claude Code sessions are standing in the village. Walk up to one and press E to read what it last did; "Talk to it here" carries it on.`
-    : `Welcome to the Oasis: your Claude Code sessions, as people you can walk up to. Start with a guide: Agents, top left.`
+    : `Welcome to the Oasis: your coding agents (Claude Code, Codex), as people you can walk up to. Start with a guide: Agents, top left.`
 }

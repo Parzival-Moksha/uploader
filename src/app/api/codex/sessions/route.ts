@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getAgentSessionCache, listAgentSessionCaches } from '@/lib/agent-session-cache'
 import { listCodexSessionFileSummaries, readCodexSessionFileDetail } from '@/lib/codex-session-files'
 import { guardAgentRoute } from '@/lib/local-request-guard'
+import { codexPanelOff } from '@/lib/codex-panel-switch'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -12,6 +13,8 @@ function clean(value: unknown): string {
 }
 
 export async function GET(request: NextRequest) {
+  const off = codexPanelOff()
+  if (off) return off
   const denied = guardAgentRoute(request)
   if (denied) return denied
 

@@ -6,6 +6,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { CURSOR_KINDS, CURSOR_SETS, cursorUrl, type CursorKind, type CursorSetId } from '@/lib/ui-kit/cursors'
+import { TRIES, setTry, useTries } from '@/lib/ui-kit/tries'
 import { MENU_STYLES, TOGGLE_LOOKS, setMenuLook, useMenuLook, type MenuStyleId, type ToggleLookId } from '@/lib/ui-kit/menu-look'
 import { KitButton, KitCard, KitPanel, KitToggleOverride, KitPickTile, KitProgress, KitSlider, KitStyleOverride, KitTabs, KitTextField, KitTileButton, KitToggle, kitConfirm } from './index'
 
@@ -41,7 +42,7 @@ function Sample({ style }: { style: MenuStyleId }) {
           <KitSlider label="Volume" value={level} min={0} max={100} onChange={setLevel} format={v => `${v}%`} />
         </div>
         <div className="mt-2"><KitTextField label="Name" placeholder="Call it something" /></div>
-        <KitCard title="Level 7 · Journeyman" className="mt-2"><KitProgress label="XP to level 8" value={340} max={500} format={(v, m) => `${v} / ${m}`} accent="#ffd66b" /></KitCard>
+        <KitCard title="Level 7" className="mt-2"><KitProgress label="XP to level 8" value={340} max={500} format={(v, m) => `${v} / ${m}`} accent="#ffd66b" /></KitCard>
         <div className="mt-3 flex flex-wrap gap-2">
           <KitButton variant="primary" onClick={() => setMenuLook({ style })}>{look.style === style ? 'In use' : 'Use this'}</KitButton>
           <KitButton>Cancel</KitButton>
@@ -95,6 +96,31 @@ function CursorTry({ set, kind }: { set: Exclude<CursorSetId, 'system'>; kind: C
   )
 }
 
+/** Hipster's tries: one switch each, flip it and look; keep or kill (src/lib/ui-kit/tries.ts). */
+export function HipsterTries() {
+  const on = useTries()
+  return (
+    <section data-experiment="hipster-tries">
+      <h3 className="text-[11px] font-black uppercase tracking-[0.16em] text-fuchsia-200">Hipster&apos;s tries</h3>
+      <p className="mt-1 text-[11px] leading-relaxed text-white/60">Small changes to how the Oasis looks, moves and sounds. Flip one, look at the world and the menus, then tell Hipster: keep or kill.</p>
+      <KitPanel className="mt-3">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-x-6">
+          {TRIES.map(t => (
+            <KitToggle
+              key={t.id}
+              checked={on.includes(t.id)}
+              onChange={next => setTry(t.id, next)}
+              label={<><span className="kit-label !mb-0 mr-2 inline-block">{t.axis}</span>{t.label}</>}
+              hint={t.line}
+              data-try={t.id}
+            />
+          ))}
+        </div>
+      </KitPanel>
+    </section>
+  )
+}
+
 export function KitCursorSamples() {
   const look = useMenuLook()
   return (
@@ -134,6 +160,8 @@ export function KitToggleSamples() {
 export function KitSamples() {
   return (
     <>
+    <HipsterTries />
+    <div className="mt-6" />
     <KitCursorSamples />
     <div className="mt-6" />
     <KitToggleSamples />

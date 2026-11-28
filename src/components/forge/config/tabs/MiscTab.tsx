@@ -11,6 +11,8 @@ import { AppWindowSection } from '../AppWindowSection'
 import { MenuFeelSettings } from '@/components/game-menu/GameMenuExperiment'
 import { KitToggle } from '@/components/ui-kit'
 import { ServicesSettings } from './ServicesSettings'
+import { OnlyWhatShipsSection } from '../OnlyWhatShipsSection'
+import { OasisUpdateSection } from '../OasisUpdateSection'
 
 export function MiscTab({ consoleControl }: SharedTabProps) {
   const { settings, effectiveRp1Mode, rp1Locked, updateSetting } = useContext(SettingsContext)
@@ -25,9 +27,9 @@ export function MiscTab({ consoleControl }: SharedTabProps) {
     <div className="space-y-3">
       {/* The agent engine and the page server: a light each, since when, and Restart (scripts/oasis-supervisor.mjs). */}
       <ServicesSettings />
-      {/* A packaged Oasis: its version, and how to update it (no network, no button: the update itself runs from
-          Claude Code or the start script, where it can stop and restart the servers and give the old version back). */}
-      {process.env.NEXT_PUBLIC_OASIS_VERSION && (
+      {/* The copy you run, how many commits are past it, and Build the new version (src/lib/oasis-update-client.ts).
+          Where no update route answers, a packaged Oasis shows its version and how to update by hand, as before. */}
+      <OasisUpdateSection fallback={process.env.NEXT_PUBLIC_OASIS_VERSION ? (
         <section data-setting="oasis-version">
           <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-1.5 font-mono">Version</div>
           <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2">
@@ -35,7 +37,7 @@ export function MiscTab({ consoleControl }: SharedTabProps) {
             <div className="text-[9px] text-gray-400">To update: <span className="font-mono">node scripts/oasis.mjs update</span> in the Oasis folder (with the Claude Code plugin: <span className="font-mono">/oasis update</span>). Your worlds and agents stay.</div>
           </div>
         </section>
-      )}
+      ) : null} />
       <AppWindowSection />
       <MenuFeelSettings />
       {consoleControl && (
@@ -57,7 +59,16 @@ export function MiscTab({ consoleControl }: SharedTabProps) {
           hint={rp1Locked ? 'Locked for this world — exploration-only.' : effectiveRp1Mode ? 'Hide all editing UI — exploration mode.' : 'Builder mode — full editing UI visible.'}
           data-setting="rp1-mode"
         />
+        <KitToggle
+          checked={settings.loadingDebugger}
+          onChange={() => updateSetting('loadingDebugger', !settings.loadingDebugger)}
+          label="Loading debugger"
+          hint="While a world loads: what is loading, megabytes done of the total, and the slowest files."
+          data-setting="loading-debugger"
+        />
       </section>
+
+      <OnlyWhatShipsSection />
 
       <section className="border-t border-white/10 pt-3">
         <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-1.5 font-mono">Resources</div>

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, 
 import type { AgentWindow } from '../../lib/agent-window-types'
 import { useOasisStore } from '../../store/oasisStore'
 import { normalizeBrowserSurfaceUrl } from '../../lib/browser-surface'
+import { sameOasisPath } from '../../lib/browser-window-focus'
 
 const BROWSER_WELCOME_HTML = `
 <!doctype html>
@@ -70,6 +71,8 @@ export function BrowserWindowContent({ win }: { win: AgentWindow }) {
   const [historyIndex, setHistoryIndex] = useState(-1)
 
   const normalizedUrl = useMemo(() => normalizeBrowserSurfaceUrl(win.surfaceUrl), [win.surfaceUrl])
+  // This Oasis under another local name (localhost vs 127.0.0.1) loads as a path: same origin, so its Esc is heard.
+  const frameUrl = useMemo(() => (normalizedUrl && typeof window !== 'undefined' ? sameOasisPath(normalizedUrl, window.location) : normalizedUrl), [normalizedUrl])
 
   useEffect(() => {
     setUrlDraft(win.surfaceUrl ?? '')
@@ -226,11 +229,17 @@ export function BrowserWindowContent({ win }: { win: AgentWindow }) {
       <div className="relative flex-1 overflow-hidden" onPointerDown={stopBubble}>
         <iframe
           key={`${normalizedUrl || 'welcome'}-${reloadNonce}`}
-          src={normalizedUrl || undefined}
+          // BrowserWindowFocus finds the page by this (its Esc, the keyboard, the wheel while the window is focused).
+          data-browser-window={win.id}
+          src={frameUrl || undefined}
           srcDoc={normalizedUrl ? undefined : BROWSER_WELCOME_HTML}
           title={win.label || 'Browser Surface'}
           allow="autoplay; fullscreen; clipboard-read; clipboard-write"
           referrerPolicy="no-referrer"
+          // Every frame a window shows runs sandboxed: scripts, forms and popups, never this site's origin, the
+          // Oasis's own paths and the welcome page included, so an HTML file dropped under public/ cannot run as the
+          // owner (Merge Goat and Anorak, 28 Nov).
+          sandbox="allow-scripts allow-forms allow-popups"
           className="h-full w-full border-0 bg-slate-950"
         />
       </div>

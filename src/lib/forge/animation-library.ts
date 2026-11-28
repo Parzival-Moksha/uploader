@@ -14,6 +14,7 @@
 // ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
 
 import * as THREE from 'three'
+import ualCoreClips from './ual-core-clips.json'
 import type { VRM } from '@pixiv/three-vrm'
 import { captureHipsDeltas, detrendTravel, hipsTrackValues, recenterStart, travelVelocity, type HipsMotion } from './hips-motion'
 
@@ -30,7 +31,8 @@ const ANIMLIB_DEBUG = typeof window !== 'undefined' && /\banimlib=debug\b/.test(
 // ANIMATION CATALOG — What's on the jukebox
 // ═══════════════════════════════════════════════════════════════════════════════
 
-export type AnimCategory = 'locomotion' | 'dance' | 'combat' | 'emote' | 'acrobatics' | 'survival' | 'idle-var'
+// 'review': clips waiting for the owner's verdict (the avatar picker's Review tab, /api/dance-review); never in ANIM_CATEGORIES.
+export type AnimCategory = 'locomotion' | 'dance' | 'combat' | 'emote' | 'acrobatics' | 'survival' | 'idle-var' | 'review'
 
 export interface LocalAnimation {
   id: string
@@ -229,6 +231,26 @@ const MIXAMO_TO_VRM: Record<string, string> = {
   'RightHandMiddle1': 'rightMiddleProximal', 'RightHandMiddle2': 'rightMiddleIntermediate', 'RightHandMiddle3': 'rightMiddleDistal',
   'RightHandRing1': 'rightRingProximal', 'RightHandRing2': 'rightRingIntermediate', 'RightHandRing3': 'rightRingDistal',
   'RightHandPinky1': 'rightLittleProximal', 'RightHandPinky2': 'rightLittleIntermediate', 'RightHandPinky3': 'rightLittleDistal',
+  // The CMU motion-capture pack (public/animations/cmu/, rancidmilk's retarget to Quaternius's CharacterArmature).
+  // Its bones are named "UpperArm.L"; the FBX loader drops the dot. Hips, Neck and Head are named as above.
+  ...characterArmatureToVrm(),
+}
+
+/** Quaternius's CharacterArmature (the CMU pack's rig) → VRM. */
+function characterArmatureToVrm(): Record<string, string> {
+  const map: Record<string, string> = { Abdomen: 'spine', Torso: 'chest', Chest: 'upperChest' }
+  for (const [s, side] of [['L', 'left'], ['R', 'right']] as const) {
+    Object.assign(map, {
+      [`Shoulder${s}`]: `${side}Shoulder`, [`UpperArm${s}`]: `${side}UpperArm`, [`LowerArm${s}`]: `${side}LowerArm`, [`Hand${s}`]: `${side}Hand`,
+      [`UpperLeg${s}`]: `${side}UpperLeg`, [`LowerLeg${s}`]: `${side}LowerLeg`, [`Foot${s}`]: `${side}Foot`,
+      [`Thumb2${s}`]: `${side}ThumbProximal`, [`Thumb3${s}`]: `${side}ThumbDistal`,
+      [`Index2${s}`]: `${side}IndexProximal`, [`Index3${s}`]: `${side}IndexIntermediate`, [`Index4${s}`]: `${side}IndexDistal`,
+      [`Middle2${s}`]: `${side}MiddleProximal`, [`Middle3${s}`]: `${side}MiddleIntermediate`, [`Middle4${s}`]: `${side}MiddleDistal`,
+      [`Ring2${s}`]: `${side}RingProximal`, [`Ring3${s}`]: `${side}RingIntermediate`, [`Ring4${s}`]: `${side}RingDistal`,
+      [`Pinky2${s}`]: `${side}LittleProximal`, [`Pinky3${s}`]: `${side}LittleIntermediate`, [`Pinky4${s}`]: `${side}LittleDistal`,
+    })
+  }
+  return map
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -671,6 +693,9 @@ export async function loadAnimationClip(animId: string): Promise<THREE.Animation
           // Same normalization as track names
           if (name.includes('|')) name = name.split('|').pop()!
           name = name.replace(/:/g, '')
+          // Some exports (the CMU pack) nest copies of a bone under itself, Hips > Hips > Hips: the first one, whose
+          // parent is the real parent, is the one the tracks move.
+          if (restRotations.has(name)) return
           child.getWorldQuaternion(restWorldQuat)
           if (child.parent) child.parent.getWorldQuaternion(parentRestWorldQuat)
           else parentRestWorldQuat.identity()
@@ -725,7 +750,8 @@ export async function loadAnimationClip(animId: string): Promise<THREE.Animation
         // ░▒▓ ROOT MOTION — Keep Y-axis bob, zero X/Z drift ▓▒░
         // The hip up-down motion makes walking look natural.
         // X/Z translation would teleport the character off its Oasis position.
-        if (objectPath === 'mixamorigHips' && property === '.position') {
+        // (The CMU pack's hips are plain "Hips": its movement is handled the same way.)
+        if ((objectPath === 'mixamorigHips' || (objectPath === 'Hips' && entry.filename.startsWith('cmu/'))) && property === '.position') {
           // ░▒▓ ROOT POSITION — strip entirely ▓▒░
           // FBX stores absolute hip positions (e.g. Y=97cm). Applied to a world-space
           // model this teleports it. Stripping the whole track is safest — the skeleton
@@ -782,12 +808,20 @@ export async function loadAnimationClip(animId: string): Promise<THREE.Animation
 
 const ualGlbCache = new Map<string, { animations: THREE.AnimationClip[]; scene: THREE.Group }>()
 
+/** The everyday clips live in a small core file too (scripts/build-ual-core.mjs): 254 KB over the wire instead of the
+ *  pack's 2.9 MB. A clip found there is loaded from it; any other clip of the pack loads the whole pack, as before. */
+const UAL1_CORE = new Set<string>(ualCoreClips.UAL1)
+export function ualPackFile(filename: string, clipName: string | undefined): string {
+  return filename === 'ual/UAL1_Standard.glb' && clipName && UAL1_CORE.has(clipName) ? 'ual/UAL1_Core.glb' : filename
+}
+
 async function loadUALClip(entry: LocalAnimation): Promise<THREE.AnimationClip | null> {
   try {
     const { GLTFLoader } = await import('three/examples/jsm/loaders/GLTFLoader.js')
 
-    const url = `${OASIS_BASE}/animations/${entry.filename}`
-    let pack = ualGlbCache.get(entry.filename)
+    const file = ualPackFile(entry.filename, entry.glbClipName)
+    const url = `${OASIS_BASE}/animations/${file}`
+    let pack = ualGlbCache.get(file)
 
     if (!pack) {
       if (ANIMLIB_DEBUG) console.log(`[AnimLib:UAL] Loading pack ${entry.filename}`)
@@ -796,7 +830,7 @@ async function loadUALClip(entry: LocalAnimation): Promise<THREE.AnimationClip |
         loader.load(url, resolve as any, undefined, reject)
       })
       pack = { animations: gltf.animations, scene: gltf.scene }
-      ualGlbCache.set(entry.filename, pack)
+      ualGlbCache.set(file, pack)
 
       // ░▒▓ Extract rest rotations once per pack → stored under '__ual__' key ▓▒░
       if (!mixamoRestCache.has('__ual__')) {

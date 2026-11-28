@@ -10,11 +10,17 @@ import { join } from 'path'
 
 const MUSIC_DIR = 'generated-music'
 const PUBLIC_DIR = join(process.cwd(), 'public', MUSIC_DIR)
-const DEFAULT_MODEL = 'music_v1'
+// ElevenLabs' music models (their docs, 27 Nov 2026): music_v1 (deprecated, removed 31 Jan 2027), music_v2 and
+// music_v2_5, "our most advanced music model". All three cost the same ($0.15 per minute on the API), so v2.5.
+// A request naming v1 is moved to v2.5; anything not on the list falls back to it.
+const DEFAULT_MODEL = 'music_v2_5'
+const MUSIC_MODELS = new Set(['music_v2', 'music_v2_5'])
 const DEFAULT_DURATION_MS = 30000
 const MIN_DURATION_MS = 3000
-const MAX_DURATION_MS = 600000
-const DEFAULT_OUTPUT_FORMAT = 'mp3_44100_128'
+// Their docs disagree (5 minutes on two pages, 10 on the endpoint's); 5 minutes is the one every page allows.
+const MAX_DURATION_MS = 300000
+// v2 models answer in 48 kHz / 192 kbps ("mp3_44100_128 for v1 models and mp3_48000_192 for v2 models").
+const DEFAULT_OUTPUT_FORMAT = 'mp3_48000_192'
 const FILE_CAP = 100
 
 function clampDuration(value: unknown): number {
@@ -41,7 +47,8 @@ export async function POST(request: NextRequest) {
     }
 
     const music_length_ms = clampDuration(durationMs)
-    const model_id = typeof model === 'string' && model.trim() ? model.trim() : DEFAULT_MODEL
+    const asked = typeof model === 'string' ? model.trim() : ''
+    const model_id = MUSIC_MODELS.has(asked) ? asked : DEFAULT_MODEL
     const output_format = typeof outputFormat === 'string' && outputFormat.trim() ? outputFormat.trim() : DEFAULT_OUTPUT_FORMAT
     const force_instrumental = instrumental === true
 

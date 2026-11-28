@@ -358,7 +358,7 @@ function GoogleFormsAltar({
   const streamARef = useRef<THREE.Mesh>(null)
   const streamBRef = useRef<THREE.Mesh>(null)
   const hasWorld = Boolean(object.generatedWorldUrl && object.generatedWorldId)
-  const actionText = busy ? 'BUILDING WORLD' : hasWorld ? 'HIT F TO COPY URL' : 'HIT F TO CREATE'
+  const actionText = busy ? 'BUILDING WORLD' : hasWorld ? 'HIT E TO COPY URL' : 'HIT E TO CREATE'
   const statusText = busy
     ? 'BUILDING WORLD'
     : object.errorMessage
@@ -528,8 +528,8 @@ function SpellbookPickup3D({
   const bookRef = useRef<THREE.Group>(null)
   const glowRef = useRef<THREE.Mesh>(null)
   const awakened = Boolean(object.submittedAt)
-  const promptText = awakened ? 'HIT F TO OPEN' : 'HIT F TO PICK UP'
-  const statusText = awakened ? object.statusMessage || 'SPELLBOOK AWAKENED' : object.statusMessage || 'HIT F TO PICK UP'
+  const promptText = awakened ? 'HIT E TO OPEN' : 'HIT E TO PICK UP'
+  const statusText = awakened ? object.statusMessage || 'SPELLBOOK AWAKENED' : object.statusMessage || 'HIT E TO PICK UP'
 
   useFrame(({ clock }) => {
     const t = clock.elapsedTime
@@ -614,11 +614,14 @@ function SpellbookPickup3D({
 
 export function SpatialWebObject3D({
   object,
-  interactionHint = false,
+  interactionHint: nearestHere = false,
 }: {
   object: SpatialWebObject
   interactionHint?: boolean
 }) {
+  // Its E plate only while it holds the keys: an agent nearer than it keeps them (and shows its own T / E / F).
+  const agentHasKeys = useOasisStore(s => Boolean(s.agentEngine.nearbyAgentId))
+  const interactionHint = nearestHere && !agentHasKeys
   const [busy, setBusy] = useState(false)
   const [draggingSlider, setDraggingSlider] = useState(false)
   const groupRef = useRef<THREE.Group>(null)
@@ -998,7 +1001,7 @@ export function SpatialWebObject3D({
             <meshStandardMaterial color="#020617" emissive={accent} emissiveIntensity={0.35} roughness={0.45} metalness={0.2} />
           </mesh>
           <EmbossedText position={[0, height / 2 + 0.62 + labelLines.length * 0.12, depth * 1.08]} fontSize={0.12} maxChars={2} color="#ffffff">
-            F
+            E
           </EmbossedText>
         </>
       )}

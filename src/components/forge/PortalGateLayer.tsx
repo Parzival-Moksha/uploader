@@ -708,6 +708,9 @@ export function PortalGateLayer() {
         const metaPromise = createWorld(nextWorldName, action.icon || 'UI', {
           visibility: action.visibility || 'private',
         })
+        const sourceWorldId = activeWorldId
+        const sourceWorldName = worldRegistry.find(world => world.id === activeWorldId)?.name || 'This world'
+        const fromPortalZero = sourceWorldId === WELCOME_HUB_WORLD_ID
         const preparedMetaPromise = metaPromise.then(async meta => {
           if (!action.templateWorldId) return meta
           const template = await loadWorld(action.templateWorldId)
@@ -715,12 +718,21 @@ export function PortalGateLayer() {
             const { version: _version, savedAt: _savedAt, ...templateState } = template
             await saveWorld({
               ...templateState,
-              portalGates: upsertPortalZeroReturnGate(templateState.portalGates, meta.id),
+              portalGates: fromPortalZero ? upsertPortalZeroReturnGate(templateState.portalGates, meta.id) : templateState.portalGates,
             }, meta.id)
           }
           return meta
         })
-        const arrivalPosePromise = preparedMetaPromise.then(meta => ensurePortalZeroReturnGateForNewWorld(meta.id))
+        // The way back: to the world he came from (from Portal Zero that is Portal Zero, as before).
+        const arrivalPosePromise = preparedMetaPromise.then(meta => fromPortalZero
+          ? ensurePortalZeroReturnGateForNewWorld(meta.id)
+          : ensureReturnPortalForArrival({
+            sourceGate: { ...gate, direction: 'two-way' },
+            sourceWorldId,
+            sourceWorldName,
+            targetWorldId: meta.id,
+            targetWorldName: nextWorldName,
+          }))
         await runWorldTransition(gate, nextWorldName, async () => {
           const meta = await preparedMetaPromise
           refreshWorldRegistry()

@@ -52,7 +52,9 @@ export const KIT_CSS = `
 .kit-tile-label { display: block; font-weight: 900; letter-spacing: 0.06em; text-transform: uppercase; font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; color: #fff; text-shadow: 0 2px 6px #000; }
 .kit-tile-sub { display: block; font-size: 11px; color: rgba(255,255,255,0.75); text-shadow: 0 1px 4px #000; }
 .kit-tile-badge { position: absolute; top: 8px; right: 8px; padding: 2px 7px; border-radius: 99px; font-size: 9.5px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; background: rgba(0,0,0,0.65); color: #fff; border: 1px solid rgba(255,255,255,0.35); }
-.kit-toggle { display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 6px 0; user-select: none; }
+/* position: relative keeps the hidden checkbox (sr-only, absolute) inside its own row: without it, clicking a switch in a
+   scrolled box focused a checkbox far away and the box jumped to it (Companion, 27 Nov: Settings lost its tabs). */
+.kit-toggle { position: relative; display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 6px 0; user-select: none; }
 .kit-toggle-track { position: relative; flex: none; width: 46px; height: 24px; border-radius: 99px; }
 .kit-toggle-knob { position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; transition: transform 180ms cubic-bezier(0.3, 1.4, 0.5, 1); }
 .kit-toggle[data-on="1"] .kit-toggle-knob { transform: translateX(22px); }
@@ -195,12 +197,14 @@ export const KIT_CSS = `
 [data-kit-style="rune"].kit-card .kit-card-title { font-family: var(--font-cinzel), Georgia, serif; font-variant: small-caps; text-transform: none; color: #f0d199; }
 [data-kit-style="rune"].kit-progress .kit-progress-track { border-radius: 2px; background: #140e07; box-shadow: inset 0 0 0 1px #b89358; }
 [data-kit-style="rune"].kit-progress .kit-progress-fill { background: linear-gradient(90deg, #8a6a34, #f0d199); }
+/* A bar given its own colour wears it in every style (the owner, 26 Nov: health red, mana blue), deepening to the left. */
+[data-kit-style].kit-progress[data-accent] .kit-progress-fill { background: linear-gradient(90deg, color-mix(in srgb, var(--kit-accent) 55%, #000), var(--kit-accent)); }
 
 /* ── chosen tiles, and the small picture-pick tile (skies, grounds) ─────── */
 .kit-pick { position: relative; display: flex; flex-direction: column; cursor: pointer; padding: 0; overflow: hidden; text-align: left; transition: transform 140ms cubic-bezier(0.2, 0.9, 0.3, 1.3), filter 140ms ease-out, box-shadow 140ms ease-out; }
 .kit-pick:hover:not(:disabled) { transform: scale(1.05); z-index: 1; }
 .kit-pick-pic { display: block; width: 100%; aspect-ratio: 16 / 10; background-size: cover; background-position: center; }
-.kit-pick-label { display: block; padding: 4px 6px; font-size: 11px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kit-pick-label { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; box-sizing: content-box; height: 2.4em; padding: 4px 6px; font-size: 11px; line-height: 1.2; font-weight: 700; overflow: hidden; overflow-wrap: anywhere; }
 [data-kit-style="glass"].kit-pick { border-radius: 8px; border: 1px solid rgba(255,255,255,0.18); background: rgba(0,0,0,0.35); color: #fff; }
 [data-kit-style="forged"].kit-pick { border: 1px solid rgba(201,162,86,0.55); border-radius: 4px; background: #0b0907; color: #e9d6a8; font-family: var(--font-cinzel), Georgia, serif; }
 [data-kit-style="parchment"].kit-pick { border: 1px solid #6b4a1e; border-radius: 2px; background: rgba(255,248,226,0.5); color: #34230f; }
@@ -254,4 +258,22 @@ export const KIT_CSS = `
 .kit-toggle.kit-toggle[data-toggle="plate"] .kit-toggle-knob::after { content: '✓'; font-size: 20px; font-weight: 900; line-height: 1; color: #f5c96a; text-shadow: 0 1px 0 #6b4a12, 0 0 8px rgba(245,201,106,0.8); transform: scale(0.2); opacity: 0; transition: transform 200ms cubic-bezier(0.3, 1.8, 0.5, 1), opacity 120ms; }
 .kit-toggle.kit-toggle[data-toggle="plate"][data-on="1"] .kit-toggle-knob::after { transform: scale(1); opacity: 1; }
 .kit-toggle[data-toggle]:hover .kit-toggle-track { filter: brightness(1.15); }
+
+/* ── Compact panels: the spell windows (SpellTabFrame), half the frame and half the padding (the owner, 27 Nov:
+   "way too wide margin... 2x less margin, because we are losing all of space"). The forged frame art and the
+   background under it scale together, so the plate still sits inside the frame. */
+.kit-panel[data-compact] .kit-panel-head { padding: 5px 6px 4px; gap: 6px; }
+.kit-panel[data-compact] .kit-panel-body { padding: 2px 6px 6px; }
+.kit-panel[data-compact][data-kit-style="forged"] { border-width: 20px 15px 14px 15px; border-image-width: 20px 15px 14px 15px; background: linear-gradient(180deg, rgba(14,15,20,0.94), rgba(8,9,13,0.97)) 3px 7.5px / calc(100% - 6.25px) calc(100% - 11px) no-repeat border-box, url(/ui/spellbook/frame/page-bg-agent.jpg) 3px 7.5px / calc(100% - 6.25px) calc(100% - 11px) no-repeat border-box; }
+.kit-panel[data-compact][data-kit-style="forged"] .kit-close { width: 30px; height: 26px; }
+.kit-panel[data-compact][data-kit-style="parchment"] { border-width: 11px; border-image-width: 11px; }
+
+/* ── Hipster's tries (src/lib/ui-kit/tries.ts): switched in Settings > Experiments, kept or deleted by the owner ── */
+/* Cinematic frame: a vignette and a fine grain over the world, under the HUD and every menu. */
+html[data-try-cinematic-frame] body::after { content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 999; background: radial-gradient(ellipse 74% 68% at 50% 46%, rgba(0,0,0,0) 44%, rgba(6,4,10,0.58) 100%), url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.5  0 0 0 0 0.5  0 0 0 0 0.5  0 0 0 0.09 0'/></filter><rect width='160' height='160' filter='url(%23n)'/></svg>\"); background-size: 100% 100%, 160px 160px; mix-blend-mode: normal; }
+/* Warm grade: the 3D view a touch richer and warmer. */
+html[data-try-warm-grade] #uploader-canvas, html[data-try-warm-grade] #uploader-canvas canvas { filter: saturate(1.14) contrast(1.06) sepia(0.06) brightness(1.02); }
+/* Menus glide in: kit panels and dialogs rise and fade in (backwards: nothing stays applied after the 200 ms). */
+@keyframes kitTryGlide { from { opacity: 0; transform: translateY(10px) scale(0.985); } to { opacity: 1; transform: none; } }
+html[data-try-menus-glide] .kit-panel, html[data-try-menus-glide] .kit-dialog { animation: kitTryGlide 200ms cubic-bezier(0.2, 0.9, 0.3, 1) backwards; }
 `

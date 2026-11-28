@@ -6,6 +6,7 @@
 // ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
 
 import shippedManifest from '../../public/audio/spells-cc0/manifest.json'
+import { packagedView } from './only-what-ships'
 
 interface ManifestEntry {
   id: string
@@ -68,8 +69,8 @@ export function shippedPickUrl(key: string): string | null {
   return id ? SHIPPED_SPELL_SOUNDS[id] ?? null : null
 }
 
-/** A packaged Oasis (the cut): no Mixkit folder to ask for. */
-const PACKAGED = process.env.NEXT_PUBLIC_OASIS_EDITION === 'slim'
+/** A packaged Oasis (the cut), or the owner's while "only what ships" is on: no Mixkit folder to ask for. */
+const packaged = (): boolean => packagedView()
 
 let cache: Map<string, string> | null = null
 let loadPromise: Promise<Map<string, string>> | null = null
@@ -104,7 +105,7 @@ function fetchManifest(): Promise<Map<string, string>> {
 
 /** Kicks off manifest fetch on first call; idempotent. */
 export function preloadSpellSoundManifest(): Promise<Map<string, string>> {
-  if (!cache && PACKAGED) cache = new Map()
+  if (!cache && packaged()) cache = new Map()
   if (cache) return Promise.resolve(cache)
   if (loadPromise) return loadPromise
   loadPromise = fetchManifest()
@@ -122,11 +123,11 @@ export function resolveSpellSoundUrl(soundId: string | undefined | null): string
   if (!cache) {
     void preloadSpellSoundManifest()
     // Before the owner's manifest has answered: his Mixkit file if this Oasis has them, else the shipped one.
-    return PACKAGED ? shipped : FALLBACK_SOUND_FILES[soundId] ?? shipped
+    return packaged() ? shipped : FALLBACK_SOUND_FILES[soundId] ?? shipped
   }
   // The owner's manifest first; what it lacks plays the shipped stand-in (in a packaged Oasis: always).
   // In the owner's Oasis a manifest that failed to load still falls back to his Mixkit file first.
-  return cache.get(soundId) ?? (PACKAGED ? shipped : FALLBACK_SOUND_FILES[soundId] ?? shipped)
+  return cache.get(soundId) ?? (packaged() ? shipped : FALLBACK_SOUND_FILES[soundId] ?? shipped)
 }
 
 /**
@@ -162,7 +163,7 @@ function withLevel(url: string): { url: string; volume: number } {
 
 /** The owner's own file for an id (his manifest, or before it answers his Mixkit fallback); never in a packaged Oasis. */
 function ownSoundUrl(soundId: string): string | null {
-  if (PACKAGED) return null
+  if (packaged()) return null
   if (!cache) {
     void preloadSpellSoundManifest()
     return FALLBACK_SOUND_FILES[soundId] ?? null

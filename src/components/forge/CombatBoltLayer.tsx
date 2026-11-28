@@ -48,6 +48,7 @@ import type { CombatSpellId, SpellCastResponse } from './bolts/types'
 import { collectActorTargets, resolveCombatAim, strikePointFor, worldImpactAlong, type CombatAim } from './bolts/aim'
 import { BOLT_MAX_RANGE_M, createBolt, segmentSphereEntry, stepBolt, type ActorTarget, type FlyingBolt, type Vec3 } from './bolts/flight'
 import { ImpactFx, type ImpactFxKind } from './impact-fx/ImpactFx'
+import { noteRemoteCast } from '@/lib/remote-cast'
 import { playBoltSound, preloadBoltSounds } from './bolts/bolt-audio'
 
 // Firebolt designs
@@ -475,6 +476,8 @@ export function CombatBoltLayer({ enabled, settings }: { enabled: boolean; setti
 
   // PvP: a peer's bolt flies the same path here (no mana, no XP: the caster paid).
   useEffect(() => onRemoteBolt((bolt: PvpRemoteBolt) => {
+    // The caster's avatar turns to the bolt and plays its gesture on this screen (remote-cast.ts).
+    noteRemoteCast(bolt.casterSessionId, bolt.spell, bolt.direction)
     const origin = new THREE.Vector3(...bolt.origin)
     const direction = new THREE.Vector3(...bolt.direction).normalize()
     const hit = worldImpactAlong(scene, origin, direction)

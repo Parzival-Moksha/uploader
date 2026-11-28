@@ -3,6 +3,7 @@
 import { NextResponse } from 'next/server'
 import { readdir, stat } from 'fs/promises'
 import path from 'path'
+import { mediaUploadsOn, readShippedMedia } from '@/lib/media-library'
 
 type MediaType = 'image' | 'video' | 'audio'
 
@@ -30,6 +31,10 @@ function inferMediaType(fileName: string): MediaType | null {
   return null
 }
 
+// Answered per request: the list reads the disk and the environment (OASIS_MEDIA_MANIFEST, OASIS_MEDIA_UPLOADS). Without
+// this, the build renders it once with the build's environment (the deployed Oasis then listed no media, 28 Nov).
+export const dynamic = 'force-dynamic'
+
 export async function GET() {
   try {
     const mediaDir = path.join(process.cwd(), 'public', 'images')
@@ -38,7 +43,7 @@ export async function GET() {
     try {
       files = await readdir(mediaDir)
     } catch {
-      return NextResponse.json({ items: [] })
+      files = []
     }
 
     const items: MediaItem[] = []
@@ -63,9 +68,11 @@ export async function GET() {
 
     items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
 
-    return NextResponse.json({ items })
+    // Then what this Oasis ships with (public/media-library, src/lib/media-library.ts), after your own; and whether
+    // this Oasis takes uploads at all (the deployed one does not).
+    return NextResponse.json({ items: [...items, ...readShippedMedia()], uploads: mediaUploadsOn() })
   } catch (err) {
     console.error('[Media:List] Error:', err)
-    return NextResponse.json({ items: [] })
+    return NextResponse.json({ items: readShippedMedia(), uploads: mediaUploadsOn() })
   }
 }

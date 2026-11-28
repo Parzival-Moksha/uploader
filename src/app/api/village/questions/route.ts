@@ -11,8 +11,8 @@ import path from 'node:path'
 import { NextRequest, NextResponse } from 'next/server'
 
 import { guardAgentRoute } from '@/lib/local-request-guard'
-import { engine, questionsDir, rewriteBoard, send, tellAgent } from '@/lib/village/carbon-server'
-import { ANSWER_MAX, answerCarbonMission, askingAgent, formatAnswerForAsker, formatAnswerNote, resolveAsker, formatUnclearNote, isCarbonFile, markUnclear, parseCarbonMission, sortCarbon } from '@/lib/village/carbon-missions'
+import { questionsDir, rewriteBoard, tellAgent, tellAnswer } from '@/lib/village/carbon-server'
+import { ANSWER_MAX, nowMissions, answerCarbonMission, askingAgent, formatAnswerForAsker, formatAnswerNote, resolveAsker, formatUnclearNote, isCarbonFile, markUnclear, parseCarbonMission, sortCarbon } from '@/lib/village/carbon-missions'
 import { isAutomationRequest } from '@/lib/village/work-vow'
 
 export const dynamic = 'force-dynamic'
@@ -47,22 +47,9 @@ export async function GET(request: NextRequest) {
       return null
     }
   }))).filter((m): m is NonNullable<typeof m> => m !== null)
+  // ?now=1: only Now, the open ones Anorak marked 1 to 3, in his order (the counter shows the first).
+  if (new URL(request.url).searchParams.get('now')) return NextResponse.json({ now: nowMissions(missions) })
   return NextResponse.json({ dir, missions: sortCarbon(missions) })
-}
-
-/**
- * His answer goes straight to the agent that asked ("act on it"), and to Anorak, who keeps the books (Anorak's
- * call, 2026-11-22). A mission Anorak or a helper asked, or one whose asker has left the village: Anorak only.
- */
-async function tellAnswer(mission: ReturnType<typeof parseCarbonMission>, answer: string, state: 'answered' | 'parked', took: number | null): Promise<string> {
-  const e = await engine()
-  if (e.error) return e.error
-  const asker = resolveAsker(mission.by, e.agents)
-  const anorak = askingAgent('Anorak', e.agents)
-  let toldAsker = ''
-  if (asker.agent && !asker.isAnorak && (await send(e, asker.agent, formatAnswerForAsker(mission, answer, state)))) toldAsker = asker.agent.name
-  const toldAnorak = anorak ? await send(e, anorak, formatAnswerNote(mission, answer, state, took, toldAsker || undefined)) : false
-  return [toldAsker && `sent to ${toldAsker}`, toldAnorak && anorak && `sent to ${anorak.name}`].filter(Boolean).join(', ') || 'nobody in the village to tell'
 }
 
 export async function POST(request: NextRequest) {

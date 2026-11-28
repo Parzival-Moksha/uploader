@@ -293,11 +293,20 @@ export class AgentEngineClient {
   }
 
   /** Eyes on or off: with it on, each message you send carries a picture from the agent's avatar. */
-  /** A recorded voice message: the engine keeps it, Scribe transcribes it, the agent gets the transcript. Can take a while. */
-  voiceMessage(agentId: string, audio: string, mime: string, durationMs?: number, priority?: 'now' | 'later') {
-    // Long recordings take longer to transcribe: 2.5 minutes, plus a tenth of the recording's length.
-    const timeoutMs = 150_000 + Math.round((durationMs || 0) / 10)
-    return this.cmd('voiceMessage', { agentId, audio, mime, ...(durationMs ? { durationMs } : {}), ...(priority ? { priority } : {}) }, { timeoutMs })
+  /**
+   * A recorded voice message: the engine keeps it, transcribes it (ElevenLabs Scribe, or on this computer when
+   * `transcriber` is 'local': Settings > Sound > Voice messages), and the agent gets the transcript. Can take a while.
+   */
+  voiceMessage(agentId: string, audio: string, mime: string, durationMs?: number, priority?: 'now' | 'later', transcriber?: 'elevenlabs' | 'local') {
+    // Long recordings take longer to transcribe: 2.5 minutes, plus a tenth of the recording's length in the cloud, its
+    // whole length on this computer (measured well under that; the rest is room for a busy PC).
+    const timeoutMs = 150_000 + Math.round((durationMs || 0) / (transcriber === 'local' ? 1 : 10))
+    return this.cmd('voiceMessage', { agentId, audio, mime, ...(durationMs ? { durationMs } : {}), ...(priority ? { priority } : {}), ...(transcriber ? { transcriber } : {}) }, { timeoutMs })
+  }
+
+  /** The sound of something voice-typed and sent, kept on this PC with the text as sent (never transcribed again). */
+  keepVoiceTyping(agentId: string, audio: string, mime: string, text: string, durationMs?: number) {
+    return this.cmd('keepVoiceTyping', { agentId, audio, mime, text, ...(durationMs ? { durationMs: Math.round(durationMs) } : {}) }, { timeoutMs: 60_000 })
   }
 
   /** A new name for an agent the Oasis runs: its session, desk, voice, look and history stay (engine rename). */

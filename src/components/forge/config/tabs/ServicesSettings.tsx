@@ -49,11 +49,19 @@ export function ServicesSettings() {
   const restart = async (service: ServiceView) => {
     // The Oasis's own dialog, not the browser's (the owner, 2026-11-24).
     const page = service.name === 'world'
+    // An engine restart ends every agent's process, and with it what runs under it (subagents, a render, an encode):
+    // name them first (27 Nov: Tyler's final encode was cut off by a restart).
+    let lost = ''
+    if (!page) {
+      const helpers = await fetch('/api/oasis/services?helpers=1', { cache: 'no-store' }).then(r => r.json()).then(j => j.helpers as Record<string, string[]> | null).catch(() => null)
+      const lines = helpers ? Object.entries(helpers).map(([agent, list]) => `${agent}: ${list.join(', ')}`) : []
+      lost = lines.length ? ` These are running now and would be stopped: ${lines.join('; ')}. Wait for them, or restart anyway.` : ''
+    }
     const ok = await kitConfirm({
-      title: page ? 'Restart the page server?' : 'Restart the agent engine?',
+      title: page ? 'Restart the page server?' : lost ? 'Restart the agent engine? Work would be lost' : 'Restart the agent engine?',
       body: page
         ? 'This window goes blank for about half a minute, then reloads by itself. Agents keep working.'
-        : 'Agents in the middle of a turn are stopped and told to carry on when it is back (about ten seconds).',
+        : `Agents in the middle of a turn are stopped and told to carry on when it is back (about ten seconds).${lost}`,
       confirm: 'Restart',
       danger: true,
     })
@@ -96,6 +104,25 @@ export function ServicesSettings() {
           </button>
         </div>
       ))}
+      {/* The third one: this tab itself (the owner, 27 Nov: "what do we call the page itself? The restart would be
+          equivalent to hitting F5"; F5 cured a one-to-two-second freeze on E and F that evening). */}
+      <div className="flex items-center justify-between gap-2 py-1" data-service="page">
+        <div className="flex min-w-0 items-center gap-2">
+          <Light color={lightColor('running')} />
+          <div className="min-w-0">
+            <div className="text-sm text-gray-300">This page</div>
+            <div className="text-[10px] text-gray-500">the view in this tab; reload it if it feels slow or stale (the same as F5)</div>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => window.location.reload()}
+          data-service-restart="page"
+          className="shrink-0 rounded border border-cyan-300/40 bg-cyan-500/15 px-2 py-1 text-xs font-bold text-cyan-50 transition hover:bg-cyan-500/30"
+        >
+          Reload
+        </button>
+      </div>
       {data && data.source === 'cache' && <div className="text-[10px] text-gray-500" data-services-age>as last seen, {ageText(data.at)}{slow ? ' · slow to answer' : ''}</div>}
       {!data && !error && <div className="text-[11px] text-gray-500" data-services-waiting>{slow ? 'slow to answer…' : 'reading…'}</div>}
       {data && <div className="text-[10px] text-gray-500 mt-1">

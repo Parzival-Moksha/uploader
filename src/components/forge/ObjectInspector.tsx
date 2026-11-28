@@ -1856,7 +1856,6 @@ export function ObjectInspector({ isOpen, onClose }: ObjectInspectorProps) {
           const interaction = behavior.interaction
           const actions = interaction?.actions || []
           const overlayAction = actions.find((action): action is Extract<ObjectInteractionAction, { type: 'html_overlay' }> => action.type === 'html_overlay')
-          const apiAction = actions.find((action): action is Extract<ObjectInteractionAction, { type: 'api_call' }> => action.type === 'api_call')
           const vfxAction = actions.find((action): action is Extract<ObjectInteractionAction, { type: 'spawn_vfx' }> => action.type === 'spawn_vfx')
           const audioAction = actions.find((action): action is Extract<ObjectInteractionAction, { type: 'audio_toggle' }> => action.type === 'audio_toggle')
           const spellAction = actions.find((action): action is Extract<ObjectInteractionAction, { type: 'spell' }> => action.type === 'spell')
@@ -1944,22 +1943,6 @@ export function ObjectInspector({ isOpen, onClose }: ObjectInspectorProps) {
                     value={vfxAction?.vfxType || ''}
                     onChange={e => upsertAction('spawn_vfx', { type: 'spawn_vfx', vfxType: e.target.value || undefined })}
                     placeholder="sparkburst"
-                    className="rounded border border-gray-700/30 bg-black/40 px-2 py-1 text-[10px] text-gray-200 outline-none disabled:opacity-40 focus:border-sky-400/40"
-                  />
-                </div>
-                <div className="grid grid-cols-[64px_1fr] items-center gap-1.5">
-                  <button
-                    onClick={() => apiAction ? removeAction('api_call') : upsertAction('api_call', { type: 'api_call', endpoint: '/api/world-events', method: 'POST' })}
-                    className={`rounded border px-2 py-1 text-[9px] font-black uppercase tracking-[0.08em] ${apiAction ? 'border-amber-400/45 bg-amber-500/18 text-amber-200' : 'border-gray-700/40 bg-black/30 text-gray-500'}`}
-                  >
-                    API
-                  </button>
-                  <input
-                    type="text"
-                    disabled={!apiAction}
-                    value={apiAction?.endpoint || ''}
-                    onChange={e => upsertAction('api_call', { type: 'api_call', endpoint: e.target.value, method: apiAction?.method || 'POST' })}
-                    placeholder="/api/..."
                     className="rounded border border-gray-700/30 bg-black/40 px-2 py-1 text-[10px] text-gray-200 outline-none disabled:opacity-40 focus:border-sky-400/40"
                   />
                 </div>

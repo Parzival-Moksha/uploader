@@ -330,6 +330,19 @@ export function resolvePortalGateAction(gate: PortalGate): PortalAction {
   }
 }
 
+/** The world a gate's partner (the way back) stands in: where the gate leads. */
+export function portalPartnerWorldId(gate: PortalGate): string | null {
+  const action = resolvePortalGateAction(gate)
+  return gate.targetWorldId || (action.type === 'load_world' ? action.worldId : null) || null
+}
+
+/** Is `candidate` the partner of `gate`: the gate it names as linked, or a gate that names it. Nothing looser, so an
+ *  unrelated gate that happens to lead to the same world is never taken for one (27 Nov, remove_object). */
+export function isPortalPartnerOf(candidate: PortalGate, gate: PortalGate): boolean {
+  if (candidate.id === gate.id) return false
+  return (Boolean(gate.linkedPortalId) && candidate.id === gate.linkedPortalId) || candidate.linkedPortalId === gate.id
+}
+
 export function getPortalGateLabel(gate: PortalGate): string {
   if (gate.label?.trim()) return gate.label.trim()
   const action = resolvePortalGateAction(gate)

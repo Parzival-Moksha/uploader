@@ -14,7 +14,8 @@ import { TAG_SIZE, TAG_STYLES, getTagSettings, getTagSettingsVersion, setTagSett
 import { KitTabs, KitToggle } from '@/components/ui-kit'
 import { VillageWorldRow } from '@/components/village/VillageWorldRow'
 import { LEAVE_EFFECTS, getVillageLooks, getVillageLooksVersion, setVillageLooks, subscribeVillageLooks } from '@/lib/village/village-looks'
-import { isVillageVoiceOn, setVillageVoiceOn, subscribeVillageVoice } from '@/components/village/village-companion'
+import { getVillageVoiceMode, subscribeVillageVoice } from '@/components/village/village-companion'
+import { VillageVoiceModeTabs } from '@/components/village/VoiceOutSection'
 import { isFinishedNearOnly, setFinishedNearOnly, subscribeFinishedNearOnly } from '@/components/village/finished-voice'
 import { isComeToMeOn, setComeToMeOn, subscribeComeToMe } from '@/components/village/come-to-me'
 import { WakeUpSettings } from './WakeUpSettings'
@@ -38,7 +39,7 @@ export function AgentsTab() {
   // Kept in this browser by village-sound.ts / village-companion.ts (they used to be the bell and speaker on the
   // Village bar).
   const chimeOn = useSyncExternalStore(subscribeVillageSound, isVillageSoundOn, () => true)
-  const voicesOn = useSyncExternalStore(subscribeVillageVoice, isVillageVoiceOn, () => true)
+  const voiceMode = useSyncExternalStore(subscribeVillageVoice, getVillageVoiceMode, () => 'click' as const)
   const finishedNearOnly = useSyncExternalStore(subscribeFinishedNearOnly, isFinishedNearOnly, () => true)
   const comeToMe = useSyncExternalStore(subscribeComeToMe, isComeToMeOn, () => false)
   useSyncExternalStore(subscribeTagSettings, getTagSettingsVersion, () => 0)
@@ -151,13 +152,10 @@ export function AgentsTab() {
           title="Chime when an agent needs you"
           hint={chimeOn ? 'A chime plays when an agent is stopped on you: a permission or question card, or an error. Not for missions, not when it just finished.' : 'Silent: the ! and ? over their heads still show it.'}
         />
-        <SwitchRow
-          data="village-voices"
-          on={voicesOn}
-          onToggle={() => setVillageVoiceOn(!voicesOn)}
-          title="Agent voices"
-          hint={voicesOn ? 'Agents with Voice on (their settings menu) say a short version of each reply out loud.' : 'Muted: nothing is spoken or generated, whatever each agent is set to.'}
-        />
+        <div className="py-1.5" data-setting="village-voices">
+          <div className="text-sm text-gray-300 mb-1.5">Agent voices</div>
+          <VillageVoiceModeTabs />
+        </div>
         <SwitchRow
           data="village-come-to-me"
           on={comeToMe}
@@ -165,13 +163,15 @@ export function AgentsTab() {
           title="Agents come to me when they're stuck"
           hint={comeToMe ? 'An agent stopped on a permission or question card, or on an error, walks up to you (unless its own Come to me is off). Missions and finished reports never do.' : 'Off: they stay where they are; the ? or ! over their heads shows it. Follow me (Anorak) is separate.'}
         />
-        <SwitchRow
-          data="village-finished-near"
-          on={finishedNearOnly}
-          onToggle={() => setFinishedNearOnly(!finishedNearOnly)}
-          title="Speak finished reports only when I'm near"
-          hint={finishedNearOnly ? 'An agent that just finished speaks when you open it next to it or with it selected. One that needs you speaks wherever you open it.' : 'Every agent says its line when you open it, from anywhere.'}
-        />
+        {voiceMode === 'auto' && (
+          <SwitchRow
+            data="village-finished-near"
+            on={finishedNearOnly}
+            onToggle={() => setFinishedNearOnly(!finishedNearOnly)}
+            title="Auto: quiet when I open an agent from afar"
+            hint={finishedNearOnly ? 'On: a finished report is said when you open the agent standing next to it (or with it selected). Opened from far away (the Agents menu, N), it stays quiet and you can press Play. One that needs you speaks wherever you open it.' : 'Off: every agent says its line when you open it, from anywhere.'}
+          />
+        )}
         <KitToggle
           checked={settings.villageAcademy !== false}
           onChange={() => updateSetting('villageAcademy', settings.villageAcademy === false)}

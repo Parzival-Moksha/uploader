@@ -8,6 +8,7 @@
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import { localMidnight } from '../../lib/village/work-vow'
 import { useOasisStore } from '../../store/oasisStore'
+import { SUBAGENT_STALE_MS } from '../../store/slices/agentEngineSlice'
 import { getWorkVowState, refreshWorkVow, subscribeWorkVow } from './work-vow-client'
 
 /** Seconds of agent turns running now, since the later of their start and the day's start (04:20). */
@@ -15,13 +16,34 @@ export function runningTurnSeconds(working: number[], now: number, dayStart: num
   return working.reduce((sum, since) => sum + Math.max(0, now - Math.max(since, dayStart)) / 1000, 0)
 }
 
-/** An agent working right now: since when (its turn), for the multiplier and the highlighted rows. */
-export interface WorkingAgent { id: string; name: string; since: number; sessionId: string }
+/**
+ * An agent working right now: since when (its turn), for the multiplier and the highlighted rows. An agent whose own turn
+ * is over while a helper of its still runs (a background upload) works too (the owner, 27 Nov: "the helper of Tyler is
+ * working, so that should count as one agent working"): `sinces` then holds each running helper's start, since every
+ * helper counts in full (the book does the same when it ends). For a working agent, `sinces` is just its turn's start.
+ */
+export interface WorkingAgent { id: string; name: string; since: number; sessionId: string; sinces: number[]; helpersOnly?: boolean }
+
+/** Seconds one working agent has run today so far, not yet in the book. */
+export function runningAgentSeconds(w: Pick<WorkingAgent, 'sinces'>, now: number, dayStart: number): number {
+  return runningTurnSeconds(w.sinces, now, dayStart)
+}
+
+/** Helpers still running, by start (a lost end stops counting after SUBAGENT_STALE_MS). */
+export function runningHelperStarts(subagents: Array<{ status: string; startedAt: number }> | undefined, now: number): number[] {
+  return (subagents || []).filter(s => s.status === 'running' && s.startedAt > 0 && now - s.startedAt <= SUBAGENT_STALE_MS).map(s => s.startedAt)
+}
 
 export function useLiveWork(): { mine: number; agents: number; date: string | null; working: WorkingAgent[] } {
   const state = useSyncExternalStore(subscribeWorkVow, getWorkVowState, getWorkVowState)
-  // When each working agent's turn began (its status has been "working" since then).
-  const working = useOasisStore(s => s.agentEngine.order.map(id => s.agentEngine.agents[id]).filter(a => a && a.status === 'working' && a.statusSince > 0).map(a => `${a.id}${a.name || a.id}${a.statusSince}${a.sessionId || ''}`).join(''))
+  // When each working agent's turn began (its status has been "working" since then); for an agent between turns
+  // with helpers still running, when each of them began.
+  const working = useOasisStore(s => s.agentEngine.order.map(id => s.agentEngine.agents[id]).flatMap(a => {
+    if (!a) return []
+    if (a.status === 'working' && a.statusSince > 0) return [`${a.id}${a.name || a.id}${a.statusSince}${a.sessionId || ''}${a.statusSince}`]
+    const helpers = runningHelperStarts(a.subagents, Date.now())
+    return helpers.length ? [`${a.id}${a.name || a.id}${Math.min(...helpers)}${a.sessionId || ''}${helpers.join(',')}h`] : []
+  }).join(''))
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1000)
@@ -34,11 +56,13 @@ export function useLiveWork(): { mine: number; agents: number; date: string | nu
     return () => window.clearTimeout(timer)
   }, [working])
   const snapshot = state.snapshot
-  const list: WorkingAgent[] = working ? working.split('').map(item => { const [id, name, since, sessionId] = item.split(''); return { id, name, since: Number(since), sessionId } }) : []
+  const list: WorkingAgent[] = working ? working.split('').map(item => {
+    const [id, name, since, sessionId, sinces, helpersOnly] = item.split('')
+    return { id, name, since: Number(since), sessionId, sinces: sinces.split(',').map(Number), ...(helpersOnly ? { helpersOnly: true } : {}) }
+  }) : []
   if (!snapshot) return { mine: 0, agents: 0, date: null, working: list }
   const mine = snapshot.today.seconds + state.pendingSeconds
-  const since = list.map(a => a.since)
   const dayStart = localMidnight(now)
-  const agents = (snapshot.agentHours?.today || 0) + runningTurnSeconds(since, now, dayStart)
+  const agents = (snapshot.agentHours?.today || 0) + list.reduce((sum, w) => sum + runningAgentSeconds(w, now, dayStart), 0)
   return { mine, agents, date: snapshot.date, working: list }
 }

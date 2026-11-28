@@ -5,7 +5,7 @@ sidebar_position: 2
 
 # Install
 
-The easiest way: tell your coding agent (Claude Code, or any agent that can run commands)
+The easiest way: tell your coding agent (Claude Code, Codex, or any agent that can run commands)
 
 ```
 install the Oasis from github.com/Parzival-Moksha/uploader and open it
@@ -24,7 +24,7 @@ Then type `/oasis` in a new session. The plugin also lets you talk from the vill
 
 ## By hand
 
-You need Node.js 20 or later, git and Claude Code.
+You need Node.js 20 or later, git, and Claude Code or Codex.
 
 ```
 git clone --depth 1 https://github.com/Parzival-Moksha/uploader.git oasis

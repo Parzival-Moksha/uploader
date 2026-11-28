@@ -26,13 +26,23 @@ export const MODE_LABEL: Record<string, string> = {
 export const MODE_MEANING: Record<string, string> = {
   default: 'It asks you before edits, commands and other tools.',
   acceptEdits: 'It edits files without asking, and asks before commands.',
-  auto: 'It decides by itself what is safe, and asks you about the rest.',
+  auto: 'It decides by itself what is safe, and asks you about the rest. Some deletes still ask.',
   plan: 'It only reads and plans: it changes nothing.',
-  bypassPermissions: 'It does everything without asking: edits, commands, the network.',
+  bypassPermissions: 'It does everything without asking: edits, commands, the network. Some deletes still ask.',
 }
 
 /** A Hermes agent's modes (ACP session/set_mode): ask before edits, allow workspace edits, allow edits except sensitive paths. */
 export const HERMES_MODES = ['default', 'accept_edits', 'dont_ask']
+
+/** Codex's own modes (codex-acp, as passed to permissionMode; Hermes builder 28 Nov), in its words. */
+export const CODEX_MODES = ['read-only', 'workspace-write', 'agent', 'agent-full-access']
+/** Names for ACP modes in the menus; a mode not listed shows its own id. */
+export const ACP_MODE_LABEL: Record<string, string> = {
+  'read-only': 'Read only',
+  'workspace-write': 'Workspace: edits this folder, asks for the rest',
+  agent: 'Auto review: asks only for what looks unsafe',
+  'agent-full-access': 'Full access',
+}
 
 function describeError(error: unknown): string {
   return error instanceof Error ? error.message : String(error)

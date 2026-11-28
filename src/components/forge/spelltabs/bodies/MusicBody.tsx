@@ -4,29 +4,31 @@
 // Text-to-Music spelltab. Hits POST /api/media/music (ElevenLabs Music API).
 // Maintains a local "in-flight" list and a gallery sourced from /api/media/list
 // (audio entries) so generated MP3s show up next to anything else uploaded.
+// The look is the UI kit's (Hipster): it follows the menu style chosen in Settings. What it offers (the models,
+// the lengths, the request) is Wizard's: MUSIC_MODELS, DURATIONS and handleGenerate.
 // ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
 
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
-import { CollapsibleSection, scrollIntoViewOnFocus } from '../SpellTabFrame'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { scrollIntoViewOnFocus } from '../SpellTabFrame'
+import { KitButton, KitCard, KitChip, KitSelectField, KitTextField, KitToggle } from '@/components/ui-kit'
 import { useOasisStore } from '@/store/oasisStore'
 import { buildAudioPlacementPending } from '../../../../lib/forge/placement-builders'
 
 const OASIS_BASE = process.env.NEXT_PUBLIC_BASE_PATH || ''
 
-// ElevenLabs Music API current public model. Single option for now — future
-// models can land here without changing the spelltab callsites.
+// ElevenLabs' music models (their docs, 27 Nov 2026): v1 (deprecated, gone 31 Jan 2027), v2 and v2.5, all at the
+// same $0.15 a minute; v2.5 is their best, so it is the one (the owner: "aren't we on V2 already?"). One entry: the
+// Model select stays hidden (it shows only for more than one).
 const MUSIC_MODELS = [
-  { key: 'music_v1', label: 'ElevenLabs Music v1', desc: 'Default text-to-music engine' },
+  { key: 'music_v2_5', label: 'ElevenLabs Music v2.5', desc: 'Their newest music model, $0.15 a minute' },
 ] as const
 
 const DURATIONS = [
   { ms: 10000, label: '10s' },
   { ms: 20000, label: '20s' },
   { ms: 30000, label: '30s' },
-  { ms: 60000, label: '60s' },
-  { ms: 120000, label: '2 min' },
 ] as const
 
 interface InFlightMusic {
@@ -78,6 +80,7 @@ export interface MusicBodyProps {
   defaultExpandGallery?: boolean
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function MusicBody({ defaultExpandNew = true, defaultExpandGallery = true }: MusicBodyProps) {
   const [prompt, setPrompt] = useState('')
   const [model, setModel] = useState<string>(MUSIC_MODELS[0].key)
@@ -87,8 +90,6 @@ export function MusicBody({ defaultExpandNew = true, defaultExpandGallery = true
   const [history, setHistory] = useState<GeneratedMusic[]>(() => readHistory())
   const [uploaded, setUploaded] = useState<MediaListItem[]>([])
   const [error, setError] = useState<string | null>(null)
-  const [expandNew, setExpandNew] = useState(defaultExpandNew)
-  const [expandGallery, setExpandGallery] = useState(defaultExpandGallery)
   const enterPlacementMode = useOasisStore(s => s.enterPlacementMode)
 
   // ── Fetch uploaded audio so the gallery shows previously-uploaded MP3s too
@@ -187,175 +188,199 @@ export function MusicBody({ defaultExpandNew = true, defaultExpandGallery = true
       })),
   ]
 
-  return (
-    <div className="space-y-2">
-      <CollapsibleSection
-        label="New Music"
-        accentColor="#A78BFA"
-        expanded={expandNew}
-        onToggle={() => setExpandNew(e => !e)}
-        rightSlot={`${MUSIC_MODELS.find(m => m.key === model)?.label || model} / ${(durationMs / 1000).toFixed(0)}s`}
-      >
-        <style>{`
-          @keyframes oasisMusicBars {
-            0%, 100% { transform: scaleY(0.35); opacity: 0.45; }
-            50% { transform: scaleY(1); opacity: 1; }
-          }
-        `}</style>
-        <div className="flex flex-wrap items-center gap-2">
-          <select
-            value={model}
-            onChange={e => setModel(e.target.value)}
-            className="text-[10px] bg-black/60 border border-purple-500/30 rounded px-2 py-1 text-purple-200 font-mono focus:outline-none focus:border-purple-400/60 cursor-pointer"
-          >
-            {MUSIC_MODELS.map(m => (
-              <option key={m.key} value={m.key}>{m.label}</option>
-            ))}
-          </select>
-          <select
-            value={durationMs}
-            onChange={e => setDurationMs(parseInt(e.target.value, 10))}
-            className="text-[10px] bg-black/60 border border-purple-500/30 rounded px-2 py-1 text-purple-200 font-mono focus:outline-none focus:border-purple-400/60 cursor-pointer"
-            title="Track length"
-          >
-            {DURATIONS.map(d => (
-              <option key={d.ms} value={d.ms}>{d.label}</option>
-            ))}
-          </select>
-          <label className="flex items-center gap-1 text-[10px] text-purple-300/80 font-mono cursor-pointer">
-            <input
-              type="checkbox"
-              checked={instrumental}
-              onChange={e => setInstrumental(e.target.checked)}
-              className="w-3 h-3 rounded accent-purple-500"
-            />
-            Instrumental
-          </label>
-        </div>
+  // One track plays at a time, in the gallery's own player (the browser's grey audio bars were "the gallery looks
+  // like shit", the owner, 27 Nov).
+  const player = useTrackPlayer()
+  const length = DURATIONS.find(d => d.ms === durationMs)
 
-        <textarea
+  return (
+    <div className="space-y-3" data-music-body>
+      <style>{MUSIC_CSS}</style>
+      <KitCard title="Compose" data-music-compose>
+        <KitTextField
+          multiline
+          rows={3}
           value={prompt}
           onChange={e => setPrompt(e.target.value)}
           onFocus={scrollIntoViewOnFocus}
-          rows={3}
-          placeholder="describe the music... e.g. 'slow lo-fi beats over ambient pads, raindrops, melancholy'"
-          className="w-full text-xs bg-black/60 border border-purple-500/30 rounded-lg px-3 py-2 text-gray-200 placeholder-gray-600 resize-none focus:outline-none focus:border-purple-400/60 font-mono"
+          onKeyDown={e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) void handleGenerate() }}
+          placeholder="Describe the music: slow lo-fi beats over ambient pads, rain, melancholy…"
         />
-
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-[9px] text-purple-400/60 font-mono">
-            ElevenLabs Music API · ~{(durationMs / 1000).toFixed(0)}s output
-          </span>
-          <button
-            onClick={handleGenerate}
-            disabled={!prompt.trim()}
-            className="px-3 py-1.5 rounded-lg text-xs font-bold transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-            style={{
-              background: 'linear-gradient(135deg, rgba(167, 139, 250, 0.3), rgba(139, 92, 246, 0.3))',
-              color: '#C4B5FD',
-              border: '1px solid rgba(167, 139, 250, 0.4)',
-            }}
-          >
-            {inFlight.length > 0 ? `Generating (${inFlight.length})` : 'Generate 🎵'}
-          </button>
+        <div className="mt-2 flex flex-wrap items-end gap-3">
+          <div>
+            <span className="kit-label">Length</span>
+            <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Length">
+              {DURATIONS.map(d => (
+                <KitChip key={d.ms} pressed={durationMs === d.ms} role="radio" aria-checked={durationMs === d.ms} onClick={() => setDurationMs(d.ms)}>{d.label}</KitChip>
+              ))}
+            </div>
+          </div>
+          {MUSIC_MODELS.length > 1 && (
+            <div className="min-w-[180px] flex-1">
+              <KitSelectField label="Model" value={model} onChange={e => setModel(e.target.value)} options={MUSIC_MODELS.map(m => ({ value: m.key, label: m.label }))} />
+            </div>
+          )}
         </div>
+        <div className="mt-2"><KitToggle checked={instrumental} onChange={setInstrumental} label="Instrumental" hint={instrumental ? 'No voice' : 'Voice allowed'} /></div>
+        <div className="mt-3 flex items-center justify-between gap-3">
+          <span className="kit-hint !mt-0">{MUSIC_MODELS.find(m => m.key === model)?.label || model} · {length?.label ?? `${Math.round(durationMs / 1000)}s`}</span>
+          <KitButton variant="primary" onClick={() => void handleGenerate()} disabled={!prompt.trim()} data-music-generate>
+            {inFlight.some(f => !f.error) ? `Composing (${inFlight.filter(f => !f.error).length})` : 'Compose'}
+          </KitButton>
+        </div>
+        {error && <div className="kit-hint mt-2" role="alert" style={{ color: '#ff9a8a', opacity: 1 }}>{error}</div>}
+      </KitCard>
 
-        {error && (
-          <div className="text-[10px] text-red-400 font-mono">{error}</div>
-        )}
-
-        {inFlight.length > 0 && (
-          <div className="space-y-1.5">
-            {inFlight.map(f => (
-              <div
-                key={f.id}
-                className="rounded-md border border-purple-500/20 bg-black/40 px-2.5 py-1.5 flex items-center gap-2"
-              >
+      {inFlight.length > 0 && (
+        <div className="space-y-2">
+          {inFlight.map(f => (
+            <KitCard key={f.id} data-music-flight>
+              <div className="flex items-center gap-3">
                 {f.error ? (
                   <>
-                    <span className="text-red-400 text-sm">{'✕'}</span>
-                    <span className="text-[10px] text-red-400 font-mono flex-1 truncate">{f.error}</span>
-                    <button
-                      onClick={() => setInFlight(prev => prev.filter(x => x.id !== f.id))}
-                      className="text-[9px] text-gray-400 hover:text-gray-200 font-mono"
-                    >dismiss</button>
+                    <span className="text-lg" aria-hidden>✕</span>
+                    <span className="min-w-0 flex-1 text-[13px]" style={{ color: '#ff9a8a' }}>{f.error}</span>
+                    <KitChip onClick={() => setInFlight(prev => prev.filter(x => x.id !== f.id))}>Dismiss</KitChip>
                   </>
                 ) : (
                   <>
-                    <span className="flex h-5 items-end gap-0.5" aria-hidden="true">
-                      {[0, 1, 2, 3].map(i => (
-                        <span
-                          key={i}
-                          className="block h-4 w-1 rounded-full bg-purple-300"
-                          style={{ animation: `oasisMusicBars 680ms ease-in-out ${i * 90}ms infinite` }}
-                        />
-                      ))}
-                    </span>
-                    <span className="text-[10px] text-purple-300 font-mono flex-1 truncate">{f.prompt}</span>
-                    <span className="text-[9px] text-purple-400/60 font-mono">
-                      generating {(f.durationMs / 1000).toFixed(0)}s
-                    </span>
+                    <span className="oasis-music-bars" aria-hidden>{[0, 1, 2, 3, 4].map(i => <span key={i} style={{ animationDelay: `${i * 90}ms` }} />)}</span>
+                    <span className="min-w-0 flex-1 truncate text-[13px]" title={f.prompt}>{f.prompt}</span>
+                    <span className="kit-label !mb-0">composing {(f.durationMs / 1000).toFixed(0)}s</span>
                   </>
                 )}
               </div>
-            ))}
-          </div>
-        )}
-      </CollapsibleSection>
+            </KitCard>
+          ))}
+        </div>
+      )}
 
-      <CollapsibleSection
-        label={`Gallery (${galleryEntries.length})`}
-        accentColor="#A78BFA"
-        expanded={expandGallery}
-        onToggle={() => setExpandGallery(e => !e)}
-      >
+      <KitCard title={`Your music · ${galleryEntries.length}`} data-music-gallery>
         {galleryEntries.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-6 text-gray-400">
-            <div className="text-2xl mb-1">{'\u{1F3B5}'}</div>
-            <div className="text-xs">No music generated yet</div>
-            <div className="text-[10px] mt-1 text-gray-500">Describe a vibe and hit Generate</div>
+          <div className="py-6 text-center">
+            <div className="text-3xl" aria-hidden>♫</div>
+            <div className="kit-hint">Nothing composed yet. Describe a mood above and press Compose.</div>
           </div>
         ) : (
-          <div className="space-y-1.5">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(250px,1fr))] gap-2">
             {galleryEntries.map(track => (
-              <div
+              <TrackCard
                 key={track.id}
-                className="rounded-md border border-purple-500/20 bg-black/40 px-2.5 py-1.5"
-              >
-                <div className="flex items-center justify-between gap-2 mb-1">
-                  <span className="text-[11px] text-purple-200 font-mono truncate" title={track.prompt}>
-                    {track.prompt}
-                  </span>
-                  <div className="flex shrink-0 items-center gap-1">
-                    <button
-                      onClick={() => placeAudioTrack(track)}
-                      className="rounded border border-purple-300/35 bg-purple-400/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-purple-100 hover:border-purple-200/60 hover:bg-purple-300/20"
-                      title="Place this track on a speaker"
-                    >
-                      Place
-                    </button>
-                    {history.some(h => h.id === track.id) && (
-                      <button
-                        onClick={() => handleDelete(track.id)}
-                        className="text-[10px] text-gray-500 hover:text-red-400"
-                        title="Forget from history"
-                      >
-                        &times;
-                      </button>
-                    )}
-                  </div>
-                </div>
-                <audio controls preload="none" src={track.url} className="w-full" style={{ height: 32 }} />
-                <div className="text-[9px] text-gray-500 font-mono mt-0.5">
-                  {new Date(track.createdAt).toLocaleString()}
-                  {track.durationMs > 0 && ` · ${(track.durationMs / 1000).toFixed(0)}s`}
-                  {track.instrumental && ' · instrumental'}
-                </div>
-              </div>
+                track={track}
+                player={player}
+                onPlace={() => placeAudioTrack(track)}
+                onForget={history.some(h => h.id === track.id) ? () => handleDelete(track.id) : undefined}
+              />
             ))}
           </div>
         )}
-      </CollapsibleSection>
+      </KitCard>
+    </div>
+  )
+}
+
+// ─── the gallery's player and cards (Hipster) ──────────────────────────────────────────────────
+
+const MUSIC_CSS = `
+.oasis-music-bars { display: inline-flex; align-items: flex-end; gap: 2px; height: 18px; }
+.oasis-music-bars > span { display: block; width: 3px; height: 100%; border-radius: 2px; background: var(--kit-accent, #c4b5fd); animation: oasisMusicBars 680ms ease-in-out infinite; transform-origin: bottom; }
+@keyframes oasisMusicBars { 0%, 100% { transform: scaleY(0.3); opacity: 0.5 } 50% { transform: scaleY(1); opacity: 1 } }
+.oasis-track { position: relative; display: flex; gap: 10px; padding: 8px; border-radius: 6px; background: rgba(0,0,0,0.28); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08); transition: box-shadow 160ms ease-out, background 160ms ease-out; }
+.oasis-track:hover { background: rgba(0,0,0,0.36); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.18); }
+.oasis-track[data-playing="1"] { box-shadow: inset 0 0 0 1px var(--track-hue), 0 0 18px -4px var(--track-hue); }
+.oasis-track-cover { position: relative; flex: none; width: 64px; height: 64px; border-radius: 6px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.5); }
+.oasis-track-play { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 22px; color: #fff; text-shadow: 0 1px 4px rgba(0,0,0,0.8); background: rgba(0,0,0,0.18); transition: background 140ms ease-out, transform 140ms ease-out; cursor: pointer; border: 0; }
+.oasis-track-play:hover { background: rgba(0,0,0,0.05); transform: scale(1.06); }
+.oasis-track-wave { display: flex; align-items: center; gap: 1px; height: 26px; cursor: pointer; }
+.oasis-track-wave > span { flex: 1; border-radius: 1px; background: rgba(255,255,255,0.22); transition: background 120ms linear; }
+.oasis-track-wave > span[data-on="1"] { background: var(--track-hue); }
+[data-kit-style="parchment"] .oasis-track { background: rgba(255,248,226,0.45); box-shadow: inset 0 0 0 1px rgba(110,74,34,0.4); }
+[data-kit-style="parchment"] .oasis-track-wave > span { background: rgba(60,35,10,0.25); }
+`
+
+interface TrackPlayer {
+  playingUrl: string | null
+  progress: number
+  toggle: (url: string) => void
+  seek: (url: string, share: number) => void
+}
+
+/** One Audio element for the whole gallery: pressing play on a track stops the one before. */
+function useTrackPlayer(): TrackPlayer {
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const [playingUrl, setPlayingUrl] = useState<string | null>(null)
+  const [progress, setProgress] = useState(0)
+  useEffect(() => () => { audioRef.current?.pause(); audioRef.current = null }, [])
+  const audio = () => {
+    if (!audioRef.current) {
+      const a = new Audio()
+      a.preload = 'none'
+      a.addEventListener('timeupdate', () => setProgress(a.duration ? a.currentTime / a.duration : 0))
+      a.addEventListener('ended', () => { setPlayingUrl(null); setProgress(0) })
+      audioRef.current = a
+    }
+    return audioRef.current
+  }
+  const toggle = (url: string) => {
+    const a = audio()
+    if (playingUrl === url && !a.paused) { a.pause(); setPlayingUrl(null); return }
+    if (a.src !== new URL(url, window.location.href).href) { a.src = url; setProgress(0) }
+    void a.play().then(() => setPlayingUrl(url)).catch(() => setPlayingUrl(null))
+  }
+  const seek = (url: string, share: number) => {
+    const a = audio()
+    if (a.src !== new URL(url, window.location.href).href) { toggle(url); return }
+    if (a.duration) a.currentTime = share * a.duration
+  }
+  return { playingUrl, progress, toggle, seek }
+}
+
+/** A stable number from a string, for a track's colour and its drawn waveform. */
+function hashOf(text: string): number {
+  let h = 2166136261
+  for (let i = 0; i < text.length; i++) { h ^= text.charCodeAt(i); h = Math.imul(h, 16777619) }
+  return h >>> 0
+}
+
+const WAVE_BARS = 36
+
+function TrackCard({ track, player, onPlace, onForget }: { track: GeneratedMusic; player: TrackPlayer; onPlace: () => void; onForget?: () => void }) {
+  const seed = hashOf(track.prompt || track.url)
+  const hue = seed % 360
+  const playing = player.playingUrl === track.url
+  const bars = Array.from({ length: WAVE_BARS }, (_, i) => {
+    const s = hashOf(`${seed}:${i}`)
+    // An envelope (quiet start and end) times a little noise: it reads as a track, not as a random bar chart.
+    const envelope = Math.sin(Math.PI * (i + 0.5) / WAVE_BARS) * 0.65 + 0.35
+    return Math.max(0.15, envelope * (0.55 + (s % 1000) / 2200))
+  })
+  const shown = playing ? player.progress : 0
+  return (
+    <div className="oasis-track" data-playing={playing ? '1' : '0'} data-music-track style={{ ['--track-hue' as string]: `hsl(${hue} 80% 66%)` }}>
+      <div className="oasis-track-cover" style={{ background: `radial-gradient(circle at 30% 25%, hsl(${(hue + 40) % 360} 85% 70%), hsl(${hue} 70% 38%) 55%, hsl(${(hue + 300) % 360} 60% 16%))` }}>
+        <button type="button" className="oasis-track-play" onClick={() => player.toggle(track.url)} aria-label={playing ? 'Pause' : 'Play'} title={playing ? 'Pause' : 'Play'}>
+          {playing ? '❚❚' : '▶'}
+        </button>
+      </div>
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
+        <div className="flex items-start gap-2">
+          <span className="min-w-0 flex-1 truncate text-[13px] font-bold" title={track.prompt}>{track.prompt}</span>
+          {onForget && <button type="button" onClick={onForget} className="shrink-0 text-[13px] opacity-50 hover:opacity-100" title="Forget it from this list" aria-label="Forget">✕</button>}
+        </div>
+        <div
+          className="oasis-track-wave"
+          onClick={event => { const r = event.currentTarget.getBoundingClientRect(); player.seek(track.url, (event.clientX - r.left) / r.width) }}
+          title="Play from here"
+        >
+          {bars.map((h, i) => <span key={i} data-on={i / WAVE_BARS < shown ? '1' : '0'} style={{ height: `${Math.round(h * 100)}%` }} />)}
+        </div>
+        <div className="flex items-center justify-between gap-2">
+          <span className="kit-hint !mt-0 truncate">
+            {track.durationMs > 0 ? `${(track.durationMs / 1000).toFixed(0)}s · ` : ''}{track.instrumental ? 'instrumental · ' : ''}{new Date(track.createdAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}
+          </span>
+          <KitChip onClick={onPlace} title="Place it in the world on a speaker">Place</KitChip>
+        </div>
+      </div>
     </div>
   )
 }

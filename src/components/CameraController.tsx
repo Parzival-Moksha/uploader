@@ -28,6 +28,7 @@ import { useOasisStore } from '../store/oasisStore'
 import { useInputManager, getInputCapabilities, consumeMouseLookDelta, wasUILayerClosedRecently } from '../lib/input-manager'
 import { getMobileInputSnapshot, isProbablyMobileDevice } from '../lib/mobile-controls'
 import { setCameraSnapshot } from '../lib/camera-bridge'
+import { markThirdPersonCameraRestored } from '../lib/player-avatar-runtime'
 import { sprintCanRun } from '../lib/post-effects'
 import { setPointerReleaseNotifier } from '../lib/pointer-release'
 import { isDragLookOn, setDragLookNotifier } from '../lib/drag-look'
@@ -216,7 +217,36 @@ function useAgentFocusUpdate() {
   const lockedTargetRef = useRef<THREE.Vector3 | null>(null)
   const DURATION = 1.2
 
-  return (camera: THREE.PerspectiveCamera, focusedId: string | null, viewport: { aspect: number }) => {
+  /**
+   * Agent-focus ended (Esc, E, a click elsewhere): the camera goes back to exactly where it was before the zoom (the
+   * owner, 26 Nov: "back to where he stood"). Flying / orbit: the saved pose, at once. Walking: PlayerAvatar keeps
+   * the angle it had (it never moved during the focus) instead of working one out from the camera at the window,
+   * which turned the view. Before, the return animation ran for one frame only and the view came back turned.
+   */
+  const release = (camera: THREE.PerspectiveCamera, next: string) => {
+    const savedPos = savedCamPosRef.current
+    const savedTarget = savedCamTargetRef.current
+    const wasWorldFocus = prevFocusedRef.current !== null
+    prevFocusedRef.current = null
+    savedCamPosRef.current = null
+    savedCamTargetRef.current = null
+    lockedPosRef.current = null
+    lockedTargetRef.current = null
+    startPosRef.current = null
+    startTargetRef.current = null
+    goalPosRef.current = null
+    goalTargetRef.current = null
+    if (!wasWorldFocus || !savedPos) return
+    if (next === 'third-person') {
+      markThirdPersonCameraRestored()
+      return
+    }
+    camera.position.copy(savedPos)
+    if (savedTarget) camera.lookAt(savedTarget)
+    camera.updateMatrixWorld()
+  }
+
+  const update = (camera: THREE.PerspectiveCamera, focusedId: string | null, viewport: { aspect: number }) => {
     const store = useOasisStore.getState()
     const { placedAgentWindows, placedCatalogAssets, placedAgentAvatars, transforms } = store
 
@@ -293,6 +323,10 @@ function useAgentFocusUpdate() {
           const distV = (worldHeight / 2) / Math.tan(fovRad / 2) / 0.85
           const distH = (worldWidth / 2) / Math.tan(hFov / 2) / 0.85
           dist = Math.max(distV, distH)
+          // A picture shown as a building (a cube as deep as it is tall): the face is half its depth nearer than the
+          // centre this measures from, so frame the face (the owner, 27 Nov: Page Down "zooms on it way too close").
+          const asBuilding = img!.imageDisplayMode === '3d' || (!img!.imageDisplayMode && img!.imageFrameStyle === 'building')
+          if (asBuilding) dist += worldHeight / 2
         }
 
         const windowCenter = new THREE.Vector3(pos[0], pos[1], pos[2])
@@ -351,6 +385,11 @@ function useAgentFocusUpdate() {
       goalTargetRef.current = null
     }
   }
+
+  /** A world focus (a window or a picture) the camera has not come back from yet. */
+  const pending = () => prevFocusedRef.current !== null || savedCamPosRef.current !== null
+
+  return { update, release, pending }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -427,7 +466,8 @@ export function CameraController() {
   // Mode-specific update functions (hooks, called unconditionally)
   const updateNoclip = useNoclipUpdate()
   const updateMouseLook = useMouseLook(settings.mouseSensitivity)
-  const updateAgentFocus = useAgentFocusUpdate()
+  const agentFocus = useAgentFocusUpdate()
+  const updateAgentFocus = agentFocus.update
 
   // Click-to-lock pointer in noclip mode (replaces PointerLockControls from drei)
   // Also handles: clicking canvas while in ui-focused state to dismiss panels.
@@ -506,6 +546,13 @@ export function CameraController() {
     const delta = Math.min(frameDelta, 0.1)
     setCameraSnapshot(camera)
 
+    // ░▒▓ Leaving agent-focus: the camera back where it was (before the orbit sync below reads it), and
+    // prevFocusedRef reset so the next focus of the same window animates again. ▓▒░
+    // (A menu over the focus, ui-focused, is not leaving: the camera stays at the window under it.)
+    if (inputState !== 'agent-focus' && inputState !== 'ui-focused' && agentFocus.pending()) {
+      agentFocus.release(camera, inputState)
+    }
+
     // Sync OrbitControls target when re-entering orbit from another mode
     // Without this, OrbitControls snaps to its stale internal target (the "camera snapping" bug)
     if (inputState === 'orbit' && prevInputStateRef.current !== 'orbit' && orbitControlsRef.current) {
@@ -514,12 +561,6 @@ export function CameraController() {
       const dist = camera.position.distanceTo(orbitControlsRef.current.target)
       orbitControlsRef.current.target.copy(camera.position).add(dir.multiplyScalar(Math.max(5, dist)))
       orbitControlsRef.current.update()
-    }
-    // ░▒▓ CRITICAL FIX: Reset prevFocusedRef when LEAVING agent-focus ▓▒░
-    // Without this, prevFocusedRef stays stale and the 2nd focus attempt
-    // sees focusedId === prevFocusedRef → no animation trigger.
-    if (prevInputStateRef.current === 'agent-focus' && inputState !== 'agent-focus') {
-      updateAgentFocus(camera, null, state.viewport)
     }
     prevInputStateRef.current = inputState
 

@@ -164,7 +164,8 @@ async function ownMissionRequest(run: Record<string, unknown>): Promise<[unknown
   if ('notify' in run) return [{ ok: true, snapshot: await notifyOwnMission(agentOf(run.notify)) }]
   if (run.end === true || run.end === 'due') {
     // 'due': a page's clock says the time is up; the book ends it only if its own clock agrees.
-    const result = await endOwnMission(typeof run.startedAt === 'number' ? run.startedAt : undefined, Date.now(), run.end === 'due')
+    // done: he said it is done (kept, whatever the minutes); false: not done; absent: the timer's own end.
+    const result = await endOwnMission(typeof run.startedAt === 'number' ? run.startedAt : undefined, Date.now(), run.end === 'due', typeof run.done === 'boolean' ? run.done : undefined)
     return result.ok ? [result] : fail(result)
   }
   return [{ error: 'run is { start } | { save } | { note } | { pause } | { notify } | { end: true }' }, { status: 400 }]

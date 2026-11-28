@@ -32,6 +32,11 @@ export interface Mission {
   picture: string
   /** Where the Oasis loads the picture from (set by the API when the file exists). */
   pictureUrl?: string | null
+  /**
+   * How it stands to another mission (Anorak sets it, 2026-11-26): `duplicate of`, `merged into` (the board shows the
+   * other one only) or `blocked by`. `target` is the other mission's file name or title, as written.
+   */
+  relation?: { kind: 'duplicate of' | 'merged into' | 'blocked by'; target: string }
   /** The whole file. */
   markdown: string
 }
@@ -102,6 +107,10 @@ export function parseMission(file: string, text: string): Mission {
     priority: complete ? Math.round((nums.ease * nums.impact * nums.urgency / 125) * 100) / 100 : null,
     tldr: plainText(doneWhen) || firstParagraph(lines, bodyStart),
     picture: head.picture || '',
+    ...(() => {
+      for (const kind of ['duplicate of', 'merged into', 'blocked by'] as const) if (head[kind]) return { relation: { kind, target: head[kind] } }
+      return {}
+    })(),
     markdown,
   }
 }

@@ -10,7 +10,7 @@ import { create } from 'zustand'
 import { LOCK_ANSWER_MS, installDragLook, isDragLookOn, lockFailureCounts, noteLockFailed, noteLockGranted } from './drag-look'
 import { useEffect } from 'react'
 import { installPointerRelease, keepLockThroughEscape, lockRequestPending, noteLockRequested, noteLockSettled } from './pointer-release'
-import { isSpaceTap, shouldGiveLookBack, spaceTargetIsWorld, wasLooking } from './look-keys'
+import { SPIKE_START, filterLookEvent, isSpaceTap, settleSpike, shouldGiveLookBack, spaceTargetIsWorld, wasLooking, type SpikeState } from './look-keys'
 
 interface MouseLookDebugState {
   droppedSampleCount: number
@@ -94,7 +94,11 @@ function recordDroppedMouseLookMagnitude(magnitude: number) {
   mouseLookDebugState.droppedMagnitude += magnitude
 }
 
+/** A lone huge mouse event is held one event, then dropped unless the motion carries on (look-keys.ts). */
+let lookSpike: SpikeState = SPIKE_START
+
 function clearMouseLookAccumulator() {
+  lookSpike = SPIKE_START
   mouseLookAccumulator.x = 0
   mouseLookAccumulator.y = 0
   mouseLookAccumulator.sampleCount = 0
@@ -104,9 +108,16 @@ function clearMouseLookAccumulator() {
 
 function queueMouseLookDelta(event: Pick<MouseEvent, 'movementX' | 'movementY' | 'timeStamp'>) {
   if (!Number.isFinite(event.movementX) || !Number.isFinite(event.movementY)) return
-  const clampedX = clampMouseLookDelta(event.movementX, MAX_MOUSE_LOOK_EVENT_DELTA)
-  const clampedY = clampMouseLookDelta(event.movementY, MAX_MOUSE_LOOK_EVENT_DELTA)
   const now = getMouseLookNow(event.timeStamp)
+  const filtered = filterLookEvent(lookSpike, event.movementX, event.movementY, now)
+  lookSpike = filtered.state
+  recordDroppedMouseLookMagnitude(filtered.dropped)
+  for (const d of filtered.apply) queueMouseLookStep(d.x, d.y, now)
+}
+
+function queueMouseLookStep(movementX: number, movementY: number, now: number) {
+  const clampedX = clampMouseLookDelta(movementX, MAX_MOUSE_LOOK_EVENT_DELTA)
+  const clampedY = clampMouseLookDelta(movementY, MAX_MOUSE_LOOK_EVENT_DELTA)
 
   if (mouseLookAccumulator.sampleCount === 0) {
     mouseLookAccumulator.oldestTime = now
@@ -183,6 +194,9 @@ export function pushMouseLookDelta(x: number, y: number, timeStamp?: number): vo
 }
 
 export function consumeMouseLookDelta(): { x: number; y: number } {
+  const settled = settleSpike(lookSpike, getMouseLookNow())
+  lookSpike = settled.state
+  recordDroppedMouseLookMagnitude(settled.dropped)
   if (mouseLookAccumulator.sampleCount === 0) {
     const now = getMouseLookNow()
     mouseLookDebugState.lastConsumedAt = now

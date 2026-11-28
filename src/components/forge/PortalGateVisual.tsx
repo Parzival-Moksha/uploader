@@ -13,6 +13,8 @@ import {
 
 interface PortalGateVisualProps {
   gate: PortalGate
+  /** false: the gate alone, without its destination label (the Portal Craft thumbnails, scripts/portal-thumbs). */
+  showLabel?: boolean
 }
 
 const PORTAL_LABEL_FONT = '/fonts/helvetiker_regular.typeface.json'
@@ -526,7 +528,9 @@ void main() {
 // Singleton HDRI loader. The night-sky JPG is shared by every gate's aperture
 // — one fetch, one GPU upload, every PortalSkyAperture samples the same
 // texture by world-direction. Lazy because we don't want to fetch during SSR.
-const PORTAL_SKY_HDRI_PATH = '/hdri/NightSkyHDRI001_4K_TONEMAPPED.jpg'
+// 2K (0.24 MB): an aperture is a small part of the screen, and the 4K (5.5 MB) was the biggest file of a first visit
+// (Perf, 27 Nov). The 4K stays for worlds that use it as their sky (sky-backgrounds 'night001').
+const PORTAL_SKY_HDRI_PATH = '/hdri/NightSkyHDRI001_2K_TONEMAPPED.jpg'
 let _portalSkyTexture: THREE.Texture | null = null
 function getPortalSkyTexture(): THREE.Texture | null {
   if (typeof window === 'undefined') return null
@@ -2575,7 +2579,7 @@ function ClockworkIris({ inert }: { inert?: boolean }) {
   )
 }
 
-function PortalGateVisualComponent({ gate }: PortalGateVisualProps) {
+function PortalGateVisualComponent({ gate, showLabel = true }: PortalGateVisualProps) {
   return (
     <group position={gate.position} rotation={[0, gate.rotationY ?? 0, 0]} scale={gate.inert ? 0.94 : 1}>
       {gate.variant === 'threshold-ring' && <ThresholdRing inert={gate.inert} />}
@@ -2588,7 +2592,7 @@ function PortalGateVisualComponent({ gate }: PortalGateVisualProps) {
       {gate.variant === 'verdant-arch' && <EastAsianGate inert={gate.inert} />}
       {gate.variant === 'mirror-pool' && <MoonCavernPool inert={gate.inert} />}
       {gate.variant === 'clockwork-iris' && <ClockworkIris inert={gate.inert} />}
-      <PortalLabel gate={gate} />
+      {showLabel && <PortalLabel gate={gate} />}
     </group>
   )
 }

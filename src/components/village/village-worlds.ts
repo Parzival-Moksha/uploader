@@ -7,7 +7,7 @@ import { useSyncExternalStore } from 'react'
 import { useOasisStore } from '../../store/oasisStore'
 import { villageAgentKey } from '../../lib/village/village-layout'
 import { homeSpotWorlds } from '../../lib/village/village-homes'
-import { VILLAGE_EVERYWHERE, agentWorld, isAgentHere } from '../../lib/village/village-worlds'
+import { VILLAGE_EVERYWHERE, agentWorld, isAgentHere, villageHomeWorldFrom, villageWorldsKey } from '../../lib/village/village-worlds'
 import { isStageWorldName } from '../../lib/village/village-stage'
 import { getVillageFollowVersion, subscribeVillageFollow } from './village-companion'
 import { FOLLOW_DEFAULT } from '../../lib/village/village-follow'
@@ -65,14 +65,17 @@ export function villageWorldName(world: string | null): string {
   return useOasisStore.getState().worldRegistry.find(entry => entry.id === world)?.name || 'another world'
 }
 
-/** Re-renders when anything that decides where agents are changes. Returns a number that changes with it. */
-export function useVillageWorldsVersion(): number {
+/**
+ * Re-renders when anything that decides where agents are changes. Returns a key that changes with it (a memo's
+ * dependency: VillageWorld's agents-elsewhere list), the world as its id (villageWorldsKey: never its length).
+ */
+export function useVillageWorldsVersion(): string {
   const homes = useSyncExternalStore(subscribeVillageHomes, getVillageHomesVersion, () => 0)
   const follow = useSyncExternalStore(subscribeVillageFollow, getVillageFollowVersion, () => 0)
   const identity = useSyncExternalStore(subscribeVillageIdentity, getVillageIdentityVersion, () => 0)
   const come = useSyncExternalStore(subscribeVillageCome, getVillageComeVersion, () => 0)
   const world = useOasisStore(s => s.viewingWorldId || s.activeWorldId || '')
-  return homes * 1000 + follow * 7 + identity * 13 + come * 17 + world.length
+  return villageWorldsKey({ homes, follow, identity, come, world })
 }
 
 function worldIsPlain(world: string | null): world is string {
@@ -81,10 +84,17 @@ function worldIsPlain(world: string | null): world is string {
   return !isStageWorldName(name)
 }
 
+/** The world the agents' homes are in (home spots and own home worlds), null when none has a home anywhere. */
+export function villageHomeWorld(): string | null {
+  const homeWorlds = Object.values(getVillageIdentity()?.agents || {}).map(agent => agent?.homeWorld ?? null)
+  return villageHomeWorldFrom(getVillageHomesFile().homes, homeWorlds, worldIsPlain)
+}
+
 /**
  * Keeps agents in their worlds (VillageController mounts it):
- * - a village whose world was never set gets the world it is open in now (a fresh Oasis; "Agents live in one
- *   world" is the default), never a Council stage;
+ * - a village whose world is unset gets the world its agents' homes are in; only a fresh Oasis, where nobody has a
+ *   home yet, gets the world it is open in ("Agents live in one world" is the default), never a Council stage. (27 Nov:
+ *   it took the world he stood in, a brand-new private world, and the whole village moved in behind him);
  * - an agent that appears while the page is connected (summoned from the circle, the guide, "Move it here", or
  *   started by another agent) gets the world the owner is in as its home, once its session is known (the identity
  *   store is keyed by session). Agents already there when the page connects keep what they have.
@@ -97,9 +107,13 @@ export function watchVillageHomeWorlds(): () => void {
     const state = useOasisStore.getState()
     const engine = state.agentEngine
     const here = currentVillageWorld()
-    if (!seeded && getVillageHomesVersion() > 0 && getVillageHomesFile().villageWorld === null && worldIsPlain(here)) {
-      seeded = true
-      void setVillageWorld(here).catch(() => { seeded = false })
+    // The identity store too (the agents' own home worlds) before choosing.
+    if (!seeded && getVillageHomesVersion() > 0 && getVillageIdentityVersion() > 0 && getVillageHomesFile().villageWorld === null) {
+      const world = villageHomeWorld() ?? (worldIsPlain(here) ? here : null)
+      if (world) {
+        seeded = true
+        void setVillageWorld(world).catch(() => { seeded = false })
+      }
     }
     if (engine.connection.status !== 'open') { known = null; return }
     if (known === null) { known = new Set(engine.order); return }

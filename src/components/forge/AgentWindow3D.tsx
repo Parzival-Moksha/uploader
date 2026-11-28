@@ -6,6 +6,7 @@ import {
   useEffect,
   useRef,
   useState,
+  useSyncExternalStore,
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
   type UIEvent as ReactUIEvent,
@@ -23,6 +24,7 @@ import {
 } from '../../lib/agent-window-renderers'
 import { getOffscreenUIManager } from '../../lib/forge/offscreen-ui-manager'
 import { AgentWindowSurface } from './AgentWindowSurface'
+import { getBrowserWindowUnderE, subscribeBrowserWindowUnderE } from '../../lib/browser-window-focus'
 import { useInputManager } from '../../lib/input-manager'
 import { isProbablyMobileDevice } from '../../lib/mobile-controls'
 import { getViewerUserIdClient } from '../../lib/viewer-identity-client'
@@ -57,20 +59,22 @@ function stopSceneBridgeEvent(
   nativeEvent.stopImmediatePropagation?.()
 }
 
-function FocusPrompt({ visible, label }: { visible: boolean; label: string }) {
+function FocusPrompt({ visible, label, keyName = 'ENTER', position = [0, 2.2, 0] }: { visible: boolean; label: string; keyName?: string; position?: [number, number, number] }) {
   if (!visible) return null
   return (
-    <Html zIndexRange={WORLD_Z_RANGE} position={[0, 2.2, 0]} center style={{ pointerEvents: 'none' }}>
+    <Html zIndexRange={WORLD_Z_RANGE} position={position} center style={{ pointerEvents: 'none' }}>
       <div
         className="select-none font-mono font-bold text-sm tracking-wider"
         style={{
+          whiteSpace: 'nowrap',
           color: '#38bdf8',
           textShadow: '0 0 20px rgba(56,189,248,0.6), 0 0 40px rgba(56,189,248,0.3)',
           animation: 'focusPromptPulse 1.5s ease-in-out infinite',
         }}
       >
-        {/* Shown on the selected window (its golden border): Enter zooms into it; N only steps to the next agent window. */}
-        HIT ENTER · {label}
+        {/* Shown on the selected window (its golden border): Enter zooms into it; N only steps to the next agent window.
+            On a browser window E would open (BrowserWindowFocus): HIT E. */}
+        HIT {keyName} · {label}
       </div>
       <style>{`
         @keyframes focusPromptPulse {
@@ -125,6 +129,7 @@ export const AgentWindow3D = memo(function AgentWindow3D({ window: win }: { wind
   const updateAgentWindow = useOasisStore(s => s.updateAgentWindow)
   const isSelected = selectedObjectId === win.id
   const isFocused = focusedAgentWindowId === win.id
+  const eOpensThis = useSyncExternalStore(subscribeBrowserWindowUnderE, getBrowserWindowUnderE, () => null) === win.id
   const prevFocusedRef = useRef(false)
 
   // ░▒▓ Agent ownership gate — rendered non-owned windows stay read-only.     ▓▒░
@@ -552,7 +557,13 @@ export const AgentWindow3D = memo(function AgentWindow3D({ window: win }: { wind
         </mesh>
       )}
 
-      <FocusPrompt visible={isSelected && !isFocused} label={rendererMeta.shortLabel} />
+      <FocusPrompt
+        visible={(isSelected || eOpensThis) && !isFocused}
+        label={eOpensThis ? 'OPEN PAGE' : rendererMeta.shortLabel}
+        keyName={eOpensThis ? 'E' : 'ENTER'}
+        // E's prompt in the window's middle: the walking camera looks down, so above the window is often off screen.
+        position={eOpensThis ? [0, 0, 0.05] : undefined}
+      />
     </group>
   )
 })

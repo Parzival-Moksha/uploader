@@ -60,9 +60,78 @@ export function pickVariety(agentId: string, pool: readonly string[], round: num
   return lapOrder(agentId, pool, lap)[round % pool.length]
 }
 
-/** The clip for a pose (null: the plain idle). */
-export function clipForPose(agentId: string, pose: AgentPose, round: number, variety: boolean): string | null {
+// ░▒▓ EACH AGENT'S OWN WAY OF BEING ▓▒░
+// The owner, 26 Nov, in the animation browser: "when agents spawn ... part of their character is how they idle. Some
+// sit down, some fold arms, some ground sit idle. But all of them just doing the one same idle? No." / "ground sit
+// enter, idle, and exit. It's genius" / "I love idle look around" / "idle tired ... if they have been waiting for me
+// for too long" / "some agents could just crawl instead of walk ... 20% of the agents" / "it'd be great if each agent
+// worked one particular way". So every agent has a rest style, a working clip and a way of moving, read from its id:
+// the same each time, and the agents that already exist get theirs too. The Pro clips are UAL1 Pro (CC0, the owner's
+// purchase of 24 Nov, shipped).
+
+/** Ground sit: down (once), the seated loop, up again (once). Lengths read from UAL1_Pro.glb, seconds. */
+export const GROUND_SIT = {
+  enter: 'ualpro-1-GroundSit_Enter', loop: 'ualpro-1-GroundSit_Idle_Loop', exit: 'ualpro-1-GroundSit_Exit',
+  enterS: 2.5, exitS: 2.17,
+} as const
+
+/** What it does when it has nothing to do. Weight: how many agents in ten, roughly. */
+export const REST_STYLES = {
+  stand: { clip: null, weight: 2 },
+  'look-around': { clip: 'ualpro-1-Idle_LookAround_Loop', weight: 2 },
+  'fold-arms': { clip: 'ual-fold-arms', weight: 2 },
+  'ground-sit': { clip: GROUND_SIT.loop, weight: 3 },
+  swim: { clip: 'ual-swim-idle', weight: 1 },
+} as const satisfies Record<string, { clip: string | null; weight: number }>
+export type RestStyle = keyof typeof REST_STYLES
+
+/**
+ * Waiting for him longer than this, tired joins its waiting idles as one more turn (seconds). The owner, 27 Nov:
+ * "everybody is in zombie mode... this tired idle is too prominent around the Oasis": it is for a real question left
+ * long unanswered (VillageWorld only poses 'waiting' for an open card, not for a dead process), and rare.
+ */
+export const TIRED_AFTER_S = 600
+export const TIRED_CLIP = 'ualpro-1-Idle_Tired_Loop'
+const WAITING_LONG: readonly string[] = [...IDLE_POOLS.waiting, TIRED_CLIP]
+
+/** Crawl: down on all fours, crawling, up again. Lengths read from UAL1_Pro.glb, seconds. */
+export const CRAWL = {
+  enter: 'ualpro-1-Crawl_Enter', loop: 'ualpro-1-Crawl_Fwd_Loop', idle: 'ualpro-1-Crawl_Idle_Loop', exit: 'ualpro-1-Crawl_Exit',
+  enterS: 2.13, exitS: 2.0,
+} as const
+
+export interface AgentStyle {
+  rest: RestStyle
+  /** Its one working clip, from IDLE_POOLS.working. */
+  work: string
+  moves: 'walk' | 'crawl'
+}
+
+/** This agent's own style, from its id (independent draws, so rest, work and moves don't follow one another). */
+export function agentStyle(agentId: string): AgentStyle {
+  const styles = Object.keys(REST_STYLES) as RestStyle[]
+  const total = styles.reduce((sum, s) => sum + REST_STYLES[s].weight, 0)
+  let roll = hash(`${agentId}:rest`) % total
+  let rest: RestStyle = styles[0]
+  for (const s of styles) {
+    if (roll < REST_STYLES[s].weight) { rest = s; break }
+    roll -= REST_STYLES[s].weight
+  }
+  const work = IDLE_POOLS.working[hash(`${agentId}:work`) % IDLE_POOLS.working.length]
+  const moves = hash(`${agentId}:moves`) % 100 < 20 ? 'crawl' : 'walk'
+  return { rest, work, moves }
+}
+
+/**
+ * The clip for a pose (null: the plain idle). With variety (Settings > Agents, on by default) each agent rests and works
+ * its own way and cycles its waiting idles, tired once it has waited `waitedS` past TIRED_AFTER_S; without, one clip
+ * per state for everyone. Resting gives the rest style's loop (a ground sitter's seated loop: VillageWorld plays the
+ * getting down and up around it).
+ */
+export function clipForPose(agentId: string, pose: AgentPose, round: number, variety: boolean, waitedS = 0): string | null {
   if (pose === 'talking') return TALKING_CLIP
-  if (pose === 'resting') return null
-  return variety ? pickVariety(agentId, IDLE_POOLS[pose], round) : PLAIN_CLIP[pose]
+  if (!variety) return pose === 'resting' ? null : PLAIN_CLIP[pose]
+  if (pose === 'resting') return REST_STYLES[agentStyle(agentId).rest].clip
+  if (pose === 'working') return agentStyle(agentId).work
+  return pickVariety(agentId, waitedS > TIRED_AFTER_S ? WAITING_LONG : IDLE_POOLS.waiting, round)
 }

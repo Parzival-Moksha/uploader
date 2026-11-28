@@ -9,10 +9,18 @@
 //   recording away): the voice widget at the bottom left has Send, Stop (keeps it as an unsent draft) and x.
 // The recording belongs to the agent, not to the button: F (panel <-> screen) and a hot reload don't stop it,
 // and one that fails to send stays as an unsent draft (click: send again).
+// A reload, a crash or a closed tab doesn't lose it either (the owner lost 15 minutes to a hot reload, 26 Nov): every
+// second of it goes into IndexedDB as it arrives (lib/voice-message-keep.ts), and after a reload it is back as an
+// unsent message ("interrupted"), with Send, Listen and Discard, here and in the voice widget. While one is being
+// recorded the browser asks before the page reloads. It is only forgotten when it was sent or he discards it.
 
 import { useEffect, useRef, useState, useSyncExternalStore, type PointerEvent as ReactPointerEvent } from 'react'
 
 import { agentEngineFileUrl, getAgentEngineClient } from '../../lib/agent-engine-client'
+import { keepBegin, keepBlob, keepChunk, keepForget, keptLine, keepList, keepUpdate, keptDuration, nextPerAgent } from '../../lib/voice-message-keep'
+import { useOasisStore } from '../../store/oasisStore'
+import { getVoiceMessageEngine } from '../../lib/voice/voice-message-engine'
+import { openMicrophone } from '../../lib/voice/mic-device'
 import { showNotice } from '../forge/GlobalNotice'
 
 /** Only a guard against a recording left running by mistake: ElevenLabs Scribe takes long files. */
@@ -64,9 +72,25 @@ interface Recording {
   timer: number
   /** Stopped to keep, not to send (the widget's Stop): it becomes an unsent draft. */
   keep: boolean
+  /** Its id in the keep (IndexedDB), and the next piece's number there. */
+  keepId: string
+  seq: number
+  /** Came back after a reload that cut it off while it was being recorded. */
+  interrupted?: boolean
+  /** Lets go of the lock that tells another tab this recording is alive. */
+  releaseLock?: () => void
 }
 
-interface VoiceStore { recordings: Map<string, Recording>; listeners: Set<() => void>; version: number; escape?: ((event: KeyboardEvent) => void) | null }
+interface VoiceStore {
+  recordings: Map<string, Recording>
+  listeners: Set<() => void>
+  version: number
+  escape?: ((event: KeyboardEvent) => void) | null
+  /** This page load already brought kept recordings back (a hot update of this file must not do it twice). */
+  restored?: boolean
+  unloadGuard?: ((event: BeforeUnloadEvent) => void) | null
+  listening?: { agentId: string; audio: HTMLAudioElement; url: string } | null
+}
 const gv = globalThis as unknown as { __oasisVoiceMessages?: VoiceStore }
 const voiceStore: VoiceStore = gv.__oasisVoiceMessages ??= { recordings: new Map(), listeners: new Set(), version: 0 }
 // An Escape listener from the code before this one (it threw the recording away) goes.
@@ -81,6 +105,17 @@ function freeMic(r: Recording) {
   window.clearInterval(r.timer)
   r.stream?.getTracks().forEach(track => track.stop())
   r.stream = null
+  r.releaseLock?.()
+  r.releaseLock = undefined
+}
+
+const LOCK_PREFIX = 'oasis-voice-recording:'
+const quiet = () => undefined
+
+/** Forget a recording (sent or discarded) and bring the next one kept for that agent, if any. */
+function forgetKept(agentId: string, r: Recording) {
+  stopListening(agentId)
+  void keepForget(r.keepId).catch(quiet).then(() => restoreKept())
 }
 
 export async function sendRecording(agentId: string, r: Recording) {
@@ -89,8 +124,10 @@ export async function sendRecording(agentId: string, r: Recording) {
   changed()
   try {
     const audio = await blobToBase64(r.blob)
-    await getAgentEngineClient().voiceMessage(agentId, audio, r.blob.type, r.durationMs, r.priority)
+    // Settings > Sound > Voice messages: local (Moonshine) keeps the recording on this computer, cloud is ElevenLabs.
+    await getAgentEngineClient().voiceMessage(agentId, audio, r.blob.type, r.durationMs, r.priority, getVoiceMessageEngine())
     if (voiceStore.recordings.get(agentId) === r) voiceStore.recordings.delete(agentId)
+    forgetKept(agentId, r)
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     showNotice(/unknown command/i.test(message)
@@ -107,11 +144,13 @@ export async function startRecording(agentId: string, priority?: 'now' | 'later'
     showNotice('This browser cannot record audio.', 'error')
     return
   }
-  const r: Recording = { phase: 'recording', recorder: null, stream: null, chunks: [], mime: pickMime(), startedAt: Date.now(), durationMs: 0, cancelled: false, priority, blob: null, timer: 0, keep: false }
+  const keepId = typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`
+  const r: Recording = { phase: 'recording', recorder: null, stream: null, chunks: [], mime: pickMime(), startedAt: Date.now(), durationMs: 0, cancelled: false, priority, blob: null, timer: 0, keep: false, keepId, seq: 0 }
   voiceStore.recordings.set(agentId, r)
   changed()
   try {
-    r.stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } })
+    // The input chosen in Settings > Sound > Microphone (mic-device.ts), else the system default.
+    r.stream = await openMicrophone({ echoCancellation: true, noiseSuppression: true })
   } catch {
     voiceStore.recordings.delete(agentId)
     changed()
@@ -121,16 +160,27 @@ export async function startRecording(agentId: string, priority?: 'now' | 'later'
   if (voiceStore.recordings.get(agentId) !== r || r.cancelled) { freeMic(r); return }
   const recorder = new MediaRecorder(r.stream, { ...(r.mime ? { mimeType: r.mime } : {}), audioBitsPerSecond: AUDIO_BITS_PER_SECOND })
   r.recorder = recorder
-  recorder.ondataavailable = event => { if (event.data.size) r.chunks.push(event.data) }
+  // Kept from its first second on (a reload, a crash or a closed tab doesn't lose it); a lock says it is alive here.
+  void keepBegin({ id: keepId, agentId, startedAt: r.startedAt, lastChunkAt: r.startedAt, mime: recorder.mimeType || r.mime || 'audio/webm', priority, state: 'recording', durationMs: 0 })
+    .catch(() => showNotice('This browser would not keep the recording on disk: a reload while you record would lose it.', 'warn'))
+  void navigator.locks?.request(LOCK_PREFIX + keepId, () => new Promise<void>(resolve => { r.releaseLock = resolve })).catch(quiet)
+  recorder.ondataavailable = event => {
+    if (!event.data.size) return
+    r.chunks.push(event.data)
+    void keepChunk(keepId, r.seq++, event.data, Date.now()).catch(quiet)
+  }
   recorder.onstop = () => {
     freeMic(r)
     r.durationMs = Date.now() - r.startedAt
     if (r.cancelled || !r.chunks.length || r.durationMs < 400) {
       if (voiceStore.recordings.get(agentId) === r) voiceStore.recordings.delete(agentId)
+      void keepForget(keepId).catch(quiet)
       changed()
       return
     }
     r.blob = new Blob(r.chunks, { type: recorder.mimeType || r.mime || 'audio/webm' })
+    // Stopped: kept as not sent until the engine has it (a reload mid-send still has it).
+    void keepUpdate(keepId, { state: 'unsent', durationMs: r.durationMs }).catch(quiet)
     if (r.keep) {
       r.phase = 'unsent'
       changed()
@@ -158,12 +208,101 @@ export function stopRecording(agentId: string, { cancel = false, keep = false }:
 
 export function discardUnsent(agentId: string) {
   const r = voiceStore.recordings.get(agentId)
-  if (r?.phase === 'unsent') { voiceStore.recordings.delete(agentId); changed() }
+  if (r?.phase === 'unsent') { voiceStore.recordings.delete(agentId); forgetKept(agentId, r); changed() }
+}
+
+/** Play an unsent message here (before sending or discarding it); again: stop. */
+export function listenRecording(agentId: string): void {
+  if (voiceStore.listening?.agentId === agentId) { stopListening(agentId); return }
+  const r = voiceStore.recordings.get(agentId)
+  if (!r?.blob) return
+  stopListening()
+  const url = URL.createObjectURL(r.blob)
+  const audio = new Audio(url)
+  voiceStore.listening = { agentId, audio, url }
+  audio.onended = () => stopListening(agentId)
+  void audio.play().catch(() => stopListening(agentId))
+  changed()
+}
+
+function stopListening(agentId?: string): void {
+  const l = voiceStore.listening
+  if (!l || (agentId && l.agentId !== agentId)) return
+  l.audio.pause()
+  URL.revokeObjectURL(l.url)
+  voiceStore.listening = null
+  changed()
+}
+
+export function listeningTo(): string | null {
+  return voiceStore.listening?.agentId || null
+}
+
+// --- after a reload: the kept recordings come back ------------------------------------------------------------
+
+let restoring: Promise<void> | null = null
+
+/** Bring back what the keep holds: one per agent (the newest), as an unsent message; the line says so. */
+export function restoreKept(): Promise<void> {
+  if (typeof window === 'undefined') return Promise.resolve()
+  if (restoring) return restoring
+  restoring = (async () => {
+    const kept = await keepList().catch(() => [])
+    if (!kept.length) return
+    // A recording alive in another tab holds its lock: not ours to offer.
+    const held = new Set(((await navigator.locks?.query().catch(() => null))?.held || []).map(lock => lock.name))
+    for (const k of nextPerAgent(kept, agentId => voiceStore.recordings.has(agentId))) {
+      if (held.has(LOCK_PREFIX + k.id) || voiceStore.recordings.has(k.agentId)) continue
+      const blob = await keepBlob(k).catch(() => null)
+      if (!blob) { void keepForget(k.id).catch(quiet); continue }
+      const durationMs = keptDuration(k)
+      const interrupted = k.state === 'recording'
+      voiceStore.recordings.set(k.agentId, {
+        phase: 'unsent', recorder: null, stream: null, chunks: [], mime: blob.type || k.mime, startedAt: k.startedAt, durationMs,
+        cancelled: false, priority: k.priority, blob, timer: 0, keep: true, keepId: k.id, seq: 0, interrupted,
+      })
+      if (interrupted) void keepUpdate(k.id, { state: 'unsent', durationMs }).catch(quiet)
+      changed()
+      sayKept(k.agentId, keptLine({ ...k, durationMs }, 'NAME_HERE'))
+    }
+  })().finally(() => { restoring = null })
+  return restoring
+}
+
+/** The line, once the agent's name is known (the roster comes after the page). */
+function sayKept(agentId: string, line: string) {
+  let tries = 0
+  const say = () => {
+    const state = useOasisStore.getState()
+    const name = state.agentEngine.agents[agentId]?.name
+    // After the world is in (the notice line is mounted with the scene) and the agent is known.
+    if ((!name || !state._worldReady) && tries++ < 120) { window.setTimeout(say, 500); return }
+    showNotice(line.split('NAME_HERE').join(name || 'an agent'), 'warn')
+  }
+  window.setTimeout(say, 1200)
+}
+
+if (typeof window !== 'undefined') {
+  // Once per page load (not again on a hot update of this file).
+  if (!voiceStore.restored) {
+    voiceStore.restored = true
+    void restoreKept()
+  }
+  // A reload while he records: the browser asks first (a hot reload too), and the last second is handed over.
+  if (voiceStore.unloadGuard) window.removeEventListener('beforeunload', voiceStore.unloadGuard)
+  voiceStore.unloadGuard = (event: BeforeUnloadEvent) => {
+    const live = [...voiceStore.recordings.values()].filter(r => r.phase === 'recording')
+    if (!live.length) return
+    live.forEach(r => { try { if (r.recorder?.state === 'recording') r.recorder.requestData() } catch { /* stopping */ } })
+    event.preventDefault()
+    event.returnValue = ''
+  }
+  window.addEventListener('beforeunload', voiceStore.unloadGuard)
 }
 
 /** Every voice message being recorded, sent or waiting to be sent again (for the voice widget). */
-export function voiceMessageList(): Array<{ agentId: string; phase: Phase; startedAt: number; durationMs: number }> {
-  return [...voiceStore.recordings.entries()].map(([agentId, r]) => ({ agentId, phase: r.phase, startedAt: r.startedAt, durationMs: r.durationMs }))
+export function voiceMessageList(): Array<{ agentId: string; phase: Phase; startedAt: number; durationMs: number; interrupted: boolean }> {
+  return [...voiceStore.recordings.entries()].map(([agentId, r]) => ({ agentId, phase: r.phase, startedAt: r.startedAt, durationMs: r.durationMs, interrupted: Boolean(r.interrupted) }))
 }
 
 export function subscribeVoiceMessages(listener: () => void): () => void {
@@ -202,7 +341,9 @@ export function VoiceMessageButton({ agentId, priority, large = false }: { agent
   const title = recording
     ? 'Recording a voice message: click (or let go) to send'
     : phase === 'sending' ? 'Transcribing with ElevenLabs Scribe…'
-      : unsent ? 'This voice message was not sent: click to send it again (x throws it away)'
+      : unsent ? (r?.interrupted
+        ? `A voice message of ${new Date(r.startedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} was interrupted by a reload: click to send it (play: listen, x: throw it away)`
+        : 'This voice message was not sent: click to send it again (play: listen, x throws it away)')
         : 'Voice message: click to record (or hold), sent as a recording with its Scribe transcript'
   return (
     <span className="flex items-center gap-0.5">
@@ -236,8 +377,11 @@ export function VoiceMessageButton({ agentId, priority, large = false }: { agent
             ? <circle cx="12" cy="12" r="6" fill="currentColor" className="animate-pulse" />
             : <path d="M4 10v4M8 7v10M12 4v16M16 7v10M20 10v4" />}
         </svg>
-        {recording ? formatClip(elapsed) : phase === 'sending' ? 'scribing…' : unsent ? `send ${formatClip(elapsed)} again` : 'voice'}
+        {recording ? formatClip(elapsed) : phase === 'sending' ? 'scribing…' : unsent ? `send ${formatClip(elapsed)}${r?.interrupted ? '' : ' again'}` : 'voice'}
       </button>
+      {unsent && (
+        <button type="button" data-part="listen" onClick={() => listenRecording(agentId)} aria-label={listeningTo() === agentId ? 'Stop listening' : 'Listen to the unsent voice message'} title={listeningTo() === agentId ? 'Stop' : 'Listen'} className="rounded px-1 text-[11px] text-white/70 hover:text-white">{listeningTo() === agentId ? '■' : '▶'}</button>
+      )}
       {unsent && (
         <button type="button" onClick={() => discardUnsent(agentId)} aria-label="Throw the unsent voice message away" title="Throw it away" className="rounded px-1 text-[11px] text-white/55 hover:text-white">x</button>
       )}

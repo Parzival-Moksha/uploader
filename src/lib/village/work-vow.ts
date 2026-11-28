@@ -184,7 +184,7 @@ function parseRun(value: unknown): WorkRunRecord | null {
   const r = value as Partial<WorkRunRecord> | null
   if (!r || typeof r !== 'object' || typeof r.file !== 'string' || typeof r.title !== 'string') return null
   const n = (x: unknown) => (typeof x === 'number' && Number.isFinite(x) && x > 0 ? x : 0)
-  return { file: r.file, title: r.title, plannedSeconds: n(r.plannedSeconds) || null, seconds: n(r.seconds), counted: n(r.counted), away: n(r.away), kept: r.kept === true, xp: n(r.xp), startedAt: n(r.startedAt), endedAt: n(r.endedAt), told: typeof r.told === 'string' ? r.told : '', ...(n(r.bonusXp) ? { bonusXp: n(r.bonusXp), bonusPct: n(r.bonusPct) } : {}) }
+  return { file: r.file, title: r.title, plannedSeconds: n(r.plannedSeconds) || null, seconds: n(r.seconds), counted: n(r.counted), away: n(r.away), kept: r.kept === true, xp: n(r.xp), startedAt: n(r.startedAt), endedAt: n(r.endedAt), told: typeof r.told === 'string' ? r.told : '', ...(n(r.bonusXp) ? { bonusXp: n(r.bonusXp), bonusPct: n(r.bonusPct) } : {}), ...(r.done === true ? { done: true } : {}) }
 }
 
 /** A file from disk, made safe: anything missing or odd is dropped, never the days that are fine. */
@@ -252,6 +252,8 @@ export function parseWorkFile(value: unknown): WorkFile {
         pausedMs: num(run.pausedMs),
         counted: num(run.counted),
         ...(run.commit && typeof run.commit.id === 'string' ? { commit: { id: run.commit.id, bonusPct: num(run.commit.bonusPct) } } : {}),
+        ...(typeof run.forFile === 'string' && run.forFile ? { forFile: run.forFile } : {}),
+        ...(num(run.nowBonusPct) ? { nowBonusPct: num(run.nowBonusPct) } : {}),
       }
     }
   }
@@ -584,25 +586,27 @@ export function extendRunInBook(input: WorkFile, seconds: number, now: number): 
  * (marked, so he can take it back), and the mission stops being worked on. `startedAt` must match the running one
  * (a second page ending the same run at the same moment changes nothing). Null: nothing to end.
  */
-export function finishRunInBook(input: WorkFile, now: number, startedAt?: number, onlyIfDue = false): { file: WorkFile; result: Omit<RunResult, 'told' | 'line'> } | null {
+export function finishRunInBook(input: WorkFile, now: number, startedAt?: number, onlyIfDue = false, done?: boolean): { file: WorkFile; result: Omit<RunResult, 'told' | 'line'> } | null {
   // (a committed mission's bonus: see below)
   const active = input.active
   if (!active?.run || (startedAt !== undefined && active.startedAt !== startedAt)) return null
   // A page's own clock asked for the end: only if the book agrees the time is up (a stale page must not end a paused run).
   if (onlyIfDue && !runIsDue(active.startedAt, active.run, now)) return null
-  const ended = endRun({ file: active.file, title: active.title, startedAt: active.startedAt, run: active.run }, now)
+  const ended = endRun({ file: active.file, title: active.title, startedAt: active.startedAt, run: active.run }, now, done)
   let file = setWorkMission(input, null, now)
   // A committed mission: kept, it earns its bonus on its day; ended early, it is missed (what that costs is his to say).
   const commit = active.run.commit
-  const bonusXp = commit && ended.kept && ended.plannedSeconds !== null ? Math.round(ended.xp * commit.bonusPct / 100) : 0
-  const result = bonusXp ? { ...ended, bonusXp, bonusPct: commit!.bonusPct } : ended
+  // Committed ahead: +60%; started now on a timer: +30% (own-mission.ts). Kept only; a miss costs just the bonus.
+  const pct = commit?.bonusPct ?? active.run.nowBonusPct ?? 0
+  const bonusXp = pct && ended.kept && ended.plannedSeconds !== null ? Math.round(ended.xp * pct / 100) : 0
+  const result = bonusXp ? { ...ended, bonusXp, bonusPct: pct } : ended
   if (commit) {
     file.commits = (file.commits || []).map(c => (c.id === commit.id ? { ...c, state: ended.kept ? 'kept' as const : 'missed' as const, ...(bonusXp ? { bonusXp } : {}) } : c))
-    if (bonusXp) {
-      const date = localDay(ended.endedAt, localOffsetMinutes(ended.endedAt))
-      const day = file.days[date] || (file.days[date] = { freeSeconds: 0, freeXp: 0, missions: {} })
-      day.commitBonusXp = (day.commitBonusXp || 0) + bonusXp
-    }
+  }
+  if (bonusXp) {
+    const date = localDay(ended.endedAt, localOffsetMinutes(ended.endedAt))
+    const day = file.days[date] || (file.days[date] = { freeSeconds: 0, freeXp: 0, missions: {} })
+    day.commitBonusXp = (day.commitBonusXp || 0) + bonusXp
   }
   if (result.away >= 60) {
     // The outside time, spread over the run's wall time: a run across 04:20 gives each day its share.

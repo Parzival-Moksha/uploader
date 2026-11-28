@@ -41,6 +41,8 @@ export interface CarbonMission {
   took: number | null
   hit: string
   /** He pressed "not enough to decide": when, and a fingerprint of the body as it was then. */
+  /** 1, 2 or 3: the owner's next things, in Anorak's order (he sets it each morning); null: later. */
+  now: number | null
   unclear: { date: string; hash: string } | null
   /** Still unclear: the body has not changed since. Such a mission sinks below the other open ones. */
   sinking: boolean
@@ -101,6 +103,7 @@ export function parseCarbonMission(file: string, text: string): CarbonMission {
     answer: head.answer || '',
     took: num(head.took),
     hit: head.hit || '',
+    now: /^[123]$/.test((head.now || '').trim()) ? Number(head.now.trim()) : null,
     ...unclearOf(head.unclear, body),
     backOn: state === 'parked' ? backOn(body) : '',
     body,
@@ -118,6 +121,11 @@ export function backOn(body: string): string {
   // "if the village returns to the Zen Workshop, or on Fri 27 Nov": the date is what can be shown.
   const date = /\b((?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)\w*\s+\d{1,2}\s+\w{3,9}|\d{4}-\d{2}-\d{2})\b/.exec(said)
   return (date ? date[1] : said).slice(0, 60)
+}
+
+/** Now: the open ones Anorak marked 1 to 3, in his order (at most three); the rest are Later. */
+export function nowMissions<T extends Pick<CarbonMission, 'state' | 'now'>>(list: T[]): T[] {
+  return list.filter(m => m.state === 'open' && m.now !== null).sort((a, b) => (a.now ?? 9) - (b.now ?? 9)).slice(0, 3)
 }
 
 /** A short, stable fingerprint of a mission's body (FNV-1a), to tell whether the asker has changed it. */

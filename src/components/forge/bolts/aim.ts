@@ -18,6 +18,7 @@ import * as THREE from 'three'
 import { useInputManager } from '@/lib/input-manager'
 import { useOasisStore } from '@/store/oasisStore'
 import { getPlayerAvatarPose } from '@/lib/player-avatar-runtime'
+import { REFERENCE_AVATAR_HEIGHT, getPlayerAvatarHeight } from '../combat-stance'
 import { hasTerrainRelief, sampleTerrainHeightAt } from '@/lib/forge/terrain-brush'
 import { getLatestPlayers, getLocalSessionId, getPvpEnabled } from '@/lib/pvp-bridge'
 import { getVillageAnchors } from '@/components/village/village-actions'
@@ -185,13 +186,15 @@ export function castOrigin(camera: THREE.Camera, aimDistance: number): { origin:
   const pose = getPlayerAvatarPose()
   if (pose && useInputManager.getState().inputState === 'third-person') {
     const [px, py, pz] = pose.position
-    const head = new THREE.Vector3(px, py + 1.55, pz)
-    if (camPos.distanceTo(head) > FIRST_PERSON_CAMERA_DISTANCE_M) {
+    // Heights follow the avatar's own (combat-stance.ts): a tall avatar casts from a higher hand.
+    const h = getPlayerAvatarHeight() / REFERENCE_AVATAR_HEIGHT
+    const head = new THREE.Vector3(px, py + 1.55 * h, pz)
+    if (camPos.distanceTo(head) > FIRST_PERSON_CAMERA_DISTANCE_M * Math.max(1, h)) {
       const forward = new THREE.Vector3(pose.forward[0], 0, pose.forward[2])
       if (forward.lengthSq() < 1e-6) forward.set(camDir.x, 0, camDir.z)
       forward.normalize()
       const poseRight = new THREE.Vector3(-forward.z, 0, forward.x)
-      const hand = new THREE.Vector3(px, py + 1.25, pz).addScaledVector(forward, 0.45).addScaledVector(poseRight, 0.3)
+      const hand = new THREE.Vector3(px, py + 1.25 * h, pz).addScaledVector(forward, 0.45 * h).addScaledVector(poseRight, 0.3 * h)
       const handAlongView = hand.clone().sub(camPos).dot(camDir)
       if (aimDistance - handAlongView >= MIN_AHEAD_OF_HAND_M) return { origin: hand, fromHand: true }
     }

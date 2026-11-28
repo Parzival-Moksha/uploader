@@ -1,19 +1,18 @@
 // ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
 // GENERATE PIC BODY — Text-to-image panel body, shared by:
-//   • Wizard Console Media → Generate sub-tab (with optional building toggle)
-//   • Text-to-Pic spelltab (toggle OFF by default)
-//   • Text-to-Pic-Building spelltab (toggle ON by default)
-// ─═̷─ Hits POST /api/imagine. When the building toggle is ON, the prompt is
-// augmented with the Conjure-style "4-sided building" framing so the resulting
-// image works well as a textured architectural panel. Generated images go into
+//   • the Text to Pic spelltab (GeneratePicSpellTab)
+// ─═̷─ Hits POST /api/imagine with the prompt as typed. Generated images go into
 // the shared oasisStore.generatedImages list so the existing placement, frame,
-// and ground-tile pipelines all keep working. ─═̷─
+// and ground-tile pipelines all keep working; the gallery's 3D button places a
+// picture as a 4-sided block. The "4-sided building" checkbox left with the
+// Text to Pic Building spell on 27 Nov (the owner: "it is the same as Text to Pic"). ─═̷─
 // ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
 
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
 import { useOasisStore } from '../../../../store/oasisStore'
+import { PLAN_MODEL_KEY, usePicturePlan } from '../../../../lib/picture-plan-client'
 import { usePricing } from '../../../../hooks/usePricing'
 import { awardXp } from '../../../../hooks/useXp'
 import { deriveImageTitle } from '../../../../lib/conjure/derive-image-title'
@@ -23,7 +22,9 @@ import { CollapsibleSection, scrollIntoViewOnFocus } from '../SpellTabFrame'
 const OASIS_BASE = process.env.NEXT_PUBLIC_BASE_PATH || ''
 
 const IMAGINE_MODELS = [
-  { key: 'nano-banana-2',   label: 'Nano Banana 2',   desc: 'Google — fast, default' },
+  // Offered only where GET /api/imagine says this page may use the machine's own plan (src/lib/picture-plan.ts).
+  { key: PLAN_MODEL_KEY,    label: 'ChatGPT plan (GPT Image 2)', desc: 'Your own ChatGPT plan through Codex: free per picture' },
+  { key: 'nano-banana-2',   label: 'Nano Banana 2',   desc: 'Google — paid (OpenRouter)' },
   { key: 'nano-banana-pro', label: 'Nano Banana Pro', desc: 'Google — premium' },
   { key: 'gpt-image-2',     label: 'GPT Image 2',     desc: 'OpenAI — premium' },
   { key: 'seedream',        label: 'Seedream 4.5',    desc: 'ByteDance — high quality' },
@@ -31,29 +32,15 @@ const IMAGINE_MODELS = [
   { key: 'flux-klein',      label: 'FLUX Klein',      desc: 'Black Forest Labs — 4B param' },
 ] as const
 
-// ─═̷─ Prompt scaffold disabled 2026-05-20. The wrapping copy was making
-// nano-banana produce 2×2 collage layouts (4 mini-pics on one image) instead
-// of a clean façade. The toggle now only affects how the placed image
-// renders in-world (4-sided cube vs flat plane); the prompt is passed
-// through raw so the image model just generates what the user asks for. ─═̷─
-function applyBuildingFraming(rawPrompt: string): string {
-  return rawPrompt.trim()
-}
-
 interface InFlightImage {
   id: string
   prompt: string
   model: string
   startedAt: number
-  buildingMode: boolean
   error?: string
 }
 
 export interface GeneratePicBodyProps {
-  /** When true: render a "4-sided building" toggle pre-set to ON and prepend conjure framing to the prompt. */
-  defaultBuildingMode?: boolean
-  /** When false, hide the building toggle entirely (used by wizcon Media tab if we ever want to). Default: visible. */
-  showBuildingToggle?: boolean
   defaultExpandNew?: boolean
   defaultExpandGallery?: boolean
   /** Optional override for the accent color — defaults to pink. */
@@ -61,15 +48,15 @@ export interface GeneratePicBodyProps {
 }
 
 export function GeneratePicBody({
-  defaultBuildingMode = false,
-  showBuildingToggle = true,
   defaultExpandNew = true,
   defaultExpandGallery = true,
   accentColor = '#EC4899',
 }: GeneratePicBodyProps) {
   const [prompt, setPrompt] = useState('')
-  const [selectedModel, setSelectedModel] = useState<string>('nano-banana-2')
-  const [buildingMode, setBuildingMode] = useState(defaultBuildingMode)
+  const [chosenModel, setSelectedModel] = useState<string | null>(null)
+  const picturePlan = usePicturePlan()
+  const selectedModel = chosenModel ?? picturePlan?.defaultModel ?? 'nano-banana-2'
+  const offeredModels = IMAGINE_MODELS.filter(m => m.key !== PLAN_MODEL_KEY || picturePlan?.plan)
   const [inFlight, setInFlight] = useState<InFlightImage[]>([])
   const [progressNow, setProgressNow] = useState(() => Date.now())
   const [error, setError] = useState<string | null>(null)
@@ -97,10 +84,10 @@ export function GeneratePicBody({
     const text = prompt.trim()
     if (!text) return
     const flightId = `flight_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`
-    const finalPrompt = buildingMode ? applyBuildingFraming(text) : text
+    const finalPrompt = text
     setInFlight(prev => [
       ...prev,
-      { id: flightId, prompt: text, model: selectedModel, startedAt: Date.now(), buildingMode },
+      { id: flightId, prompt: text, model: selectedModel, startedAt: Date.now() },
     ])
     setPrompt('')
     setError(null)
@@ -133,7 +120,7 @@ export function GeneratePicBody({
       setInFlight(prev => prev.map(f => f.id === flightId ? { ...f, error: msg } : f))
       setError(msg)
     }
-  }, [prompt, selectedModel, buildingMode, addGeneratedImage])
+  }, [prompt, selectedModel, addGeneratedImage])
 
   const handleUseAsTile = useCallback((image: { id: string; prompt: string; tileUrl: string; url: string }) => {
     const presetId = `custom_${image.id}`
@@ -160,7 +147,7 @@ export function GeneratePicBody({
         accentColor={accentColor}
         expanded={expandNew}
         onToggle={() => setExpandNew(e => !e)}
-        rightSlot={`${IMAGINE_MODELS.find(m => m.key === selectedModel)?.label || selectedModel}${buildingMode ? ' · building' : ''}`}
+        rightSlot={IMAGINE_MODELS.find(m => m.key === selectedModel)?.label || selectedModel}
       >
         <div className="flex flex-wrap items-center gap-2">
           <select
@@ -169,27 +156,10 @@ export function GeneratePicBody({
             className="text-[10px] bg-black/60 rounded px-2 py-1 text-pink-200 font-mono focus:outline-none cursor-pointer"
             style={{ border: `1px solid ${accentColor}55` }}
           >
-            {IMAGINE_MODELS.map(m => (
+            {offeredModels.map(m => (
               <option key={m.key} value={m.key}>{m.label}</option>
             ))}
           </select>
-          {showBuildingToggle && (
-            <label
-              className="flex items-center gap-1 cursor-pointer rounded px-1.5 py-1"
-              style={{ border: `1px solid ${buildingMode ? accentColor : 'rgba(120, 120, 120, 0.3)'}` }}
-              title="Frame prompt as a flat 4-sided building façade (Conjure-style)"
-            >
-              <input
-                type="checkbox"
-                checked={buildingMode}
-                onChange={e => setBuildingMode(e.target.checked)}
-                className="w-3 h-3 rounded accent-amber-500"
-              />
-              <span className="text-[10px] font-mono" style={{ color: buildingMode ? accentColor : '#9CA3AF' }}>
-                4-sided building
-              </span>
-            </label>
-          )}
         </div>
 
         <textarea
@@ -197,9 +167,7 @@ export function GeneratePicBody({
           onChange={e => setPrompt(e.target.value)}
           onFocus={scrollIntoViewOnFocus}
           rows={3}
-          placeholder={buildingMode
-            ? "describe the building... e.g. 'a wooden Edo-period tea house, warm wood, paper screens'"
-            : "describe the image..."}
+          placeholder="describe the image..."
           className="w-full text-xs bg-black/60 rounded-lg px-3 py-2 text-gray-200 placeholder-gray-600 resize-none focus:outline-none font-mono"
           style={{ border: `1px solid ${accentColor}55` }}
         />
@@ -218,7 +186,7 @@ export function GeneratePicBody({
               border: `1px solid ${accentColor}55`,
             }}
           >
-            {inFlight.length > 0 ? `Imagine (${inFlight.length})` : (buildingMode ? 'Conjure \u{1F3DB}️' : 'Imagine \u{1F3A8}')}
+            {inFlight.length > 0 ? `Imagine (${inFlight.length})` : 'Imagine \u{1F3A8}'}
           </button>
         </div>
 
@@ -265,9 +233,6 @@ export function GeneratePicBody({
                     <span className="text-[10px] text-pink-100 font-mono">Image generating</span>
                     <span className="text-[8px] text-pink-300/80 font-mono">hang on tight</span>
                     <span className="text-[9px] text-pink-300 font-mono line-clamp-2">{f.prompt}</span>
-                    {f.buildingMode && (
-                      <span className="text-[8px] text-amber-400/70 font-mono mt-0.5">building</span>
-                    )}
                   </div>
                 )}
               </div>

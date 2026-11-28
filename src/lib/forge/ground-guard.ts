@@ -54,6 +54,70 @@ export function groundUnder(scene: THREE.Object3D, key: string, x: number, z: nu
   return hit
 }
 
+// ░▒▓ HOW HIGH IS THE GROUND HERE ▓▒░
+// The one question everything that stands asks (agreed with Perf, 27 Nov, his physics note): the highest crafted top
+// surface under (x, z) within a step of the feet, or null where nothing crafted is (then the terrain). The plaza's
+// top is 2 cm above the terrain at the agents' ring and 6-8 cm at its centre, the stone paths 5 cm; bodies stood at
+// 0, sunk into them. Rays only against the kept list of crafted roots (rebuilt when the key changes), one per 0.5 m
+// cell, cached. The key carries a geometry version (geometryVersion: a world switch, a crafted scene added, moved or
+// edited). Ease the answer where it is used: cells step 1-2 cm at the plaza's layers. Perf's footprint grid can
+// replace the inside of groundHeightAt later; no caller changes.
+
+/** The window a floor is looked for in, around the feet: up to a step above, a little below. */
+export const FLOOR_ABOVE = 0.35
+export const FLOOR_BELOW = 0.6
+
+/** The cache cell of (x, z) at feet height feetY (half-metre cells, feet in half-metre bands). */
+export function floorCellKey(x: number, z: number, feetY: number): string {
+  return `${Math.floor(x / CELL)},${Math.floor(z / CELL)},${Math.round(feetY * 2)}`
+}
+
+/** Of the heights a downward ray met, the floor: the highest within the window around the feet; null if none. */
+export function pickFloor(hitHeights: number[], feetY: number): number | null {
+  let best: number | null = null
+  for (const y of hitHeights) {
+    if (y > feetY + FLOOR_ABOVE || y < feetY - FLOOR_BELOW) continue
+    if (best === null || y > best) best = y
+  }
+  return best
+}
+
+const versions = new WeakMap<object, number>()
+let nextVersion = 1
+/** A version for the world's geometry: changes whenever one of these objects is replaced (the store replaces its
+ *  crafted scenes and transforms on every add, move or edit). */
+export function geometryVersion(...parts: object[]): string {
+  return parts.map(part => {
+    let version = versions.get(part)
+    if (version === undefined) { version = nextVersion++; versions.set(part, version) }
+    return version
+  }).join('.')
+}
+
+interface Floors { key: string; roots: THREE.Object3D[]; cells: Map<string, number | null> }
+let floors: Floors = { key: '', roots: [], cells: new Map() }
+
+/** The ground height under (x, z) for feet at feetY: a crafted floor within a step, or null (use the terrain). */
+export function groundHeightAt(scene: THREE.Object3D, key: string, x: number, z: number, feetY: number): number | null {
+  if (floors.key !== key) {
+    const roots: THREE.Object3D[] = []
+    scene.traverse(object => { if (object.userData?.oasisCraftedScene) roots.push(object) })
+    floors = { key, roots, cells: new Map() }
+  }
+  if (!floors.roots.length) return null
+  const cell = floorCellKey(x, z, feetY)
+  const known = floors.cells.get(cell)
+  if (known !== undefined) return known
+  origin.set((Math.floor(x / CELL) + 0.5) * CELL, feetY + FLOOR_ABOVE, (Math.floor(z / CELL) + 0.5) * CELL)
+  ray.set(origin, down)
+  ray.near = 0
+  ray.far = FLOOR_ABOVE + FLOOR_BELOW
+  const heights = ray.intersectObjects(floors.roots, true).filter(hit => visibleMesh(hit.object)).map(hit => hit.point.y)
+  const floor = pickFloor(heights, feetY)
+  floors.cells.set(cell, floor)
+  return floor
+}
+
 /**
  * The step from (fromX, fromZ) to (toX, toZ), kept on the ground: the whole step if it lands on ground (or the
  * player is not on ground now: nothing traps them), else only its x or its z part, else no step. Pure apart from

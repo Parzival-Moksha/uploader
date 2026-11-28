@@ -310,12 +310,22 @@ export const ANORAK_PRO_AVATAR = '/avatars/gallery/UnicornPerson.vrm'
 
 /**
  * Bodies made for one agent: an agent with that name wears it unless the owner picked another for it by hand.
- * (Hacker: generated and rigged for the Council of 2026-11-18, scripts/glb-to-vrm.mjs.) They are not in the pool
- * the others are dealt from.
+ * (Hacker: generated and rigged for the Council of 2026-11-18, scripts/glb-to-vrm.mjs. The Guide, a newcomer's
+ * first mentor: Anna, the owner, 26 Nov.) They are not in the pool the others are dealt from.
  */
 export const NAMED_AVATARS: Array<{ name: RegExp; path: string }> = [
   { name: /^hacker$/i, path: '/avatars/gallery/Hacker.vrm' },
+  { name: /^guide$/i, path: '/avatars/gallery/Anna.vrm' },
 ]
+
+/** The first bodies dealt, so a newcomer's first agents look like this (the owner, 26 Nov); then the whole gallery. */
+export const WELCOME_BODIES = ['Cyberpal', 'CoolSpaguetti', 'Witch'].map(name => `/avatars/gallery/${name}.vrm`)
+
+/**
+ * Never dealt to an agent (still in the gallery, to pick by hand); the owner, 26 Nov. Vibedev is the founder's own
+ * likeness: his to wear, never handed to a stranger's agent.
+ */
+export const NOT_DEALT = ['RippedJimbo', 'Crustybutt_da_king', 'Vibedev', 'VibedevHendrix'].map(name => `/avatars/gallery/${name}.vrm`)
 
 export function namedAvatarFor(name: string | undefined): string | null {
   const label = (name || '').trim()
@@ -334,7 +344,8 @@ function hashString(value: string): number {
 /**
  * Give every agent a body and let it keep that body: once picked, the skin is remembered per session,
  * so switching worlds or putting on another avatar never re-dresses the village. A newcomer gets a
- * body nobody here wears (the player's and the world's included); the first Anorak gets UnicornPerson.
+ * body nobody here wears (the player's and the world's included), from WELCOME_BODIES first; the first Anorak
+ * gets UnicornPerson, the Guide Anna, and NOT_DEALT bodies only come by hand.
  * One loaded VRM scene can only be on screen once, so when two agents, or an agent and the player,
  * wear the same body, the later one gets its own `?copy=` URL (a second cache entry in the loader).
  */
@@ -363,11 +374,20 @@ export function assignVillageAvatars(
       worn.add(skin)
     }
   }
-  const pool = catalog.filter(path => !excluded.has(path) && path !== ANORAK_PRO_AVATAR)
+  const reserved = new Set([ANORAK_PRO_AVATAR, ...NOT_DEALT, ...NAMED_AVATARS.map(entry => entry.path)])
+  const pool = catalog.filter(path => !excluded.has(path) && !reserved.has(path))
+  const welcome = WELCOME_BODIES.filter(path => pool.includes(path))
   for (const agent of agents) {
     if (bases[agent.id]) continue
     let pick: string | null = null
     if (/anorak/i.test(agent.name) && known.has(ANORAK_PRO_AVATAR) && !worn.has(ANORAK_PRO_AVATAR)) pick = ANORAK_PRO_AVATAR
+    if (!pick && welcome.length) {
+      const start = hashString(agent.name || agent.id) % welcome.length
+      for (let i = 0; i < welcome.length && !pick; i += 1) {
+        const candidate = welcome[(start + i) % welcome.length]
+        if (!worn.has(candidate)) pick = candidate
+      }
+    }
     if (!pick && pool.length) {
       const start = hashString(agent.name || agent.id) % pool.length
       for (let i = 0; i < pool.length && !pick; i += 1) {

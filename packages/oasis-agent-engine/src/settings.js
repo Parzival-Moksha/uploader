@@ -26,6 +26,7 @@ const ENV = {
   anorakProCwd: 'OASIS_ANORAK_PRO_CWD',
   scribeEnv: 'OASIS_SCRIBE_ENV',
   tylerDir: 'OASIS_TYLER_DIR',
+  voiceDir: 'OASIS_VOICE_DIR',
 };
 
 let cache = { mtime: -1, value: {} };

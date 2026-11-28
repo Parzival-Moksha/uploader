@@ -6,13 +6,15 @@
 
 import { useState, useCallback, useRef } from 'react'
 import { useOasisStore } from '../../../store/oasisStore'
+import { defaultModelLabel, usePicturePlan } from '../../../lib/picture-plan-client'
 import { usePricing } from '../../../hooks/usePricing'
 import { awardXp } from '../../../hooks/useXp'
 import { deriveImageTitle } from '../../../lib/conjure/derive-image-title'
 import { OASIS_BASE } from './shared'
 
 const IMAGINE_MODELS = [
-  { key: 'gemini-flash', label: 'Gemini Flash', desc: 'Google — fast multimodal' },
+  // 'gemini-flash' = the route's default for this page: the machine's own ChatGPT plan where it may be used, else Nano Banana 2 (src/lib/picture-plan.ts).
+  { key: 'gemini-flash', label: 'Nano Banana 2', desc: 'The default (Nano Banana 2, or your own ChatGPT plan where this Oasis may use it)' },
   { key: 'riverflow', label: 'Riverflow v2', desc: 'Sourceful — fast diffusion' },
   { key: 'flux-klein', label: 'FLUX Klein', desc: 'Black Forest Labs — 4B param' },
   { key: 'seedream', label: 'Seedream 4.5', desc: 'ByteDance — high quality' },
@@ -29,6 +31,7 @@ interface InFlightImage {
 export function ImagineTab() {
   const [prompt, setPrompt] = useState('')
   const [selectedModel, setSelectedModel] = useState<string>('gemini-flash')
+  const picturePlan = usePicturePlan()
   const [inFlight, setInFlight] = useState<InFlightImage[]>([])
   const [error, setError] = useState<string | null>(null)
   const generatedImages = useOasisStore(s => s.generatedImages)
@@ -138,7 +141,7 @@ export function ImagineTab() {
               className="text-[10px] bg-black/60 border border-pink-500/20 rounded px-1.5 py-0.5 text-pink-300 font-mono focus:outline-none focus:border-pink-500/50 cursor-pointer"
             >
               {IMAGINE_MODELS.map(m => (
-                <option key={m.key} value={m.key}>{m.label}</option>
+                <option key={m.key} value={m.key}>{m.key === 'gemini-flash' ? defaultModelLabel(picturePlan) : m.label}</option>
               ))}
             </select>
           </div>
@@ -217,7 +220,7 @@ export function ImagineTab() {
                         <div className="text-2xl mb-2 animate-pulse">🎨</div>
                         <div className="text-[9px] text-pink-300 font-mono text-center line-clamp-2">{f.prompt}</div>
                         <div className="text-[8px] text-gray-500 font-mono mt-1">
-                          {IMAGINE_MODELS.find(m => m.key === f.model)?.label || f.model}
+                          {f.model === 'gemini-flash' ? defaultModelLabel(picturePlan) : IMAGINE_MODELS.find(m => m.key === f.model)?.label || f.model}
                         </div>
                         {/* Animated progress bar — CSS animation from 0% to 90% over 30s */}
                         <div className="w-full mt-2 h-1 bg-gray-800 rounded-full overflow-hidden">

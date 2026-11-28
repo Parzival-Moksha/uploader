@@ -120,6 +120,8 @@ export function setWorkInMindcraft(open: boolean): void {
 // ─── agent hours: finished turns and helpers, as the engine reports them ────
 
 const helperSpans = new Map<string, Map<string, { start: number; end: number | null }>>()
+/** Waits on the owner's answer (permission, question, plan): never work (Anorak, 27 Nov). */
+const ownerWaits = new Map<string, Map<string, { start: number; end: number | null }>>()
 let workQueue: AgentWorkReport[] = []
 let workTimer: number | null = null
 
@@ -139,12 +141,20 @@ function queueAgentWork(report: AgentWorkReport): void {
 }
 
 function onEngine(event: { kind: string; agentId: string; ts: number } & Record<string, unknown>): void {
+  if ((event.kind === 'permission.request' || event.kind === 'permission.resolved') && typeof event.ts === 'number' && typeof event.requestId === 'string') {
+    const waits = ownerWaits.get(event.agentId) || new Map<string, { start: number; end: number | null }>()
+    ownerWaits.set(event.agentId, waits)
+    if (event.kind === 'permission.request') { if (!waits.has(event.requestId)) waits.set(event.requestId, { start: event.ts, end: null }) }
+    else { const wait = waits.get(event.requestId); if (wait && wait.end === null) wait.end = event.ts }
+    return
+  }
   if (event.kind !== 'turn.end' && event.kind !== 'subagent.start' && event.kind !== 'subagent.end') return
   const agent = useOasisStore.getState().agentEngine.agents[event.agentId]
   if (!agent || typeof event.ts !== 'number') return
   const who = { key: agent.sessionId || agent.id, name: agent.name || agent.id }
   const spans = helperSpans.get(event.agentId) || new Map<string, { start: number; end: number | null }>()
   helperSpans.set(event.agentId, spans)
+  const waits = ownerWaits.get(event.agentId) || new Map<string, { start: number; end: number | null }>()
   const ids = [event.toolUseId, event.taskId].filter((id): id is string => typeof id === 'string' && id.length > 0)
   if (event.kind === 'subagent.start') {
     if (ids[0]) spans.set(ids[0], { start: event.ts, end: null })
@@ -155,14 +165,15 @@ function onEngine(event: { kind: string; agentId: string; ts: number } & Record<
     const span = id ? spans.get(id) : null
     if (!span || span.end !== null) return
     span.end = event.ts
-    // A helper counts in full, under its parent.
+    // A helper counts in full, under its parent (the engine, which sees which tool asked, cuts a helper's own waits).
     queueAgentWork({ ...who, ts: event.ts, kind: 'helper', ms: event.ts - span.start })
     return
   }
   if (typeof event.durationMs !== 'number' || !(event.durationMs > 0)) return
-  // The agent's own time: the turn minus the time it only waited on helpers.
-  queueAgentWork({ ...who, ts: event.ts, kind: 'turn', ms: ownTurnMs(event.durationMs, event.ts, [...spans.values()]) })
+  // The agent's own time: the turn minus the time it only waited on helpers or on the owner.
+  queueAgentWork({ ...who, ts: event.ts, kind: 'turn', ms: ownTurnMs(event.durationMs, event.ts, [...spans.values(), ...waits.values()]) })
   for (const [id, span] of spans) if (span.end !== null && span.end <= event.ts) spans.delete(id)
+  for (const [id, wait] of waits) if (wait.end !== null && wait.end <= event.ts) waits.delete(id)
 }
 
 // ─── the loop ───────────────────────────────────────────────────────────────
@@ -365,10 +376,11 @@ async function flushRunDraft(): Promise<void> {
 }
 
 /** End the running own mission (only the run that started at `startedAt`). */
-export async function endOwnRun(startedAt: number): Promise<OwnRunAnswer> {
+/** End it. done: he says it is done (kept, whatever the minutes); false: not done; absent: the timer's own end. */
+export async function endOwnRun(startedAt: number, done?: boolean): Promise<OwnRunAnswer> {
   await beat()
   await flushRunDraft()
-  return runPost({ end: true, startedAt })
+  return runPost({ end: true, startedAt, ...(done === undefined ? {} : { done }) })
 }
 
 /** More time on the running timed mission: +5 or +15 minutes, from now if its time is up. */
@@ -408,9 +420,7 @@ function endRunIfDue(now: number): void {
   if (!active || !run || run.plannedSeconds === null || run.pausedAt !== null || !maySend()) return
   if (!runClock(active.startedAt, run, now).over) return
   chimeOnce(`${active.startedAt}:${run.plannedSeconds}`)
-  // He gets time to answer (+5, +15, done) before it ends by itself.
-  const ranOutAt = active.startedAt + run.pausedMs + run.plannedSeconds * 1000
-  if (now - ranOutAt >= RUN_ANSWER_GRACE_MS && now - dueAskedAt >= 30_000) void endOwnRunIfDue(active.startedAt)
+  // It no longer ends by itself: running over is kept, the extra minutes count (the owner, 26 Nov: "nothing is policed").
 }
 
 /** A committed mission is due (its window opened): the bell, once, in one tab. Nothing else running. */

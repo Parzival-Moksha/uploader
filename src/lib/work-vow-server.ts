@@ -11,9 +11,9 @@ import { backupBeforeWrite, bookWriteRefusal, droppedDays } from './work-book-gu
 import { appendMissionLog } from './village/village-mission-edit'
 import { missionForAgent } from './village/mission-dispatch'
 import { isMissionFile, parseMission, type Mission } from './village/village-missions'
-import { ANSWER_MAX, isCarbonFile, parseCarbonMission } from './village/carbon-missions'
-import { questionsDir, rewriteBoard, tellAgent } from './village/carbon-server'
-import { addOwnNote, commitBonusPct, commitReminder, commitStateAt, finishOwnMissionText, formatRunNote, markCommitted, markRunStart, ownMissionFileName, ownMissionText, ownNotes, runLine, COMMIT_GRACE_MS, type Commitment, type RunResult } from './village/own-mission'
+import { ANSWER_MAX, answerCarbonMission, isCarbonFile, parseCarbonMission } from './village/carbon-missions'
+import { questionsDir, rewriteBoard, tellAgent, tellAnswer } from './village/carbon-server'
+import { START_NOW_BONUS_PCT, appendRunLine, dateOf, addOwnNote, commitBonusPct, commitReminder, commitStateAt, finishOwnMissionText, formatRunNote, markCommitted, markRunStart, ownMissionFileName, ownMissionText, ownNotes, runLine, COMMIT_GRACE_MS, type Commitment, type RunResult } from './village/own-mission'
 import { engine } from './village/carbon-server'
 import {
   addManualTime,
@@ -190,7 +190,7 @@ export function setWorkSettings(settings: { freeValor?: number }, now = Date.now
  * `currentOldXp`), plus every Mindcraft XP he earned (the same total Mindcraft shows, the commitment
  * included). The old Profile row in the database is left as it was.
  */
-export function foldedOwnerXp(currentOldXp: number, now = Date.now()): Promise<{ total: number; oldXp: number; mindcraftXp: number; foldedAt: number }> {
+export function foldedOwnerXp(currentOldXp: number, now = Date.now()): Promise<{ total: number; oldXp: number; mindcraftXp: number; foldedAt: number; since: string }> {
   return serial(async () => {
     const book = await readBook()
     if (!book.profileFold) {
@@ -199,7 +199,7 @@ export function foldedOwnerXp(currentOldXp: number, now = Date.now()): Promise<{
     }
     const mindcraftXp = mindcraftBook(book, localDay(now)).totals.owner.xp
     const fold = book.profileFold
-    return { total: Math.max(0, Math.round(fold.oldXp + mindcraftXp)), oldXp: fold.oldXp, mindcraftXp, foldedAt: fold.at }
+    return { total: Math.max(0, Math.round(fold.oldXp + mindcraftXp)), oldXp: fold.oldXp, mindcraftXp, foldedAt: fold.at, since: Object.keys(book.days).sort()[0] || localDay(now) }
   })
 }
 
@@ -329,7 +329,7 @@ export function switchWorkMission(file: string | null, now = Date.now(), mayEndO
     }
     // A running own mission ends first (its file and its agent after the book is written).
     const closed = book.active?.run && book.active.file !== mission?.file ? closeRun(book, now) : null
-    if (closed?.result) { const { result, notify } = closed; setTimeout(() => { void afterRun(result, notify).catch(() => {}) }, 0) }
+    if (closed?.result) { const { result, notify, forFile } = closed; setTimeout(() => { void afterRun(result, notify, forFile).catch(() => {}) }, 0) }
     const before = closed?.result ? null : book.active
     const next = setWorkMission(closed?.book || book, mission, now)
     await writeBook(next)
@@ -384,17 +384,55 @@ function withFile<T>(target: string, job: () => Promise<T>): Promise<T> {
 const readText = async (target: string) => (await fs.readFile(target, 'utf8')).replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n')
 
 /** Inside the book's chain: end the running own mission (if any) and keep it in the day. */
-function closeRun(book: WorkFile, now: number, startedAt?: number, onlyIfDue = false): { book: WorkFile; result: RunResult | null; notify: string | null } {
+function closeRun(book: WorkFile, now: number, startedAt?: number, onlyIfDue = false, done?: boolean): { book: WorkFile; result: RunResult | null; notify: string | null; forFile?: string } {
   const notify = book.active?.run?.notify ?? null
-  const ended = finishRunInBook(book, now, startedAt, onlyIfDue)
+  const forFile = book.active?.run?.forFile
+  const ended = finishRunInBook(book, now, startedAt, onlyIfDue, done)
   if (!ended) return { book, result: null, notify: null }
   const result: RunResult = { ...ended.result, told: '', line: runLine(ended.result) }
-  return { book: recordRun(ended.file, result), result, notify }
+  return { book: recordRun(ended.file, result), result, notify, ...(forFile ? { forFile } : {}) }
 }
 
 /** Outside the chain: the file gets the result, the agent gets his notes, the board is rewritten. Never throws. */
-async function afterRun(result: RunResult, notify: string | null): Promise<string> {
-  const target = ownMissionPath(result.file)
+/** A task an agent gave him, done as a timed mission and kept (or done open-ended): the task is answered "done" and its asker told. */
+async function finishForTask(forFile: string, result: RunResult): Promise<void> {
+  const target = ownMissionPath(forFile)
+  if (!target) return
+  // The run, in the task's own file, whatever came of it.
+  await withFile(target, async () => {
+    try { await fs.writeFile(target, appendRunLine(await readText(target), result), 'utf8') } catch { /* the book has it */ }
+  })
+  // Done (he said so, or open-ended, or its time ran out): the task is answered. Ended "not done": it stays open.
+  if (!(result.done || result.kept || result.plannedSeconds === null)) return
+  const answer = `Done (timed: ${result.line})`
+  const took = Math.max(1, Math.round(result.seconds / 60))
+  const mission = await withFile(target, async () => {
+    try {
+      const text = await readText(target)
+      if (parseCarbonMission(forFile, text).state !== 'open') return null
+      const next = answerCarbonMission(text, { answer, state: 'answered', took, date: dateOf(result.endedAt) })
+      await fs.writeFile(target, next, 'utf8')
+      return parseCarbonMission(forFile, next)
+    } catch { return null }
+  })
+  if (mission) await tellAnswer(mission, answer, 'answered', took)
+}
+
+async function afterRun(result: RunResult, notify: string | null, forFile?: string): Promise<string> {
+  if (forFile) await finishForTask(forFile, result).catch(() => {})
+  // A task of his list keeps its own header (answered above); only his own missions get the own-mission result.
+  const target = forFile === result.file ? null : ownMissionPath(result.file)
+  if (forFile === result.file) {
+    let told = ''
+    if (notify) {
+      const taskPath = ownMissionPath(forFile)
+      const notes = taskPath ? await withFile(taskPath, async () => { try { return ownNotes(await readText(taskPath)) } catch { return [] as string[] } }) : []
+      const sent = await tellAgent(notify, formatRunNote(result, notes))
+      told = sent.startsWith('sent to ') ? sent.slice('sent to '.length) : ''
+    }
+    await rewriteBoard()
+    return told
+  }
   let notes: string[] = []
   if (target) {
     // Behind any note still being written.
@@ -443,9 +481,10 @@ export async function startOwnMission(input: { title?: string; file?: string; mi
     if (!commit) return { ok: false, status: 409, error: 'that commitment is not open any more' }
     input = { ...input, file: commit.commit.file, title: undefined, minutes: commit.commit.minutes }
   }
-  const minutes = cleanMinutes(input.minutes)
+  let minutes = cleanMinutes(input.minutes)
   let file: string
   let title: string
+  let forTask: string | undefined
   if (input.file) {
     const target = ownMissionPath(input.file)
     if (!target) return { ok: false, status: 400, error: 'not a mission file' }
@@ -455,10 +494,20 @@ export async function startOwnMission(input: { title?: string; file?: string; mi
     } catch {
       return { ok: false, status: 404, error: 'mission not found' }
     }
-    // Only his own: the end writes the file's answer, which an agent's question must not get.
-    if (parsed.by.trim().toLowerCase() !== 'owner') return { ok: false, status: 400, error: 'only your own missions run on a timer' }
-    title = parsed.title
-    file = input.file
+    if (parsed.by.trim().toLowerCase() !== 'owner') {
+      // An agent's task (Now, 2026-11-26: "a task with minutes becomes a timed mission of his in one press"): a mission of
+      // his that points to it; kept, the task is answered done. A question is answered, not timed.
+      if (parsed.kind !== 'task' || parsed.state !== 'open') return { ok: false, status: 400, error: 'only a task (or your own mission) runs on a timer; a question is answered' }
+      // It runs in the task's own file (26 Nov: three copies of one task in a day): his notes and the run go there, and
+      // ending it with "done" answers the task and tells its asker.
+      forTask = input.file
+      if (!minutes) minutes = cleanMinutes(parsed.minutes ?? null)
+      title = parsed.title
+      file = input.file
+    } else {
+      title = parsed.title
+      file = input.file
+    }
     const startAt = now
     await withFile(target, async () => {
       try { await fs.writeFile(target, markRunStart(await readText(target), startAt, minutes ? minutes * 60 : null), 'utf8') } catch { /* the run still starts */ }
@@ -476,14 +525,15 @@ export async function startOwnMission(input: { title?: string; file?: string; mi
       const due = (before.book.commits || []).find(c => c.file === file && commitStateAt(c, now) === 'pending' && Math.abs(now - c.at) <= COMMIT_GRACE_MS)
       if (due) commit = { commit: due, onTime: true }
     }
-    const carry = commit?.onTime ? { commit: { id: commit.commit.id, bonusPct: commit.commit.bonusPct } } : {}
+    // Committed and on time: its bonus (+60%); else, on a timer, started now: +30%.
+    const carry = { ...(commit?.onTime ? { commit: { id: commit.commit.id, bonusPct: commit.commit.bonusPct } } : minutes ? { nowBonusPct: START_NOW_BONUS_PCT } : {}), ...(forTask ? { forFile: forTask } : {}) }
     let next = setWorkMission(before.book, { file, title: title.slice(0, 140), priority: 0, run: { plannedSeconds: minutes ? minutes * 60 : null, notify: input.notify, pausedAt: null, pausedMs: 0, counted: 0, ...carry } }, now)
     // On time it carries the bonus; outside its window it is used up as missed (it runs as a plain mission).
     if (commit) next = { ...next, commits: (next.commits || []).map(c => (c.id === commit!.commit.id ? { ...c, state: commit!.onTime ? 'started' as const : 'missed' as const, startedAt: now } : c)) }
     await writeBook(next)
     return { ...before, snapshot: workSnapshot(next, now) }
   })
-  if (closed.result) void afterRun(closed.result, closed.notify).catch(() => {})
+  if (closed.result) void afterRun(closed.result, closed.notify, closed.forFile).catch(() => {})
   if (!input.file) void rewriteBoard()
   return { ok: true, snapshot: closed.snapshot, file, ...(closed.result ? { ended: closed.result } : {}) }
 }
@@ -524,7 +574,7 @@ export function cancelOwnCommit(id: string, now = Date.now()): Promise<WorkSnaps
 
 // ─── the reminder when a committed mission is due ───────────────────────────
 // An open Oasis page rings its bell (work-vow-client). With no page open, he gets a Telegram line, through the engine's
-// "tell the owner" (the agent named in OASIS_COMMIT_REMINDER_AGENT, else Mission Wall, else Anorak), once per commitment.
+// "tell the owner" (the agent named in OASIS_COMMIT_REMINDER_AGENT, else Morrow / Mission Wall, else Anorak), once per commitment.
 
 const reminderHolder = globalThis as unknown as { __oasisCommitReminders?: ReturnType<typeof setInterval> }
 
@@ -541,8 +591,9 @@ async function remindDueCommits(now = Date.now()): Promise<void> {
   if (!due.length) return
   const e = await engine()
   if (e.error) return
-  const wanted = (process.env.OASIS_COMMIT_REMINDER_AGENT || 'Mission Wall').toLowerCase()
-  const from = e.agents.find(a => a.name.toLowerCase() === wanted) || e.agents.find(a => /^anorak/i.test(a.name))
+  // The Mindcraft agent, by either name (Anorak, 27 Nov: "Mission Wall" becomes Morrow).
+  const wanted = process.env.OASIS_COMMIT_REMINDER_AGENT ? [process.env.OASIS_COMMIT_REMINDER_AGENT.toLowerCase()] : ['morrow', 'mission wall']
+  const from = wanted.map(w => e.agents.find(a => a.name.toLowerCase() === w)).find(Boolean) || e.agents.find(a => /^anorak/i.test(a.name))
   if (!from) return
   for (const c of due) {
     try {
@@ -571,16 +622,16 @@ export async function saveOwnMission(input: { title: string; minutes: number | n
 }
 
 /** End the running own mission now (`startedAt`: only that run; `onlyIfDue`: only if its time is up by the book). */
-export async function endOwnMission(startedAt?: number, now = Date.now(), onlyIfDue = false): Promise<OwnMissionOutcome> {
+export async function endOwnMission(startedAt?: number, now = Date.now(), onlyIfDue = false, done?: boolean): Promise<OwnMissionOutcome> {
   const closed = await serial(async () => {
     const book = await readBook()
-    const result = closeRun(book, now, startedAt, onlyIfDue)
+    const result = closeRun(book, now, startedAt, onlyIfDue, done)
     if (result.result) await writeBook(result.book)
     return { ...result, snapshot: workSnapshot(result.book, now) }
   })
   if (!closed.result) return { ok: true, snapshot: closed.snapshot }
   // The file, the agent and the board before answering, so the page shows who was told.
-  const told = await afterRun(closed.result, closed.notify)
+  const told = await afterRun(closed.result, closed.notify, closed.forFile)
   return { ok: true, snapshot: { ...closed.snapshot, lastRun: closed.snapshot.lastRun ? { ...closed.snapshot.lastRun, told } : null }, ended: { ...closed.result, told } }
 }
 
@@ -616,6 +667,9 @@ export function notifyOwnMission(agent: string | null, now = Date.now()): Promis
   })
 }
 
+/** The last note taken, to know the same note sent twice. */
+const noteHolder = globalThis as unknown as { __oasisLastOwnNote?: { target: string; text: string; at: number } }
+
 /** A note on the running own mission (typed or said), into its file under "## Notes". */
 export async function noteOwnMission(note: string, now = Date.now()): Promise<{ ok: true; notes: string[] } | { ok: false; status: number; error: string }> {
   const text = note.trim()
@@ -623,6 +677,10 @@ export async function noteOwnMission(note: string, now = Date.now()): Promise<{ 
   const book = await serial(readBook)
   const target = book.active?.run ? ownMissionPath(book.active.file) : null
   if (!target) return { ok: false, status: 409, error: 'no own mission is running' }
+  // The same note again within a minute is the same note (the owner, 2026-11-26: a note stayed in its box and went twice).
+  const seen = noteHolder.__oasisLastOwnNote
+  if (seen && seen.target === target && seen.text === text && now - seen.at < 60_000) return { ok: true, notes: ownNotes(await readText(target).catch(() => '')) }
+  noteHolder.__oasisLastOwnNote = { target, text, at: now }
   return withFile(target, async () => {
     try {
       // Long dictated notes stay whole (the owner, 2026-11-25); the cap only stops a runaway paste.

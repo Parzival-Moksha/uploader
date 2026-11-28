@@ -30,6 +30,7 @@ import { VRMLoaderPlugin, VRM, VRMUtils } from '@pixiv/three-vrm'
 import { AnimationController } from '../../lib/animation-state-machine'
 import { normalizeProfileAvatarUrl } from '../../lib/profile-avatar-url'
 import { VillageCorpseDrop, useVillageCombatPose } from '../village/VillageCombatHud'
+import { REMOTE_CAST_GESTURE_MS, getRemoteCast, isEventDrivenAnim } from '../../lib/remote-cast'
 import { WORLD_Z_RANGE } from '@/lib/ui-kit/layers'
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -221,6 +222,8 @@ function VRMBody({
   const vrmRef = useRef<VRM | null>(null)
   const animControllerRef = useRef<AnimationController | null>(null)
   const lastCustomAnimRef = useRef<string | null>(null)
+  const lastCastAtRef = useRef<number | null>(null)
+  const effectiveStateRef = useRef('idle')
   // Tracks which scene.environment was last baked into the materials. Re-runs
   // the IBL pass when the environment identity changes (e.g. mid-session HDRI
   // swap via SkyPanel's now-live sky_changed mutation). Without this, remote
@@ -309,13 +312,19 @@ function VRMBody({
       sprintSpeedThreshold: SPRINT_SPEED,
     })
     animControllerRef.current = controller
-    // Kick off idle so the avatar isn't a T-pose while clips stream in.
+    // Kick off idle so the avatar isn't a T-pose while clips stream in. The body stays hidden until its first clip
+    // plays (the owner, 28 Nov: "a long T-pose before the first animation"); 8 s at most, then shown anyway.
+    vrm.scene.visible = false
+    const reveal = window.setTimeout(() => { vrm.scene.visible = true }, 8000)
     controller.preloadClip('idle').then(ok => {
       if (animControllerRef.current === controller && ok) {
         controller.transitionTo('idle')
+        // One frame for the mixer to pose the skeleton before it is seen.
+        requestAnimationFrame(() => { if (animControllerRef.current === controller) vrm.scene.visible = true })
       }
     })
     return () => {
+      window.clearTimeout(reveal)
       controller.dispose()
       if (animControllerRef.current === controller) animControllerRef.current = null
     }
@@ -386,15 +395,30 @@ function VRMBody({
     const controller = animControllerRef.current
     controller?.update(delta)
     v.update(delta)
-    const networkAnimState = animStateRef.current || 'idle'
+    let networkAnimState = animStateRef.current || 'idle'
+    let once = Boolean(animOnceRef?.current)
+    // A cast that just arrived from this player (remote-cast.ts) plays its gesture once, unless a hit pose rules.
+    if (!once) {
+      const cast = getRemoteCast(cacheKey)
+      if (cast && performance.now() - cast.at < REMOTE_CAST_GESTURE_MS) {
+        networkAnimState = `custom:${cast.clip}`
+        once = true
+        if (lastCastAtRef.current !== cast.at) {
+          // A new cast restarts the gesture, even the same one again.
+          lastCastAtRef.current = cast.at
+          lastCustomAnimRef.current = null
+        }
+      }
+    }
+    effectiveStateRef.current = networkAnimState
     if (controller && networkAnimState.startsWith('custom:')) {
       const animId = networkAnimState.slice('custom:'.length)
-      // A hit's flinch or knock-down plays once and holds its last frame (party combat).
-      const loop = !animOnceRef?.current
+      // A hit's flinch or knock-down, and a cast's gesture, play once and hold their last frame.
+      const loop = !once
       if (animId && lastCustomAnimRef.current !== animId) {
         lastCustomAnimRef.current = animId
         controller.preloadClip(animId).then(ok => {
-          if (ok && animControllerRef.current === controller && animStateRef.current === `custom:${animId}`) {
+          if (ok && animControllerRef.current === controller && effectiveStateRef.current === `custom:${animId}`) {
             controller.transitionTo('custom', animId, { loop })
           }
         })
@@ -471,7 +495,9 @@ export const RemoteVRMAvatar = forwardRef<THREE.Group, RemoteVRMAvatarProps>(fun
   const speedRef = useRef(0)
   speedRef.current = speed
   const animStateRef = useRef('idle')
-  animStateRef.current = combatPose ? `custom:${combatPose.animationId}` : animState || 'idle'
+  // Hit poses come from this screen's own hit events, casts from the bolts (remote-cast.ts); the same names sent over
+  // the network are ignored, so a player stuck in one on their own screen is not shown stuck here.
+  animStateRef.current = combatPose ? `custom:${combatPose.animationId}` : (animState && !isEventDrivenAnim(animState) ? animState : 'idle')
 
   // Empty URL -> straight to pill. No Suspense, no error boundary needed.
   if (!avatarUrl) {

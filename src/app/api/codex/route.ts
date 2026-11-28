@@ -11,6 +11,7 @@ import { describeCodexTool, humanizeCodexItemType } from '@/lib/codex-presentati
 import { recordTokenBurn } from '@/lib/token-burn'
 import { extractCodexTokenUsage, hasTokenUsage } from '@/lib/token-usage'
 import { guardAgentRoute } from '@/lib/local-request-guard'
+import { codexPanelOff } from '@/lib/codex-panel-switch'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -258,6 +259,8 @@ function terminateChild(child: ChildProcessWithoutNullStreams | null) {
 }
 
 export async function POST(request: NextRequest) {
+  const off = codexPanelOff()
+  if (off) return off
   const denied = guardAgentRoute(request)
   if (denied) return denied
 

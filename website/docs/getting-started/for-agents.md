@@ -7,12 +7,12 @@ sidebar_position: 1
 
 Read this if a user asked you to install, start or use the Oasis. Follow it top to bottom. Every command here was run on a clean copy before this page was written.
 
-The Oasis is a local app, open source (MIT): a page server and an agent engine on the user's own machine. It shows the user's Claude Code sessions as characters in a 3D village in their browser. Nothing is sent to its authors.
+The Oasis is a local app, open source (MIT): a page server and an agent engine on the user's own machine. It shows the user's Claude Code sessions, and the agents they summon in it (Claude Code, Codex, Hermes), as characters in a 3D village in their browser. Nothing is sent to its authors.
 
 ## 1. What you need
 
 - Node.js 20 or later (`node --version`) and git.
-- Claude Code installed and signed in, for the agents in the village (they run as ordinary `claude` processes under the user's own plan).
+- A coding agent for the village: Claude Code or Codex, installed and signed in on the user's own plan (Hermes Agent works too). Claude Code agents run as ordinary `claude` processes; Codex agents through the Oasis's Codex adapter, which the first Codex summon downloads once (about 540 MB).
 - Optional: a Python 3, for voice typing that stays on the machine. Without one, voice typing uses the browser's own speech recognition.
 
 If Node.js or git is missing, tell the user and stop.
@@ -36,6 +36,8 @@ That is the only command. The first time it installs the packages (pnpm, from th
 
 It ends with a block headed `For the user (pass this on word for word)`: where the Oasis is open, how long the start took, the first thing to do, and how to open it again. **Pass that block on to the user word for word.** Do not open a browser yourself and do not guess the address or the ports: the start script opens the user's default browser with the Oasis's local key.
 
+**Codex:** the start script starts other programs (pnpm, the build, two servers), and Codex's sandbox refuses that (`spawn EPERM`). Ask the user to approve running `node scripts/oasis.mjs start` outside the sandbox, or to run it in their own terminal. Do not write a launcher of your own.
+
 Do not start the app any other way: `next dev` or `next start` alone gives a page without the engine, the database or the village. (`pnpm dev` and `npm start` run the same start script, so they are fine.)
 
 ```
@@ -57,6 +59,8 @@ You cannot see the page yourself. Ask the user what it shows when it matters.
 
 On the first run the village brings in the user's newest Claude Code sessions found on this machine (up to four, one per folder) and stands them in front of the user, read-only: nothing runs and no tokens are spent. One line at the top says what to do: walk up to one and press **E** to read what it last did; **Talk to it here** carries that session on, on the user's own plan: a click resumes it, and nothing is spent until the user writes to it (it asks first only when the session is open in another window).
 
+With Codex: **Agents** → **Summon an agent** → **Codex**: a Codex villager on the user's own Codex login, with the world tools. The first one downloads the Oasis's Codex adapter once (about 540 MB). Codex sessions started outside the village are not shown. On a machine with Codex and no Claude Code, the guide below runs on Codex.
+
 Then, or when there are no sessions: **Agents** (top left) → **Summon a guide** starts a Claude Code session named Guide in a new folder `Oasis` in the user's home; it greets them, says what the place is and which keys matter, and waits.
 
 To start a new agent in any folder, or bring in another session: **Agents → Summon an agent**, or the spell book (B) → Agents → Summon Claude Code. The summon menu has two halves:
@@ -68,7 +72,7 @@ Permission questions appear in the village for the user to answer; nothing is ap
 
 ## 6. Build in the world
 
-Every agent summoned in the village has the Oasis world tools (an MCP server served by the page). These run without asking: `get_world_state`, `query_objects`, `search_assets`, `place_object`, `modify_object`, `remove_object`, `self_craft_scene` (read `get_craft_guide` first), `set_sky`, `set_ground_preset`, `paint_ground_tiles`, `add_light`, `modify_light`, `screenshot_viewport`, `walk_avatar_to`. Tools that spend money with an outside service (pictures, video, music, 3D models from text) ask the user first and need the user's own key, entered in the Oasis's keychain or its `.env`.
+Every agent summoned in the village (Claude Code or Codex) has the Oasis world tools (an MCP server served by the page). These run without asking: `get_world_state`, `query_objects`, `search_assets`, `place_object`, `modify_object`, `remove_object`, `self_craft_scene` (read `get_craft_guide` first), `set_sky`, `set_ground_preset`, `paint_ground_tiles`, `add_light`, `modify_light`, `screenshot_viewport`, `walk_avatar_to`. Tools that spend money with an outside service (pictures, video, music, 3D models from text) ask the user first and need the user's own key, entered in the Oasis's keychain or its `.env`.
 
 A session outside the village (the Claude Code app or a terminal) gets the same tools with the full plugin: `/plugin marketplace add Parzival-Moksha/uploader`, then `/plugin install oasis@oasis`, then `/oasis`.
 

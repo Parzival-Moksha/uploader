@@ -97,6 +97,24 @@ export function descendantsOf(list, rootPid) {
 }
 
 /**
+ * The work running under an agent's claude that a restart or an account move would cut off (27 Nov: Tyler's final
+ * encode died with his session's restart): its descendants, without Git-Bash utilities (a tail -f watcher, a grep),
+ * the shells that only wrap a job (cmd, powershell, conhost: the job itself counts), claude itself, and the servers
+ * claude keeps for its tools (MCP, the Chrome bridge).
+ */
+const WRAPPERS = /^(conhost|cmd|powershell|pwsh|claude)(\.exe)?$/i;
+const TOOL_SERVERS = /mcp|native-messaging|chrome-native-host/i;
+export function workHelpers(list, rootPid) {
+  return descendantsOf(list, rootPid).filter((p) => !GIT_HELPER.test(p.path) && !WRAPPERS.test(p.name) && !TOOL_SERVERS.test(p.cmd));
+}
+
+/** "ffmpeg.exe (… -i final.mov …)": a name and a short look at what it runs. */
+export function helperText(p) {
+  const cmd = String(p.cmd || '').replace(/^"[^"]*"\s*|^\S+\s*/, '').replace(/\s+/g, ' ').trim();
+  return cmd ? `${p.name} (${cmd.length > 70 ? `${cmd.slice(0, 69)}…` : cmd})` : p.name;
+}
+
+/**
  * Part 3: from CPU samples per process ({ key -> [{ at, cpuMs }] }), the ones that averaged at least `cores` over the
  * last `windowMs` (a sample at least that old is needed). -> [{ key, cores }]
  */
@@ -266,6 +284,18 @@ export class ProcWatch {
     const stopped = await stopExact(helpers, { log: this.log });
     if (stopped.length) this.log(`procs: its claude exited; stopped ${stopped.length} Git-Bash process(es) left under it: ${namesText(stopped)}`);
     return stopped;
+  }
+
+  /** What runs under each agent's claude now, as last sampled (a minute old at most): { agentId: [text] }. */
+  helpersView() {
+    const out = {};
+    for (const [agentId, under] of this.under) {
+      const list = [...under.values()];
+      const roots = list.filter((p) => !list.some((q) => q.pid === p.ppid));
+      const work = roots.flatMap((r) => [r, ...descendantsOf(list, r.pid)]).filter((p) => !GIT_HELPER.test(p.path) && !WRAPPERS.test(p.name) && !TOOL_SERVERS.test(p.cmd));
+      if (work.length) out[agentId] = [...new Set(work.map(helperText))];
+    }
+    return out;
   }
 
   view() {

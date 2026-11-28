@@ -37,6 +37,29 @@ export interface AcademySkill {
   /** An optional side skill; a flagship checkpoint. */
   perk?: boolean
   flag?: boolean
+  /**
+   * What the skill unlocks, as the menu the agent now offers and asks about (the owner, 26 Nov: "it asks you
+   * what style you want... you can do these styles"): a label and its choices, one line each.
+   */
+  menu?: AcademyMenuItem[]
+}
+
+export interface AcademyMenuItem {
+  label: string
+  options: string
+}
+
+/** A skill's menu from its JSON: at most 12 lines, each a label and its choices. */
+export function menuItems(raw: unknown): AcademyMenuItem[] {
+  if (!Array.isArray(raw)) return []
+  const out: AcademyMenuItem[] = []
+  for (const item of raw.slice(0, 12)) {
+    if (!item || typeof item !== 'object') continue
+    const label = str((item as Record<string, unknown>).label, 60)
+    const options = str((item as Record<string, unknown>).options, 400)
+    if (label && options) out.push({ label, options })
+  }
+  return out
 }
 
 /** One shape of an icon: a path (`d`), a circle (`cx cy r`) or a rect (`x y width height rx`), stroked. */
@@ -197,6 +220,7 @@ export function normalizeAcademyContent(rawSkills: unknown, rawKeys: unknown, so
       ...(iconParts(item.icon).length ? { icon: iconParts(item.icon) } : {}),
       ...(item.perk === true ? { perk: true } : {}),
       ...(item.flag === true ? { flag: true } : {}),
+      ...(menuItems(item.menu).length ? { menu: menuItems(item.menu) } : {}),
     })
   })
   if (!skills.length) return null

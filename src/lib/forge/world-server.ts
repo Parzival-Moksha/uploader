@@ -13,6 +13,7 @@ import { cleanWorldIcon } from '../text-encoding'
 
 import { prisma } from '../db'
 import { normalizeWorldStateAgentAvatarTransforms } from '../agent-avatar-world-state'
+import { sanitizeWorldContent } from '../browser-surface'
 import { getOasisMode } from '../oasis-profile'
 import { isAdminUserId } from '../admin-auth'
 import { levelFromXp } from '../xp'
@@ -98,7 +99,11 @@ function seedDefaultWorldLights(): WorldLight[] {
 }
 
 function normalizeSavedWorldState(state: WorldState): WorldState {
-  return normalizeWorldStateAgentAvatarTransforms(state)
+  // Runs on every save and every load: a browser window's address may only be a web page or the Oasis's own page
+  // (Merge Goat, 28 Nov: a javascript: address ran as the Oasis in every visitor's page). Stored worlds that carry
+  // one are cleaned the next time they are read.
+  // Also no object action that runs on F and reaches past the world (API call, HTML overlay): Merge Goat, 28 Nov.
+  return sanitizeWorldContent(normalizeWorldStateAgentAvatarTransforms(state), { hosted: getOasisMode() === 'hosted' })
 }
 
 function accessContext(userId?: string): WorldAccessContext {
@@ -819,13 +824,17 @@ export async function createWorld(
   icon = cleanWorldIcon(icon)
   const id = `world-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
   const now = new Date()
-  const requestedVisibility = toStorageVisibility(options.visibility) || 'private'
+  // A deployment can make new worlds free for all and PvP by default (the deployed Oasis: OASIS_NEW_WORLD_VISIBILITY=ffa,
+  // OASIS_NEW_WORLD_PVP=1). A visibility the caller names still wins.
+  const requestedVisibility = toStorageVisibility(options.visibility)
+    || toStorageVisibility(process.env.OASIS_NEW_WORLD_VISIBILITY?.trim())
+    || 'private'
   const requestedKind = normalizeWorldKind(requestedVisibility)
   const visibility = (requestedKind === 'core' || requestedKind === 'template') && !canMirrorDefaultWorldSeeds(ctx)
     ? 'private'
     : requestedVisibility
   const kind = normalizeWorldKind(visibility)
-  const pvpEnabled = options.pvpEnabled ?? (kind === 'ffa' || kind === 'link-ffa')
+  const pvpEnabled = options.pvpEnabled ?? (process.env.OASIS_NEW_WORLD_PVP === '1' || kind === 'ffa' || kind === 'link-ffa')
 
   const emptyState: WorldState = {
     version: 1,

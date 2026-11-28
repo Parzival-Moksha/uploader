@@ -15,6 +15,7 @@ import type { CraftedScene } from '../../lib/conjure/types'
 import { generateSingleCraftedThumbnail, useCraftedThumbnailGenerator } from '../../hooks/useThumbnailGenerator'
 import { AssetCard } from './AssetCard'
 import { CraftedPreviewPanel } from './ModelPreview'
+import { hasLocalCraftedThumb, localCraftedThumb, localCraftedThumbsVersion, subscribeLocalCraftedThumbs } from '../../lib/forge/crafted-thumb-local'
 
 const COLUMNS_KEY = 'oasis.craftedGallery.columns'
 const MIN_COLUMNS = 2
@@ -53,7 +54,7 @@ export async function repairMissingThumbnails(scenes: readonly CraftedScene[]): 
   let repaired = 0
   try {
     for (const scene of scenes) {
-      if (!scene.thumbnailUrl || checkedThumbs.has(scene.id) || checkedThumbs.size >= REPAIRS_PER_SESSION) continue
+      if (!scene.thumbnailUrl || hasLocalCraftedThumb(scene.id) || checkedThumbs.has(scene.id) || checkedThumbs.size >= REPAIRS_PER_SESSION) continue
       checkedThumbs.add(scene.id)
       const url = scene.thumbnailUrl.startsWith('/') ? `${OASIS_BASE}${scene.thumbnailUrl}` : scene.thumbnailUrl
       const there = await fetch(url, { method: 'HEAD', cache: 'no-store' }).then(res => res.ok).catch(() => true)
@@ -107,6 +108,8 @@ export function CraftedGallery({ defaultColumns = 3, accentColor = '#3B82F6', pr
     () => thumbTick,
     () => 0,
   )
+  // Re-draw when a thumbnail the server would not keep arrives in this page.
+  useSyncExternalStore(subscribeLocalCraftedThumbs, localCraftedThumbsVersion, () => 0)
 
   const items = useMemo(() => galleryScenes(craftedScenes, sceneLibrary), [craftedScenes, sceneLibrary])
   useEffect(() => { void repairMissingThumbnails(items.map(item => item.scene)) }, [items])
@@ -149,14 +152,16 @@ export function CraftedGallery({ defaultColumns = 3, accentColor = '#3B82F6', pr
       <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}>
         {items.map(({ scene, inWorld }) => {
           const version = thumbVersions.get(scene.id)
-          const thumb = scene.thumbnailUrl || `/crafted-thumbs/${scene.id}.jpg`
+          // A thumbnail the server would not keep (the deployed Oasis) is kept by this page (crafted-thumb-local.ts).
+          const local = localCraftedThumb(scene.id)
+          const thumb = local || scene.thumbnailUrl || `/crafted-thumbs/${scene.id}.jpg`
           return (
           <AssetCard
             key={`${scene.id}:${version || 0}`}
             id={scene.id}
             name={scene.name}
             type="crafted"
-            thumbnailUrl={version ? `${thumb.split('?')[0]}?v=${version}` : thumb}
+            thumbnailUrl={version && !local ? `${thumb.split('?')[0]}?v=${version}` : thumb}
             isInWorld={inWorld}
             accentColor={accentColor}
             subtitle={`${scene.objects.length} primitives`}

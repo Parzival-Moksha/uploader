@@ -18,7 +18,14 @@ import {
   subscribeVoiceTypingEngine,
   type VoiceTypingEngine,
 } from '@/lib/voice/voice-typing-engine'
+import {
+  DEFAULT_VOICE_MESSAGE_ENGINE,
+  getVoiceMessageEngine,
+  setVoiceMessageEngine,
+  subscribeVoiceMessageEngine,
+} from '@/lib/voice/voice-message-engine'
 import { VoiceTypingSetup } from './VoiceTypingSetup'
+import { MicrophoneSetting } from './MicrophoneSetting'
 import { VoiceOutSection } from '@/components/village/VoiceOutSection'
 import { hasMusic, musicCreditLine } from '@/lib/music'
 import { AMBIENCES, AMBIENCE_SETTINGS, ambienceId, ambienceSetting, ambienceSettingHint } from '@/lib/ambience'
@@ -88,7 +95,8 @@ function VolumeSlider({
 const EVENT_LABELS: Record<string, string> = {
   missionEnd: 'Mission time is up (Mindcraft)',
   select: 'Select Object', deselect: 'Deselect', place: 'Place Object', delete: 'Delete Object',
-  panelOpen: 'Panel Open', panelClose: 'Panel Close', buttonClick: 'Button Click', buttonHover: 'Button Hover',
+  // Button clicks and hovers are chosen under Clicks (MenuSoundSettings), not here.
+  panelOpen: 'Panel Open', panelClose: 'Panel Close',
   modeSwitch: 'Camera Mode', conjureStart: 'Conjure Start', conjureDone: 'Conjure Done',
   anorakDone: 'Anorak Done', notification: 'Notification', undo: 'Undo', redo: 'Redo',
   connected: 'Agent Connected', levelUp: 'Level Up', chooseCharacter: 'Choose Character',
@@ -105,7 +113,7 @@ function PerEventSoundLab() {
       <div className="flex items-center justify-between mb-2">
         <button onClick={() => setExpanded(!expanded)} className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer hover:text-white transition-colors">
           <span>{expanded ? '▼' : '▸'}</span>
-          <span className="text-[11px] font-bold">UI Sound Lab</span>
+          <span className="text-[11px] font-bold">More UI sounds</span>
         </button>
         <button onClick={toggleMute} className="text-[10px] cursor-pointer px-1.5 py-0.5 rounded" style={{ background: muted ? 'rgba(239,68,68,0.2)' : 'rgba(34,197,94,0.2)', color: muted ? '#ef4444' : '#22c55e' }}>
           {muted ? '🔇 Muted' : '🔊 On'}
@@ -152,37 +160,57 @@ function PerEventSoundLab() {
   )
 }
 
-const VOICE_TYPING_CHOICES: Array<{ id: VoiceTypingEngine; label: string; detail: string }> = [
-  { id: 'elevenlabs', label: 'ElevenLabs', detail: 'Scribe Realtime in the cloud: best quality, words after about a second' },
-  { id: 'local', label: 'Local', detail: 'Moonshine on this computer: free and offline, a bit rougher' },
+/** What each choice runs, in a few words (the owner, 27 Nov: two switches, "don't overcomplicate it"). */
+const VOICE_CHOICES: Array<{ id: VoiceTypingEngine; label: string; runs: string }> = [
+  { id: 'local', label: 'Local', runs: 'Moonshine, on this PC, free' },
+  { id: 'elevenlabs', label: 'Cloud', runs: 'ElevenLabs, costs credits' },
 ]
 
-/** Who types what you say (T, and the mic on text fields). */
-function VoiceTypingSection() {
-  const engine = useSyncExternalStore(subscribeVoiceTypingEngine, getVoiceTypingEngine, () => DEFAULT_VOICE_TYPING_ENGINE)
+/** One local/cloud switch: two halves, the chosen one lit, and one line saying what runs. */
+function VoiceSwitch({ title, value, onChange }: { title: string; value: VoiceTypingEngine; onChange: (next: VoiceTypingEngine) => void }) {
+  const chosen = VOICE_CHOICES.find(choice => choice.id === value) || VOICE_CHOICES[1]
   return (
-    <section>
-      <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-1.5 font-mono">Voice typing</div>
-      <div className="grid grid-cols-2 gap-1.5" role="radiogroup" aria-label="Voice typing">
-        {VOICE_TYPING_CHOICES.map(choice => {
-          const active = engine === choice.id
+    <div className="min-w-0">
+      <div className="mb-1 text-[11px] font-bold text-white/80">{title}</div>
+      <div className="grid grid-cols-2 overflow-hidden rounded-lg border border-white/10" role="radiogroup" aria-label={title}>
+        {VOICE_CHOICES.map(choice => {
+          const active = value === choice.id
           return (
             <button
               key={choice.id}
               type="button"
               role="radio"
               aria-checked={active}
-              onClick={() => setVoiceTypingEngine(choice.id)}
-              className={`rounded-lg border p-2 text-left transition ${active ? 'border-emerald-300/60 bg-emerald-500/15' : 'border-white/10 bg-black/30 hover:bg-white/5'}`}
+              onClick={() => onChange(choice.id)}
+              className={`px-2 py-1 text-[11px] font-bold transition ${active ? 'bg-emerald-500/20 text-emerald-200' : 'bg-black/30 text-white/55 hover:bg-white/5'}`}
             >
-              <div className={`text-[11px] font-bold ${active ? 'text-emerald-200' : 'text-white/80'}`}>{active ? '● ' : '○ '}{choice.label}</div>
-              <div className="mt-0.5 text-[10px] leading-snug text-white/50">{choice.detail}</div>
+              {choice.label}
             </button>
           )
         })}
       </div>
-      <div className="mt-1 text-[10px] leading-snug text-white/40">
-        Used by T and the mic on text fields. Without an ElevenLabs key the local helper types (Moonshine); without either, your browser's own speech recognition.
+      <div className="mt-1 text-[10px] leading-snug text-white/50">{chosen.runs}</div>
+    </div>
+  )
+}
+
+/**
+ * Who turns his voice into text, twice over (the owner, 27 Nov: "voice typing ... local and cloud, and also the voice
+ * messages, separately ... We need two switches"): voice typing (T, and the mic on text fields) and recorded voice
+ * messages. Local is the same Moonshine Medium helper for both (the engine: ears.py; scribe.js for messages).
+ */
+function VoiceTypingSection() {
+  const typing = useSyncExternalStore(subscribeVoiceTypingEngine, getVoiceTypingEngine, () => DEFAULT_VOICE_TYPING_ENGINE)
+  const messages = useSyncExternalStore(subscribeVoiceMessageEngine, getVoiceMessageEngine, () => DEFAULT_VOICE_MESSAGE_ENGINE)
+  return (
+    <section>
+      <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-1.5 font-mono">Your voice to text</div>
+      <div className="grid grid-cols-2 gap-3">
+        <VoiceSwitch title="Voice typing" value={typing} onChange={setVoiceTypingEngine} />
+        <VoiceSwitch title="Voice messages" value={messages} onChange={setVoiceMessageEngine} />
+      </div>
+      <div className="mt-1.5 text-[10px] leading-snug text-white/40">
+        What you voice-type and send is kept with its sound, on this PC only.
       </div>
       <VoiceTypingSetup />
     </section>
@@ -192,11 +220,12 @@ function VoiceTypingSection() {
 export function SoundTab() {
   const { settings, updateSetting } = useContext(SettingsContext)
 
+  // Two fixed halves (the owner, 26 Nov: the sections "fight for space"): in the Settings body's flowing columns,
+  // opening a section or a longer hint moved the others from one column to the other. Each half is one block that
+  // does not break, so the left column is what you hear and the right one voices and the finer UI sounds.
   return (
-    <div className="space-y-3">
-      <VoiceTypingSection />
-      {/* How the agents' spoken lines are made, and the month's ElevenLabs credits (VoiceOutSection.tsx). */}
-      <VoiceOutSection />
+    <div data-sound-layout="two-fixed">
+      <div className="min-w-0 space-y-3 [break-inside:avoid]">
       <MenuSoundSettings />
       <section>
         <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-1.5 font-mono">Volume Mixers</div>
@@ -262,10 +291,18 @@ export function SoundTab() {
       <section className="border-t border-white/10 pt-3">
         <SpellSoundsSelector />
       </section>
+      </div>
 
+      <div className="min-w-0 space-y-3 [break-inside:avoid]">
+      {/* Which input both voice switches hear (the owner, 27 Nov: "I want the Steinberg to be the recording device"). */}
+      <MicrophoneSetting />
+      <VoiceTypingSection />
+      {/* How the agents' spoken lines are made, and the month's ElevenLabs credits (VoiceOutSection.tsx). */}
+      <VoiceOutSection />
       <section className="border-t border-white/10 pt-3">
         <PerEventSoundLab />
       </section>
+      </div>
     </div>
   )
 }

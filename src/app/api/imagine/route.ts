@@ -1,5 +1,6 @@
 // ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
-// /api/imagine — Text-to-Image via Gemini Flash (OpenRouter)
+// /api/imagine — Text-to-Image: OpenRouter models by name; the owner's own ChatGPT plan (Codex CLI, GPT Image 2) where
+// src/lib/picture-plan.ts allows it (this machine's own page and agents only; his village's default)
 // ─═̷─═̷─🎨─═̷─═̷─ Prompt → Gemini → base64 PNG → disk → URL ─═̷─═̷─🎨─═̷─═̷─
 //
 // Full-res image saved to public/generated-images/{id}.{ext}
@@ -11,20 +12,36 @@ import { writeFileSync, mkdirSync, existsSync } from 'fs'
 import { join } from 'path'
 import { deriveImageTitle } from '@/lib/conjure/derive-image-title'
 import { emitWorldEvent } from '@/lib/mcp/world-events'
+import { defaultPictureModel, planForRequest, planPicture, OPENROUTER_DEFAULT_KEY, PLAN_LABEL, PLAN_MODEL_KEY } from '@/lib/picture-plan'
 
+// 2026-11-11, the owner: his pictures go through his ChatGPT plan ("the same trick" as cb_video's codex_image.py), not
+// Nano Banana on OpenRouter (6 cents a picture). Fenced since 27 Nov (Anorak): the plan answers only this machine's
+// own page and agents, with a signed-in Codex CLI, in an edition that carries it (src/lib/picture-plan.ts). There it is
+// the default, and the legacy 'gemini-flash' key that the agents' generate_image tool and /api/media/image send maps
+// to it; everywhere else (hosted, a party, the package) the default and 'gemini-flash' are Nano Banana 2, and asking
+// for the plan by name is refused. Nano Banana 2 is the automatic fallback when Codex fails (logged out, quota).
 const IMAGINE_MODELS: Record<string, { id: string; label: string }> = {
+  [PLAN_MODEL_KEY]:  { id: 'codex', label: PLAN_LABEL },
   'nano-banana-2':   { id: 'google/gemini-3.1-flash-image-preview', label: 'Nano Banana 2' },
   'nano-banana-pro': { id: 'google/gemini-3-pro-image-preview',     label: 'Nano Banana Pro' },
   'gpt-image-2':     { id: 'openai/gpt-5.4-image-2',                label: 'GPT Image 2' },
   'riverflow':       { id: 'sourceful/riverflow-v2-fast',           label: 'Riverflow v2' },
   'flux-klein':      { id: 'black-forest-labs/flux.2-klein-4b',     label: 'FLUX Klein' },
   'seedream':        { id: 'bytedance-seed/seedream-4.5',           label: 'Seedream 4.5' },
-  // Legacy key kept so older clients with `model: 'gemini-flash'` cached in
-  // localStorage keep working — points at the same OpenRouter ID.
-  'gemini-flash':    { id: 'google/gemini-3.1-flash-image-preview', label: 'Nano Banana 2' },
 }
-const DEFAULT_MODEL = 'nano-banana-2'
+// Legacy key ('gemini-flash', sent by older clients and the agents' tools): whatever the default is for this request.
+const LEGACY_DEFAULT_KEY = 'gemini-flash'
+const FALLBACK_MODEL = OPENROUTER_DEFAULT_KEY
 const IMAGE_DIR = 'generated-images'
+
+// GET /api/imagine — what the picture panels may offer this request: { plan, planLabel, defaultModel }.
+export async function GET(request: NextRequest) {
+  const verdict = planForRequest(request)
+  return NextResponse.json(
+    { plan: verdict.available, planLabel: PLAN_LABEL, defaultModel: defaultPictureModel(verdict), ...(verdict.reason ? { planReason: verdict.reason } : {}) },
+    { headers: { 'cache-control': 'no-store' } },
+  )
+}
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // POST /api/imagine — Generate an image from text
@@ -34,7 +51,12 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     const { prompt, model: modelKey } = body
-    const selectedModel = IMAGINE_MODELS[modelKey as string] || IMAGINE_MODELS[DEFAULT_MODEL]
+    const plan = planForRequest(request)
+    const askedKey = typeof modelKey === 'string' && modelKey !== LEGACY_DEFAULT_KEY && IMAGINE_MODELS[modelKey] ? modelKey : defaultPictureModel(plan)
+    if (askedKey === PLAN_MODEL_KEY && !plan.available) {
+      return NextResponse.json({ error: plan.reason || 'The ChatGPT plan is not available here.' }, { status: 403 })
+    }
+    const selectedModel = IMAGINE_MODELS[askedKey]
 
     if (!prompt || typeof prompt !== 'string' || prompt.trim().length === 0) {
       return NextResponse.json({ error: 'Prompt is required' }, { status: 400 })
@@ -43,44 +65,60 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Prompt too long (2000 char max)' }, { status: 400 })
     }
 
-    // Local mode — no credits. Bring your own API keys.
-
-    const apiKey = process.env.OPENROUTER_API_KEY
-    if (!apiKey) {
-      return NextResponse.json({ error: 'LLM provider not configured' }, { status: 500 })
+    // ░▒▓ THE CHATGPT PLAN (default): Codex's built-in image tool, free per picture ▓▒░
+    let codexPng: Buffer | null = null
+    let usedModel = selectedModel
+    if (selectedModel.id === 'codex') {
+      try {
+        const aspect = typeof body.aspect === 'string' && /^\d+:\d+$/.test(body.aspect) ? body.aspect : '1:1'
+        codexPng = await planPicture(prompt.trim(), aspect)
+      } catch (e) {
+        console.warn('[Imagine] Codex (ChatGPT plan) failed, falling back to OpenRouter:', (e as Error).message)
+        usedModel = IMAGINE_MODELS[FALLBACK_MODEL]
+      }
     }
+    let imageBase64: string | null = null
+    if (!codexPng) {
+      // Local mode — no credits. Bring your own API keys.
 
-    // ░▒▓ CALL OPENROUTER — selected image model ▓▒░
-    const llmResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://04515.xyz',
-        'X-Title': 'Oasis Imagine',
-      },
-      body: JSON.stringify({
-        model: selectedModel.id,
-        messages: [
-          { role: 'user', content: `Generate an image: ${prompt.trim()}. Output ONLY the image, no text.` },
-        ],
-      }),
-    })
+      const apiKey = process.env.OPENROUTER_API_KEY
+      if (!apiKey) {
+        return NextResponse.json({ error: 'LLM provider not configured' }, { status: 500 })
+      }
 
-    if (!llmResponse.ok) {
-      const err = await llmResponse.text()
-      console.error('[Imagine] OpenRouter error:', llmResponse.status, err.slice(0, 500))
-      return NextResponse.json({ error: 'Image generation failed' }, { status: 502 })
-    }
+      // ░▒▓ CALL OPENROUTER — selected image model ▓▒░
+      const llmResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+          'HTTP-Referer': 'https://04515.xyz',
+          'X-Title': 'Oasis Imagine',
+        },
+        body: JSON.stringify({
+          model: usedModel.id,
+          messages: [
+            { role: 'user', content: `Generate an image: ${prompt.trim()}. Output ONLY the image, no text.` },
+          ],
+        }),
+      })
 
-    const data = await llmResponse.json()
-    // ░▒▓ DEBUG — dump full response shape to diagnose extraction failures ▓▒░
-    console.log('[Imagine] Response keys:', Object.keys(data))
-    console.log('[Imagine] Full response (truncated):', JSON.stringify(data).slice(0, 1500))
-    const imageBase64 = extractImageFromResponse(data)
-    if (!imageBase64) {
-      console.error('[Imagine] No image extracted. Response shape:', JSON.stringify(data).slice(0, 2000))
-      return NextResponse.json({ error: 'No image in model response' }, { status: 502 })
+      if (!llmResponse.ok) {
+        const err = await llmResponse.text()
+        console.error('[Imagine] OpenRouter error:', llmResponse.status, err.slice(0, 500))
+        return NextResponse.json({ error: 'Image generation failed' }, { status: 502 })
+      }
+
+      const data = await llmResponse.json()
+      // ░▒▓ DEBUG — dump full response shape to diagnose extraction failures ▓▒░
+      console.log('[Imagine] Response keys:', Object.keys(data))
+      console.log('[Imagine] Full response (truncated):', JSON.stringify(data).slice(0, 1500))
+      imageBase64 = extractImageFromResponse(data)
+      if (!imageBase64) {
+        console.error('[Imagine] No image extracted. Response shape:', JSON.stringify(data).slice(0, 2000))
+        return NextResponse.json({ error: 'No image in model response' }, { status: 502 })
+      }
+
     }
 
     // ░▒▓ SAVE TO DISK ▓▒░
@@ -91,7 +129,12 @@ export async function POST(request: NextRequest) {
     // Handle both base64 data URIs and remote URLs
     let buffer: Buffer
     let mimeType: string
-    if (imageBase64.startsWith('http://') || imageBase64.startsWith('https://')) {
+    if (codexPng) {
+      buffer = codexPng
+      mimeType = 'image/png'
+    } else if (!imageBase64) {
+      return NextResponse.json({ error: 'No image in model response' }, { status: 502 })
+    } else if (imageBase64.startsWith('http://') || imageBase64.startsWith('https://')) {
       // Remote URL — download it
       console.log(`[Imagine] Downloading remote image: ${imageBase64.slice(0, 120)}...`)
       const imgRes = await fetch(imageBase64)
@@ -109,7 +152,7 @@ export async function POST(request: NextRequest) {
     const ext = mimeType.includes('png') ? 'png' : mimeType.includes('webp') ? 'webp' : 'jpg'
     const filename = `${imageId}.${ext}`
     writeFileSync(join(dir, filename), buffer)
-    console.log(`[Imagine] Saved full image: ${filename} (${(buffer.length / 1024).toFixed(1)}KB) model=${selectedModel.id}`)
+    console.log(`[Imagine] Saved full image: ${filename} (${(buffer.length / 1024).toFixed(1)}KB) model=${codexPng ? 'chatgpt-plan (codex)' : usedModel.id}`)
 
     // ░▒▓ TILE VERSION — 256×256 JPEG for ground textures (~8-15KB) ▓▒░
     let tileFilename = filename // fallback: same as full

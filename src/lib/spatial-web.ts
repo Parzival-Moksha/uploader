@@ -274,3 +274,21 @@ export function findNearestSpatialWebObject(
 
   return nearest
 }
+
+/**
+ * Where a form may post: this Oasis's default endpoint or a path under /api/spatial-web/, judged after ./, ../ and
+ * escapes are worked out (Merge Goat, 28 Nov: "/api/spatial-web/../worlds" passed a plain prefix check and posted
+ * to /api/worlds). Anything else posts to the default endpoint.
+ */
+export function safeSpatialSubmitEndpoint(endpoint: string | undefined, origin = typeof window !== 'undefined' ? window.location.origin : 'http://oasis.invalid'): string {
+  const raw = (endpoint || '').trim()
+  if (!raw) return SPATIAL_WEB_DEFAULT_SUBMIT_ENDPOINT
+  try {
+    const url = new URL(raw, `${origin}/`)
+    if (url.origin !== origin) return SPATIAL_WEB_DEFAULT_SUBMIT_ENDPOINT
+    const pathname = decodeURIComponent(url.pathname)
+    if (pathname !== url.pathname && /(^|\/)\.\.?(\/|$)/.test(pathname)) return SPATIAL_WEB_DEFAULT_SUBMIT_ENDPOINT
+    if (pathname === SPATIAL_WEB_DEFAULT_SUBMIT_ENDPOINT || pathname.startsWith('/api/spatial-web/')) return `${url.pathname}${url.search}`
+  } catch { /* malformed: the default */ }
+  return SPATIAL_WEB_DEFAULT_SUBMIT_ENDPOINT
+}

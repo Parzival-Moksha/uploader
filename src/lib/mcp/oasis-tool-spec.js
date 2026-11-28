@@ -168,13 +168,28 @@ export const OASIS_MCP_TOOL_SPECS = [
   },
   {
     name: 'create_world',
-    description: 'Create a new empty world and ask the live Oasis browser to switch/load into it.',
-    inputSchema: z.object({ name: z.string(), icon: z.string().optional() }).passthrough(),
+    description: "Create a new empty world. The owner's page stays where it is unless load: true (only when he asked to go there); to make a way there from here, use craft_portal instead.",
+    inputSchema: z.object({ name: z.string(), icon: z.string().optional(), load: z.boolean().optional() }).passthrough(),
   },
   {
     name: 'create_and_load_world',
-    description: 'Alias of create_world with the behavior made explicit: create a new empty world and switch/load the live Oasis browser into it.',
-    inputSchema: z.object({ name: z.string(), icon: z.string().optional() }).passthrough(),
+    description: "Create a new empty world and switch the owner's live Oasis page into it (load: false makes it without switching). Use only when he asked to be taken there.",
+    inputSchema: z.object({ name: z.string(), icon: z.string().optional(), load: z.boolean().optional() }).passthrough(),
+  },
+  {
+    name: 'craft_portal',
+    description: "Put down a portal, like the Portal Craft window: a style (threshold-ring, void-door, hologram-gate, solar-arch, rift-slit, stargate-vortex, crystal-cavern, verdant-arch, mirror-pool, clockwork-iris), a position (default: 5 m ahead of you), and either newWorldName (a new empty world, made now) or targetWorldId (an existing world from list_worlds). Always two-way: the same gate stands in the other world and leads back. It never moves the owner's page; he walks through it.",
+    inputSchema: z.object({
+      worldId: z.string().optional(),
+      style: z.string().optional(),
+      newWorldName: z.string().optional(),
+      targetWorldId: z.string().optional(),
+      position: zVec3Like.optional(),
+      rotationY: zNumberish.optional(),
+      label: z.string().optional(),
+    }).passthrough(),
+    injectWorldId: true,
+    injectActorAgentType: true,
   },
   {
     name: 'clear_world',

@@ -30,6 +30,7 @@ import { groupThread, threadImages, toolRunShape, type ThreadItem } from '../../
 import { hasInjectedText, parseInjectedUserText, type TaskNotice } from '../../lib/village/village-injected'
 import { getOlderHistoryState, loadOlderHistory, noteThreadScroll, retryOlderHistory, subscribeOlderHistory } from './village-history'
 import { anchorOf, readThreadAnchor, scrollToAnchor, writeThreadAnchor, type ThreadAnchor } from './thread-anchor'
+import { groupsByEntry, pinKeyOf, threadWindowFor, threadWindowGrown, threadWindowStart } from '../../lib/village/thread-window'
 import { formatMessageTime, fullMessageTime } from '../../lib/village/message-time'
 import { hideSpokenLive, splitSpoken } from '../../lib/village/village-spoken'
 import { SpokenAgentContext, SpokenReply } from './CompanionToggles'
@@ -37,6 +38,7 @@ import { VoiceClip } from './VoiceMessage'
 import { attachmentKind, downloadInPlace } from '../../lib/village/attachment-kind'
 import { openMdReader } from '../../lib/village/md-reader'
 import { showNotice as noticeForFiles } from '../forge/GlobalNotice'
+import { isAcpRuntime } from '../../lib/agent-engine-types'
 
 /** 2d: the side panel · 3d: the desk window (recent lines) · screen: the desk window zoomed in with F */
 
@@ -70,8 +72,10 @@ export function ContextMeter({ agent, compact = false }: { agent: EngineAgentSta
 /** The model, the mode and the thinking it runs with, in a few words (changed on its Settings page). */
 export function AgentSetupWords({ agent }: { agent: EngineAgentState }) {
   const mode = agent.permissionMode || agent.effectivePermissionMode
-  const thinking = agent.runtime === 'hermes' ? null : agent.effort || (agent.resolvedEffort ? `${agent.resolvedEffort} (default)` : null)
-  const words = [modelLabel(agent), mode ? `mode ${mode}` : null, thinking ? `thinking ${thinking}` : null].filter(Boolean)
+  const thinking = isAcpRuntime(agent.runtime) ? null : agent.effort || (agent.resolvedEffort ? `${agent.resolvedEffort} (default)` : null)
+  // Claude Code's own delete checks ask even in bypass and auto (the owner, 26 Nov: prompts while it said bypass).
+  const stillAsks = mode === 'bypassPermissions' || mode === 'auto' ? ' (some deletes still ask)' : ''
+  const words = [modelLabel(agent), mode ? `mode ${mode}${stillAsks}` : null, thinking ? `thinking ${thinking}` : null].filter(Boolean)
   // A click opens its Settings page, where the mode is switched (the owner, 2026-11-24: "i cant flip them from the
   // oasis": since the header shows the mode as words, the words lead to the control).
   return (
@@ -637,8 +641,12 @@ function ToolRunRow({ item, compact }: { item: Extract<ThreadItem, { kind: 'tool
   )
 }
 
-/** The top of a long thread: older history loading, an error to retry, or the start of the session. */
-function HistoryTop({ agentId, start }: { agentId: string; start: boolean }) {
+/**
+ * The top of a thread says what is above it (the owner, 28 Nov: "I scroll all the way up and then I can't scroll
+ * higher up... I cannot see what the ASI Piller said"): older history loading, an error to retry, older messages with a
+ * button that loads them (scrolling up does it too), or the start of the session.
+ */
+function HistoryTop({ agentId, start, more, onMore }: { agentId: string; start: boolean; more: boolean; onMore: () => void }) {
   const state = useSyncExternalStore(subscribeOlderHistory, () => getOlderHistoryState(agentId), () => getOlderHistoryState(agentId))
   if (state.error) {
     return (
@@ -648,6 +656,13 @@ function HistoryTop({ agentId, start }: { agentId: string; start: boolean }) {
     )
   }
   if (state.loading) return <div className="py-1 text-center text-[10.5px] text-white/65">loading older history…</div>
+  if (more) {
+    return (
+      <button type="button" data-thread-more onClick={onMore} className="py-1 text-center text-[10.5px] text-sky-200/85 hover:text-sky-100">
+        ▲ older messages above: scroll up, or click to load them
+      </button>
+    )
+  }
   if (!start) return null
   return (
     <div className="flex items-center gap-2 py-1 text-[9.5px] font-black uppercase tracking-[0.16em] text-white/55">
@@ -706,6 +721,31 @@ export function AgentSessionView({ agentId, variant, header }: AgentSessionViewP
     return compact ? grouped.slice(-10) : grouped
   }, [log, compact, subagentId])
   const canLoadOlder = Boolean(agent && !compact && !subagentId && selectHistoryCursor(agent))
+  // Only the newest groups are drawn, more as he scrolls up (thread-window.ts; Perf, 27 Nov: a long thread was tens
+  // of thousands of elements and a 600 ms frame on every E). The window starts at an entry's key, fixed when the
+  // thread opens (new lines below never push out what he reads), found again in whichever group holds it when older
+  // tool calls join a run; another agent or subagent starts a new window.
+  const windowOwner = `${agentId}${subagentId ?? ''}`
+  const [threadWindow, setThreadWindow] = useState<{ owner: string; from: string | null }>(() => ({ owner: windowOwner, from: null }))
+  const windowFrom = threadWindow.owner === windowOwner ? threadWindow.from : null
+  const byEntry = useMemo(() => groupsByEntry(items), [items])
+  // How many groups were drawn last time: kept if the window's start is ever gone (the log cap dropped it).
+  const drawnRef = useRef<number | null>(null)
+  const windowStart = compact ? 0 : threadWindowStart(items.length, windowFrom, byEntry, drawnRef.current)
+  drawnRef.current = items.length - windowStart
+  const shownItems = windowStart > 0 ? items.slice(windowStart) : items
+  const windowRef = useRef({ start: windowStart, items, byEntry })
+  windowRef.current = { start: windowStart, items, byEntry }
+  const setWindowAt = useCallback((index: number) => {
+    const group = windowRef.current.items[index]
+    if (group) setThreadWindow({ owner: windowOwner, from: pinKeyOf(group) })
+  }, [windowOwner])
+  useEffect(() => {
+    if (compact || windowFrom !== null || !items.length) return
+    const from = pinKeyOf(items[windowStart])
+    // A restore that already moved it this pass wins.
+    setThreadWindow(current => (current.owner === windowOwner && current.from !== null ? current : { owner: windowOwner, from }))
+  }, [compact, windowFrom, items, windowStart, windowOwner])
   const openImage = useCallback((fileId: string, name: string) => {
     const images = threadImages(useOasisStore.getState().agentEngine.agents[agentId]?.log || [])
     const index = images.findIndex(image => image.id === fileId)
@@ -716,16 +756,21 @@ export function AgentSessionView({ agentId, variant, header }: AgentSessionViewP
 
   // Scrolled near the top: load the piece before. The list is column-reverse, so what is added above leaves the view
   // where it is (scrollTop counts from the bottom).
-  const maybeLoadOlder = useCallback(() => {
+  // Groups already loaded above the window are drawn first; only when all of them are does the engine send more.
+  // `force`: the button at the top, or the wheel turned up where nothing scrolls any more.
+  const maybeLoadOlder = useCallback((force = false) => {
     const el = scrollRef.current
-    if (!el || !canLoadOlder) return
+    if (!el || compact) return
     const fromTop = el.scrollHeight - el.clientHeight + el.scrollTop
     const short = el.scrollHeight <= el.clientHeight + 40
-    if (short || fromTop < LOAD_OLDER_MARGIN_PX) void loadOlderHistory(agentId)
-  }, [agentId, canLoadOlder])
+    if (!force && !short && fromTop >= LOAD_OLDER_MARGIN_PX) return
+    const grown = threadWindowGrown(windowRef.current.start)
+    if (grown !== null) { setWindowAt(grown); return }
+    if (canLoadOlder) void loadOlderHistory(agentId)
+  }, [agentId, canLoadOlder, compact, setWindowAt])
   // A thread too short to scroll fills itself up from the past (and finds the start of the session).
   const historyFrom = agent?.historyFrom ?? null
-  useEffect(() => { maybeLoadOlder() }, [maybeLoadOlder, items.length, historyFrom])
+  useEffect(() => { maybeLoadOlder() }, [maybeLoadOlder, items.length, historyFrom, windowStart])
   // A piece of older history just landed above. Chrome aims a smooth (wheel) scroll at a point counted from the top,
   // so a scroll still running would carry on up through everything that landed, to the top of the new text (and load
   // the next piece, and fly through that too). Stop it where the view is: setting scrollTop cancels the animation.
@@ -754,8 +799,11 @@ export function AgentSessionView({ agentId, variant, header }: AgentSessionViewP
     const el = scrollRef.current
     if (!restore || !el) return
     if (scrollToAnchor(el, restore.anchor)) { restoreRef.current = null; return }
+    // Loaded but above the window: draw down to it (the next pass scrolls to it). Not loaded: the next older piece.
+    const reach = threadWindowFor(windowRef.current.byEntry, restore.anchor.key, windowRef.current.start)
+    if (reach !== null) { setWindowAt(reach); return }
     if (canLoadOlder && restore.tries < 12) { restore.tries += 1; void loadOlderHistory(agentId) } else restoreRef.current = null
-  }, [agentId, anchored, canLoadOlder, items.length, historyFrom])
+  }, [agentId, anchored, canLoadOlder, items.length, historyFrom, windowStart, setWindowAt])
   const saveAnchorSoon = useCallback(() => {
     if (!anchored || restoreRef.current || saveTimerRef.current !== null) return
     saveTimerRef.current = window.setTimeout(() => {
@@ -798,19 +846,26 @@ export function AgentSessionView({ agentId, variant, header }: AgentSessionViewP
         // Every scroll is noted: a piece of older history waits until the thread is still (village-history.ts). Not
         // wheel events: at the top the wheel moves nothing, and the next piece should land then.
         onScroll={compact ? undefined : () => { noteThreadScroll(agentId); maybeLoadOlder(); saveAnchorSoon() }}
-        // His own wheel ends a restore still looking for its entry (he has moved on).
-        onWheel={compact ? undefined : () => { restoreRef.current = null }}
+        // His own wheel ends a restore still looking for its entry (he has moved on). Turned up at the very top, where
+        // nothing scrolls and no scroll event comes, it loads what is above.
+        onWheel={compact ? undefined : event => {
+          restoreRef.current = null
+          const el = scrollRef.current
+          if (el && event.deltaY < 0 && el.scrollHeight - el.clientHeight + el.scrollTop < 2) maybeLoadOlder(true)
+        }}
         className={`flex min-h-0 flex-1 flex-col-reverse overflow-y-auto pr-1 [scrollbar-width:thin] ${BRIGHT_GRAYS}`}
       >
       <div className="flex flex-col gap-1.5">
-        {!compact && !subagent && <HistoryTop agentId={agent.id} start={agent.historyStart} />}
+        {!compact && !subagent && (
+          <HistoryTop agentId={agent.id} start={agent.historyStart && windowStart === 0} more={windowStart > 0 || canLoadOlder} onMore={() => maybeLoadOlder(true)} />
+        )}
         {items.length === 0 && (subagent || !agent.live) && (
           <div className="py-3 text-center text-[11px] text-white/60">
             {subagent ? 'Nothing from this subagent in the thread yet.' : agent.owned || agent.bridged ? 'No messages yet. Say hello.' : 'Waiting for the session to do something.'}
           </div>
         )}
-        {items.map(item => (
-          <div key={item.key} data-thread-key={item.key}>
+        {shownItems.map(item => (
+          <div key={item.key} data-thread-key={item.key} data-thread-entries={item.kind === 'tools' ? item.entries.map(entry => entry.key).join(' ') : item.key}>
             {item.kind === 'tools' ? <ToolRunRow item={item} compact={compact} /> : <LogEntryView entry={item.entry} compact={compact} />}
           </div>
         ))}

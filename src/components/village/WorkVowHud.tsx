@@ -14,6 +14,7 @@ import { getMissionState, subscribeMissions } from './village-mission-store'
 import { MindcraftWindow, clearBand, openMindcraft, overlayObstacles } from './MindcraftView'
 import { CommitDueBar, NewMission, RunningMission, runningClock, TimeUpBar } from './OwnMissionPanel'
 import { useLiveWork } from './useLiveWork'
+import { nowChanged, startNowMission, useNowMissions } from './NowMissions'
 import { carbonRows, HowItCounts, siliconRows, useSecond, WorkRowList } from './WorkRows'
 import { getWorkVowState, setWorkFocus, setWorkMission, startWorkVow, subscribeWorkVow } from './work-vow-client'
 
@@ -188,6 +189,11 @@ export function WorkVowHud() {
   useMindcraftLook() // textures and typefaces: mindcraft-look.tsx (the look is Hipster's, the content is ours)
   useEffect(() => startWorkVow(), [])
   const live = useLiveWork()
+  // Now: the first of his next things, under the two numbers; a click starts it (2026-11-26).
+  const nowList = useNowMissions()
+  const nextNow = nowList?.[0] || null
+  const endedAt = state.snapshot?.lastRun?.endedAt || 0
+  useEffect(() => { if (endedAt) nowChanged() }, [endedAt])
   // The time's-up bar stands just above the counter, whatever its height.
   const counterRef = useRef<HTMLButtonElement>(null)
   const [counterTop, setCounterTop] = useState(70)
@@ -309,6 +315,19 @@ export function WorkVowHud() {
               </span>
             </span>
           </span>
+          {!run && nextNow && (
+            <span
+              role="button"
+              tabIndex={0}
+              data-work-now="next"
+              onClick={event => { event.stopPropagation(); void startNowMission(nextNow) }}
+              onKeyDown={event => { if (event.key === 'Enter') { event.stopPropagation(); event.preventDefault(); void startNowMission(nextNow) } }}
+              className="mt-0.5 block cursor-pointer truncate text-[12px] font-bold text-emerald-200 hover:text-emerald-100 hover:underline"
+              title={nextNow.kind === 'task' ? `Start it now: a ${nextNow.minutes ?? 60}-minute mission of yours` : 'Open it in Mindcraft to answer'}
+            >
+              next: {nextNow.title}{nextNow.kind === 'task' ? ` · ${nextNow.minutes ?? 60} min ▶` : ' · answer'}
+            </span>
+          )}
           {target !== null && (
             <span className="text-[10px] font-bold" style={{ color: done ? GREEN : '#fde68a' }} title={`The goal is ${formatClock(target)} a day`}>{timeToGo(liveSeconds, target)}</span>
           )}

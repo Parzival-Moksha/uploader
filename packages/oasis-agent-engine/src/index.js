@@ -14,10 +14,11 @@ import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { WebSocketServer } from 'ws';
 import { Agent } from './agent.js';
-import { HermesAgent } from './hermes.js';
+import { HermesAgent, ACP_RUNTIMES } from './hermes.js';
 import { Observer } from './observe.js';
 import { HookObserver } from './hooks.js';
 import { listSessions, isTranscriptPath, readLiveRegistry, readLiveEntries, pidAlive, findSessionFile } from './sessions.js';
+import { orphanVerdict, processChain } from './orphan.js';
 import { execFileSync } from 'node:child_process';
 import { checkIn, isBridged, queueForBridge, aliveBridges, dumpInboxes, restoreInboxes } from './bridge.js';
 import { Journal, journalFileFor } from './journal.js';
@@ -28,13 +29,14 @@ import { Accounts, CACHE_COLD_MS, CLI, accountsFilesFor, inheritedPermissions, i
 import { tinyTurn } from './probe.js';
 import { LIMIT_RESUME_TEXT } from './agent.js';
 import { CHECK_EVERY_MS as NET_CHECK_EVERY_MS, Network, fileCheck, spanText } from './network.js';
-import { ProcWatch, RUNAWAY_WINDOW_MS } from './procs.js';
+import { ProcWatch, RUNAWAY_WINDOW_MS, listOnce, workHelpers, helperText } from './procs.js';
 import { ScratchKeeper, ensureDefaultMarker } from './scratch.js';
+import { BROWSER_CHECK_EVERY_MS, checkBrowsers } from './browsers.js';
 import { Scheduler, DEFAULT_PROMPT, EVERY, REPEATS, appointmentLabel, describeSchedule, localDate, normalizeAppointment, normalizeSchedule, parseWhen, scheduleSettingsFileFor } from './schedule.js';
 import os from 'node:os';
 import { readOlderHistory } from './history.js';
 import { loadRoster, saveRoster, saveRosterNow } from './roster.js';
-import { takeVoiceMessage } from './scribe.js';
+import { keepVoiceTyping, takeVoiceMessage } from './scribe.js';
 import { takePictures } from './pictures.js';
 import { resolveClaude } from './claude.js';
 import { listen as earsListen, warmEars, earsStatus, stopEars, startEarsInstall, earsSetupState, autoInstallEars } from './ears.js';
@@ -46,6 +48,7 @@ import { AgentHours } from './agent-hours.js';
 import { tokenHeaders } from './token.js';
 import { isVoiceKey, listVoices } from './voice.js';
 import { createStage, resolveStageAgent } from './stage.js';
+import { runtimesCached, runtimesView, setupRuntime } from './runtimes.js';
 import fs from 'node:fs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -174,6 +177,12 @@ const hub = {
   noteAccount: (id, account) => accounts.noteAccount(id, account),
   recordRateLimit: (id, info) => accounts.record(id, info),
   allAccountsOut: () => accounts.allExhausted(),
+  /** Whether this account can still take turns (not out): an agent with helpers running stays on it (agent.js). */
+  accountUsable: (id) => Boolean(id) && accounts.available().some((a) => a.id === id || accounts.sameQuota(a.id).includes(id)),
+  /** The work running under an agent's claude now (procs.js workHelpers, a fresh process list; [] off Windows). */
+  helpersOf: async (pid) => { const list = await listOnce(); return list ? workHelpers(list, pid).map(helperText) : []; },
+  /** One Telegram line to the owner, from the engine itself (an account move that had to stop an agent's work). */
+  tellOwner: (text) => { try { telegram?.say(text); } catch { /* the thread and the page say it */ } },
   /** The owner wrote to an agent that waits for an account: ask the accounts now rather than trust their reset times. */
   checkAccountsNow: () => { void checkOutAccounts({ asked: true }).catch((e) => hub.log(`accounts: check failed: ${e.message}`)); },
   firstAccountReset: () => accounts.firstReset(),
@@ -384,6 +393,17 @@ function failover(agent, limit) {
 
 // ─── processes left behind or running away (procs.js; Windows) ───────────────────────────────────────
 // OASIS_PROC_WATCH=0 turns it off; OASIS_ORPHAN_MATCH=<regex> limits stopping to matching command lines (tests).
+/** For /health and the Restart button: what runs under each agent (as last sampled), by the agent's name. */
+function helpersByName() {
+  const view = procWatch?.helpersView?.() || {};
+  const out = {};
+  for (const a of ownedAgents()) {
+    const subs = (a.norm?.openSubagents?.() || []).map((d) => `subagent "${String(d).slice(0, 60)}"`);
+    const all = [...subs, ...(view[a.id] || [])];
+    if (all.length) out[a.name] = all;
+  }
+  return out;
+}
 const procWatch = process.env.OASIS_PROC_WATCH === '0' ? null : new ProcWatch({
   agents: () => ownedAgents().filter((a) => a.proc?.pid).map((a) => ({ id: a.id, name: a.name, pid: a.proc.pid })),
   log: (...a) => console.log(new Date().toISOString().slice(11, 19), ...a),
@@ -399,6 +419,7 @@ const procWatch = process.env.OASIS_PROC_WATCH === '0' ? null : new ProcWatch({
   },
 });
 procWatch?.start();
+setTimeout(() => { runtimesView().catch(() => {}); }, 5000).unref(); // the Summon circle asks soon after a start: have the answer ready (reading the CLIs takes seconds)
 
 // ─── the Oasis services, as the supervisor sees them (scripts/oasis-supervisor.mjs) ────────────────────────────────
 // The page's lights and Settings box used to ask the dev page server's /api/oasis/services, which waits behind whatever
@@ -579,6 +600,44 @@ function checkOutAccounts({ asked = false } = {}) {
 const FRESH_MS = Number(process.env.OASIS_ACCOUNTS_FRESH_MS || 15 * 60_000);
 const freshTried = new Map(); // account id -> last try (the engine's clock)
 let freshening = null;
+/**
+ * Which accounts have a Chrome to drive (browsers.js; 26 Nov). For every full-login account that may take turns, one
+ * tiny check turn every BROWSER_CHECK_EVERY_MS while the Oasis is open and some agent has Chrome on; at once on
+ * checkBrowsers. When an account that a Chrome agent runs on has none, the owner gets one Telegram line (a day).
+ */
+const browsersTold = new Map(); // account id -> the day he was told
+let browsersChecking = null;
+function checkAllBrowsers({ force = false } = {}) {
+  if (browsersChecking) return browsersChecking;
+  const chromeAgents = ownedAgents().filter((a) => a.chrome);
+  if (!force && (clients.size === 0 || !chromeAgents.length)) return Promise.resolve([]);
+  const due = accounts.available().filter((a) => accounts.isFullLogin(a.id));
+  if (!due.length) return Promise.resolve([]);
+  browsersChecking = Promise.all(due.map(async (a) => {
+    const r = await checkBrowsers(accounts.envFor(a.id));
+    const state = r.ok ? { count: r.count, at: now() } : { count: null, reason: r.reason, at: now() };
+    accounts.setBrowsers(a.id, state);
+    return { id: a.id, ...state };
+  })).then((results) => {
+    // He is told only when no full login has a Chrome: otherwise the engine moves its Chrome agents to the one that
+    // has (accounts.choose) and nothing waits on him (27 Nov: "no Chrome connected" reached his phone for a default).
+    if (results.some((x) => (x.count || 0) > 0)) return results;
+    const day = new Date(now()).toDateString();
+    for (const x of results) {
+      const onIt = chromeAgents.filter((g) => g.accountId === x.id || accounts.sameQuota(x.id).includes(g.accountId));
+      if (x.count !== 0 || !onIt.length || browsersTold.get(x.id) === day) continue;
+      browsersTold.set(x.id, day);
+      const line = `🌐 No Claude login on this PC has a Chrome connected, so ${onIt.map((g) => g.name).slice(0, 3).join(', ')}${onIt.length > 3 ? ' and others' : ''} cannot drive the browser. Sign the Claude extension in to ${accountLabel(x.id)} once, in a Chrome profile of its own (the steps are in your list).`;
+      hub.log(`browsers: ${line}`);
+      try { telegram?.say(line); } catch { /* the accounts card says it */ }
+    }
+    return results;
+  }).finally(() => { browsersChecking = null; });
+  return browsersChecking;
+}
+setTimeout(() => { void checkAllBrowsers().catch((e) => hub.log(`browsers: check failed: ${e.message}`)); }, 60_000).unref();
+setInterval(() => { void checkAllBrowsers().catch((e) => hub.log(`browsers: check failed: ${e.message}`)); }, BROWSER_CHECK_EVERY_MS).unref();
+
 function freshenAccounts({ force = false } = {}) {
   if (freshening) return freshening;
   if (!force && clients.size === 0) return Promise.resolve([]);
@@ -650,6 +709,10 @@ const commands = {
     return warmEars((m) => hub.log(m));
   },
   listAgents: () => snapshots(),
+  /** The Summon circle: which agents this machine can run (Claude Code, Codex, Hermes, Grok, Gemini), signed in or not, and the line to install what is missing (runtimes.js). */
+  runtimes({ fresh } = {}) { return runtimesView({ fresh: Boolean(fresh) }); },
+  /** One-time setup of a runtime's adapter (Codex: the Oasis's ACP adapter, ~540 MB, into ~/.oasis/runtimes). A Codex summon does it by itself too. */
+  setupRuntime({ runtime } = {}) { return setupRuntime(String(runtime || ''), (m) => hub.log(m)); },
   listLive: () => [...readLiveRegistry()].map(([sessionId, r]) => ({ sessionId, ...r })),
 
   async listSessions({ limit } = {}) {
@@ -663,7 +726,7 @@ const commands = {
   // remote {host, hermes?, home?, cwd?, worldPort?}: a Hermes on another machine over SSH; its local cwd defaults to the home folder.
   async spawnAgent({ name, cwd, sessionId, model, permissionMode, effort, fork, force, move, createCwd, worldTools, chrome, runtime, command, hermesHome, remote } = {}) {
     if (runtime === 'hermes' && remote && !cwd) cwd = os.homedir();
-    if (runtime && runtime !== 'claude' && runtime !== 'hermes') throw new Error(`unknown runtime ${runtime} (claude or hermes)`);
+    if (runtime && runtime !== 'claude' && !ACP_RUNTIMES[runtime]) throw new Error(`unknown runtime ${runtime} (claude, ${Object.keys(ACP_RUNTIMES).join(', ')})`);
     if (!cwd) throw new Error('cwd is required');
     cwd = path.resolve(cwd);
     if (!fs.existsSync(cwd)) {
@@ -682,8 +745,8 @@ const commands = {
         await stopOtherHolders(sessionId, ours);
       }
     }
-    const agent = runtime === 'hermes'
-      ? new HermesAgent({ id: newId('agent'), name: name || (remote?.host ?? path.basename(cwd)), cwd, sessionId, model, permissionMode, worldTools, command, hermesHome, remote }, hub)
+    const agent = ACP_RUNTIMES[runtime]
+      ? new HermesAgent({ id: newId('agent'), runtime, name: name || (remote?.host ?? path.basename(cwd)), cwd, sessionId, model, permissionMode, worldTools, command, hermesHome, remote }, hub)
       : new Agent({ id: newId('agent'), name: name || path.basename(cwd), cwd, sessionId, model, permissionMode, effort, fork, worldTools, chrome: chrome === true }, hub);
     addAgent(agent);
     agent.start();
@@ -766,17 +829,28 @@ ${you.note}` : text);
     return { queued: true, viaBridge: true };
   },
   /**
-   * A voice message recorded in the Oasis: kept as a playable file, transcribed by ElevenLabs Scribe
-   * (scribe.js, the Telegram module's key and request), and the transcript sent like a typed message.
+   * A voice message recorded in the Oasis: kept as a playable file in the voice folder, transcribed by ElevenLabs
+   * Scribe (scribe.js, the Telegram module's key and request) or, transcriber 'local', by Moonshine Medium on this
+   * computer, and the transcript sent like a typed message.
    */
-  async voiceMessage({ agentId, audio, mime, durationMs, priority }) {
+  async voiceMessage({ agentId, audio, mime, durationMs, priority, transcriber }) {
     const a = getAgent(agentId, { owned: true });
     const names = [...agents.values()].map((x) => x.name).filter(Boolean);
-    const { fileId, mime: type, transcript } = await takeVoiceMessage({ audioBase64: audio, mime, keyterms: names });
-    if (!transcript) return { ok: false, error: 'Scribe heard no words in that recording.' };
+    // transcriber 'local' (Settings > Sound > Voice messages): Moonshine on this computer, nothing leaves the PC (scribe.js).
+    const local = transcriber === 'local';
+    const { fileId, mime: type, transcript } = await takeVoiceMessage({ audioBase64: audio, mime, keyterms: names, local, agent: a.name, durationMs });
+    if (!transcript) return { ok: false, error: local ? 'The local transcription heard no words in that recording.' : 'Scribe heard no words in that recording.' };
     const voice = { fileId, mime: type, ...(typeof durationMs === 'number' ? { durationMs: Math.round(durationMs) } : {}) };
     const sent = await a.send(transcript, { priority, voice });
     return { ok: true, data: { transcript, fileId, uuid: sent?.uuid } };
+  },
+  /**
+   * The sound of what he voice-typed and sent (the owner, 27 Nov: "whenever I voice type ... I want it to be recorded
+   * and saved together with its text"): kept with the text in the voice folder (scribe.js), nothing else.
+   */
+  keepVoiceTyping({ agentId, audio, mime, text, durationMs }) {
+    const a = agentId ? agents.get(agentId) : null;
+    return keepVoiceTyping({ audioBase64: audio, mime, agent: a?.name || agentId || null, text, durationMs });
   },
   /** The md reader (files.js): a text file an agent sent, read and saved back. */
   readFile({ fileId }) { return readTextFile(fileId); },
@@ -1002,6 +1076,8 @@ ${you.note}` : text);
   /** The village's account: "auto" (the one whose week ends first) or an account id. Applies from each agent's next turn. */
   /** Ask every account marked out with one tiny turn now (the HUD's "check now", agents, scripts). */
   async checkAccounts() { const checked = await checkOutAccounts({ asked: true }); return { ok: true, data: { checked, ...accounts.view() } }; },
+  /** Which accounts have a Chrome connected, checked now (one tiny turn per full-login account). */
+  async checkBrowsers() { const checked = await checkAllBrowsers({ force: true }); return { ok: true, data: { checked } }; },
   /** Read every account's usage now (one tiny turn each whose figures are older than 15 minutes). */
   async refreshUsage() { const read = await freshenAccounts({ force: true }); return { ok: true, data: { read, ...accounts.view() } }; },
   setDefaultAccount({ account }) { return { ok: true, data: { villageDefault: accounts.setVillageDefault(account), ...accounts.view() } }; },
@@ -1237,7 +1313,7 @@ const server = http.createServer(async (req, res) => {
       }
       return sendJson(res, 200, { ok: true, ...network.view() });
     }
-    if (req.method === 'GET' && url.pathname === '/health') return sendJson(res, 200, { ok: true, agents: agents.size, clients: clients.size, restart: restartInfo(), network: network.view(), procs: procWatch?.view() || null, scratch: scratch.view(), disk: scratch.disk.line, accounts: accounts.view(), pace: paceLines(), claude: resolveClaude(), ears: earsStatus(), clipWatchdog: clipWatchdogState(), liveScribe: { model: LIVE_SCRIBE_MODEL, ready: hasLiveScribe() }, places: { missions: setting('missionsDir'), grill: setting('grillFile'), questions: setting('questionsDir') } });
+    if (req.method === 'GET' && url.pathname === '/health') return sendJson(res, 200, { ok: true, agents: agents.size, clients: clients.size, restart: restartInfo(), network: network.view(), procs: procWatch?.view() || null, helpers: helpersByName(), scratch: scratch.view(), disk: scratch.disk.line, accounts: accounts.view(), pace: paceLines(), claude: resolveClaude(), runtimes: runtimesCached(), ears: earsStatus(), clipWatchdog: clipWatchdogState(), liveScribe: { model: LIVE_SCRIBE_MODEL, ready: hasLiveScribe() }, places: { missions: setting('missionsDir'), grill: setting('grillFile'), questions: setting('questionsDir') } });
     if (req.method === 'GET' && url.pathname === '/api/agents') return sendJson(res, 200, snapshots());
     if (req.method === 'GET' && url.pathname === '/api/sessions') return sendJson(res, 200, await commands.listSessions({}));
     if (req.method === 'POST' && url.pathname === '/hook') {
@@ -1364,7 +1440,9 @@ function transcriptEnd(sessionId, cwd) {
 /**
  * The last run's claude process for this agent, if it outlived its engine (a crash leaves it a few seconds: its
  * stdin closes and it exits by itself; seen to take under 3 s). Two processes on one session branch its transcript,
- * so the new one waits for it, and stops it if it does not go.
+ * so the new one waits for it, and stops it if it does not go: only when it is provably an orphan of a dead engine
+ * (orphan.js). Held by anyone alive (another engine on a copy of this folder, a terminal): never stopped, and this
+ * agent is not started beside it (27 Nov: a test engine on a copied roster stopped every village agent). -> 'held' then.
  */
 async function waitOutOrphan(e) {
   const pid = Number(e.pid);
@@ -1375,7 +1453,12 @@ async function waitOutOrphan(e) {
   while (pidAlive(pid) && Date.now() < until) await sleep(200);
   if (!pidAlive(pid)) return;
   if (!isClaudeProcess(pid)) return;
-  hub.log(`[${e.name}] the last run's process (pid ${pid}) still holds session ${String(e.sessionId).slice(0, 8)}: stopping it`);
+  const verdict = orphanVerdict(processChain(pid));
+  if (!verdict.orphan) {
+    hub.log(`[${e.name}] pid ${pid} holds session ${String(e.sessionId).slice(0, 8)} and is not a left-over of this engine (${verdict.why}): leaving it, and not starting this agent beside it`);
+    return 'held';
+  }
+  hub.log(`[${e.name}] the last run's process (pid ${pid}) still holds session ${String(e.sessionId).slice(0, 8)} (${verdict.why}): stopping it`);
   try { process.kill(pid); } catch { /* gone */ }
   const gone = Date.now() + 5000;
   while (pidAlive(pid) && Date.now() < gone) await sleep(150);
@@ -1396,15 +1479,16 @@ async function restoreRoster() {
     const midTurn = wasMidTurn(e, open ? transcriptTurnOpen(open) : null, stop);
     const { pid: _pid, turnOpenAt, ...spec } = e;
     // Mid-turn shows as "stopped mid-turn" (outcome.js) until the carry-on note is out, and stays so if it cannot go.
-    const Runtime = spec.runtime === 'hermes' ? HermesAgent : Agent;
+    const Runtime = ACP_RUNTIMES[spec.runtime] ? HermesAgent : Agent;
     const agent = new Runtime(midTurn ? { ...spec, turnOpenAt: typeof turnOpenAt === 'number' ? turnOpenAt : (stop?.at || Date.now()) } : spec, hub);
     agents.set(agent.id, agent);
     const resume = midTurn && RESUME_ON;
     if (resume) restart.resumed.push({ id: agent.id, name: agent.name });
     restoring.add(agent.id);
     jobs.push((async () => {
-      try { await waitOutOrphan(e); } finally { restoring.delete(agent.id); }
-      if (shuttingDown) return;
+      let held = null;
+      try { held = await waitOutOrphan(e); } finally { restoring.delete(agent.id); }
+      if (shuttingDown || held === 'held') return;
       agent.start(); // resumes e.sessionId (or claims it if no transcript exists yet)
       if (!agent.proc) return;
       const run = agent.sendChain.then(() => agent.flushLeftovers({ resume }));
